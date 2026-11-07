@@ -81,4 +81,4 @@ ctest --test-dir build --output-on-failure
 7. Add a lightweight local AI advisor after deterministic profiling works.
 8. Consider DX12 only after DX11 results are repeatable.
 
-See [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), [device validation](docs/device-validation.md), [DX11 → Vulkan validation](docs/dx11-vulkan-validation.md), [PanVK integration](docs/panvk-kbase-integration.md), and [Termux workflow](docs/termux-workflow.md).
+See [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), [device validation](docs/device-validation.md), [DX11 → Vulkan validation](docs/dx11-vulkan-validation.md), [PanVK + DX11 K80 validation](docs/panvk-dx11-k80-validation.md), [PanVK integration](docs/panvk-kbase-integration.md), and [Termux workflow](docs/termux-workflow.md).
