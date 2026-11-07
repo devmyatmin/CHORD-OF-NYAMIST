@@ -1,0 +1,24 @@
+{
+  "profile_schema": 1,
+  "device": {
+    "model": "REDMI K80 Ultra",
+    "soc": "MediaTek Dimensity 9400+",
+    "gpu": "Arm Immortalis-G925",
+    "ram_gb": 12,
+    "android_build": "probe-required",
+    "process_abi": "probe-required"
+  },
+  "vulkan": {
+    "api_version": "probe-required",
+    "driver_name": "probe-required",
+    "driver_version": "probe-required",
+    "device_extensions": [],
+    "feature_bits": {}
+  },
+  "execution": {
+    "wine_version": "probe-required",
+    "box64_version": "probe-required",
+    "dxvk_version": "probe-required"
+  },
+  "status": "template-only-not-runtime-probed"
+}
