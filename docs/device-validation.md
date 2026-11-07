@@ -2,50 +2,61 @@
 
 Target: REDMI K80 Ultra / MediaTek Dimensity 9400+ / Arm Immortalis-G925 / 12 GB RAM.
 
-The GPU family and device name are project targets, not proof that a particular Android Vulkan driver exposes every feature required by DXVK. Capture runtime capabilities before choosing settings.
+## First pass: Termux probe
 
-## Baseline capture
+Run `tools/termux-probe.sh` from Termux and preserve the output. It records Android API level, ABI, SoC/GPU properties, whether `/dev/mali0` is visible to the shell, Vulkan summary if `vulkaninfo` is installed, and visible Vulkan libraries. The script is read-only.
 
-Save the following into a dated test folder (do not commit personal paths, account data, or unrelated logs):
-- Android version and build number;
-- process ABI and Wine/Box64 version;
-- DXVK version and configuration;
-- Vulkan device name, API version, driver name/version;
-- available device extensions and feature bits;
-- game name/version, executable architecture, and graphics options;
-- launch outcome and the complete relevant log.
+A Termux permission denial for `/dev/mali0` is not proof that the GPU or kbase driver is absent. Android app sandbox and linker namespaces can differ from the Termux shell. The decisive test is whether the PanVK ICD loads through its supported Android app/launcher path.
 
-Use the Vulkan information utility already available in the chosen Android/Winlator environment. If the utility cannot enumerate the actual device used by the container, mark the report as incomplete rather than copying values from another app.
+## PanVK direct-hardware checks
 
-## Test matrix
+- Confirm the selected driver reports `driverName=panvk`.
+- Confirm the Vulkan physical device is Immortalis-G925 (or the exact hardware ID/marketing name reported by the driver).
+- Record Vulkan API version, driver version, extensions, and feature bits.
+- Run the upstream PanProbe suite through the intended app/runtime.
+- Keep the stock Vulkan driver and a known-good launcher configuration for rollback.
+- Do not chmod `/dev/mali0`, replace vendor libraries globally, flash a kernel, or use root as a first-line workaround.
+
+The upstream PanVK kbase project lists G925 in its supported GPU matrix and has a G925 tablet test. This does not establish compatibility with the REDMI K80 Ultra firmware; local validation is mandatory.
+
+## DX11 acceptance matrix
 
 | Test | Cold run | Warm run | Pass condition |
 |---|---:|---:|---|
-| Container starts | yes | yes | No Wine/Box64 startup failure |
-| Vulkan device opens | yes | yes | Correct device and driver reported |
-| D3D11 device creation | yes | yes | No missing required Vulkan feature |
+| Container starts | yes | yes | No Wine/FEX/Box64 startup failure |
+| PanVK ICD loads | yes | yes | Driver identifies as PanVK |
+| Vulkan device opens | yes | yes | Immortalis-G925 is selected |
+| D3D11 device creation | yes | yes | DXVK creates a D3D11 device |
 | Game reaches menu | yes | yes | Correct image; no black screen |
 | Repeat scene | yes | yes | No new correctness regression |
 | Cache reuse | n/a | yes | NYAMIST cache identity matches exact profile |
 | Driver change | n/a | yes | Old NYAMIST cache entry is not reused |
 
-## Safety
+## Baseline capture
 
-- Keep a copy of the working container and original driver configuration.
-- Test one variable at a time.
-- Do not replace the stock Vulkan driver until the stock baseline is recorded.
-- Use release artifacts from their maintainers and verify published checksums.
-- Do not use experimental driver builds for accounts or multiplayer games where a crash or anti-cheat conflict could cause account loss.
+Record:
+- Android version/API level and build number;
+- process ABI;
+- Vulkan device, API version, driver name/version;
+- available device extensions and feature bits;
+- PanVK build identifier and PanProbe results;
+- Wine/FEX/Box64 and DXVK versions;
+- game name/version, executable architecture, and graphics options;
+- launch outcome, frame time, memory/thermal behavior, and relevant logs.
+
+Review and redact build fingerprints or other identifying details before publishing logs.
 
 ## Result template
 
 ```text
 Date:
-Device / Android build:
+Device / Android API:
 GPU / Vulkan device:
 Vulkan API:
 Driver name / version:
-Wine / Box64:
+PanVK build:
+PanProbe:
+Wine / FEX / Box64:
 DXVK:
 Game / version:
 Game architecture:
