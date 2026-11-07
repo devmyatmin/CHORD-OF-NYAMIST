@@ -1,57 +1,68 @@
 # NYAMIST-LAYER
 
 **Mali AI-assisted D3D11 → Vulkan optimization layer**  
-Project status: **prototype / DX11-first**
+Project status: **DX11-first prototype / Android kbase hardware path**
 
-NYAMIST is a device-aware companion layer for running Direct3D 11 games through an established translation runtime on Android Mali GPUs. The first target device is the **REDMI K80 Ultra (MediaTek Dimensity 9400+, Arm Immortalis-G925, 12 GB RAM)**.
+Target device: **REDMI K80 Ultra · MediaTek Dimensity 9400+ · Arm Immortalis-G925 · 12 GB RAM**.
 
-> NYAMIST does not replace the GPU, Vulkan driver, Wine, Box64, or DXVK. DXVK remains responsible for translating D3D11 calls to Vulkan. NYAMIST is being built around profiling, compatibility decisions, validated optimization metadata, and reusable local cache entries.
+NYAMIST is a device-aware companion layer for running Direct3D 11 games through an established translation runtime on Android Mali GPUs. It does not replace the GPU, Vulkan driver, Wine/FEX/Box64, or DXVK.
 
-## DX11-first architecture
+## DX11 + direct Mali hardware path
 
 ```text
 Windows D3D11 game
        |
        v
-Wine + Box64 (Windows/x86-64 compatibility)
+Wine / FEX / Box64 compatibility runtime
        |
        v
-DXVK (D3D11 -> Vulkan translation)
+DXVK (D3D11 -> Vulkan)
        |
        v
-NYAMIST policy / profile / validated-cache companion
+Android Vulkan loader + selected PanVK ICD
        |
        v
-Android Vulkan driver (vendor driver or a compatible community driver)
+PanVK kbase backend -> vendor mali_kbase (/dev/mali0)
        |
        v
-Immortalis-G925 GPU
+Immortalis-G925 hardware
 ```
 
-The exact integration point between DXVK and NYAMIST is not implemented yet. The current repository establishes a portable C++ core and tests its cache/decision contracts before attempting runtime injection or a DXVK fork.
+PanVK is the Vulkan driver, not the D3D11 translator. DXVK translates D3D11 calls to Vulkan. NYAMIST sits beside this path as the profiling, compatibility-policy, validation, and metadata-cache layer.
 
-## Why this design
+**Hardware support evidence:** the Android PanVK kbase upstream lists Immortalis-G925 in its 5th-generation CSF GPU matrix and includes a G925 tablet test. That is upstream evidence only; REDMI K80 Ultra validation is still pending. See [PanVK kbase integration](docs/panvk-kbase-integration.md).
 
-- **Do not rewrite DXVK.** Use the mature D3D11-to-Vulkan implementation as the rendering translation backend.
-- **Keep AI out of the frame-critical path.** A future on-device model may analyze profiles and propose optimizations. Runtime decisions must be deterministic and validated.
-- **Cache only validated results.** Cache identity includes source fingerprint, API pair, GPU architecture, Vulkan driver version, and NYAMIST translator/policy version.
-- **Do not duplicate DXVK's shader cache.** DXVK continues to own its compiled shader and pipeline caches. NYAMIST initially caches its own analysis and optimization metadata.
-- **Probe capabilities; do not guess.** The phone model alone is not enough to determine Vulkan extensions or driver correctness.
-
-## Current prototype
+## Current NYAMIST core
 
 - Portable C++20 core.
-- Stable, non-cryptographic fingerprint for cache identity (not for security or file authenticity).
-- Versioned local cache format with payload checksum and atomic temporary-file write.
+- Deterministic cache fingerprint and versioned local metadata cache.
 - Validation gate: unvalidated artifacts are rejected.
-- Rule-based optimization advisor interface that a local AI adapter can implement later.
+- Rule-based optimization advisor interface for a future lightweight on-device AI adapter.
 - Unit tests and GitHub Actions build/test workflow.
+- Read-only Termux hardware/runtime probe.
+- Termux script to build and test the portable NYAMIST core on-device.
 
-This prototype is **not yet a game launcher, D3D11 hook, DXVK patch, Vulkan driver, or working Android game runtime**.
+This repository does **not** yet contain a custom PanVK driver, DXVK patch, game launcher, Vulkan ICD loader, or complete Android game runtime. We will integrate a maintained PanVK kbase implementation rather than reimplementing Mesa's Vulkan driver.
 
-## Build
+## Termux quick start
 
-Requirements: CMake 3.20+, C++20 compiler, and a standard library with C++20 support.
+```sh
+pkg update
+pkg install git clang cmake ninja pkg-config python
+git clone https://github.com/devmyatmin/NYAMIST-LAYER.git
+cd NYAMIST-LAYER
+chmod +x tools/termux-probe.sh tools/termux-build-core.sh
+./tools/termux-probe.sh | tee k80ultra-probe.txt
+./tools/termux-build-core.sh
+```
+
+The probe is read-only. It does not change the stock driver or access the GPU with privileged operations. Review and redact device build fingerprints before sharing the report.
+
+**Important:** Termux can build the portable NYAMIST core. The full PanVK Android driver has a separate NDK + host LLVM/Mesa toolchain build; a successful Termux core build is not a PanVK build. See [Termux workflow](docs/termux-workflow.md).
+
+## Build NYAMIST core
+
+Requirements: CMake 3.20+, C++20 compiler.
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -59,22 +70,15 @@ cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ```
 
-Run the demo:
-
-```sh
-./build/nyamist-cli advice
-./build/nyamist-cli fingerprint "example shader/profile input"
-./build/nyamist-cli demo-cache ./nyamist-cache
-```
-
 ## Development order
 
-1. Build and test the portable core.
-2. Collect the K80 Ultra's real Vulkan device, API version, extension list, and driver version.
-3. Establish a baseline DX11 compatibility matrix using an existing Wine/Box64 + DXVK environment.
-4. Integrate NYAMIST profile decisions without changing DXVK rendering behavior.
-5. Add repeatable game/scene tests and performance measurements.
-6. Evaluate a lightweight local AI advisor only after deterministic profiling works.
-7. Consider DX12 only after the DX11 path has measurable results.
+1. Capture the K80 Ultra's real Android API, ABI, kbase visibility, Vulkan device, driver, extensions, and feature bits.
+2. Validate a PanVK kbase ICD through a supported Android app/launcher path without replacing the stock driver.
+3. Run Vulkan smoke/feature tests on the actual phone.
+4. Establish a baseline D3D11 compatibility matrix with DXVK.
+5. Integrate NYAMIST device profiles and validated metadata without changing DXVK rendering behavior.
+6. Measure cold/warm shader behavior, frame time, memory, and thermals.
+7. Add a lightweight local AI advisor after deterministic profiling works.
+8. Consider DX12 only after DX11 results are repeatable.
 
-See [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), and [device validation](docs/device-validation.md).
+See [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), [device validation](docs/device-validation.md), [PanVK integration](docs/panvk-kbase-integration.md), and [Termux workflow](docs/termux-workflow.md).
