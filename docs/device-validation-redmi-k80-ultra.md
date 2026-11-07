@@ -79,3 +79,42 @@ These are reported capabilities, not proof that every extension or optional feat
 ## Safety
 
 Do not chmod `/dev/mali0`, replace vendor Vulkan libraries, modify kernel modules, flash a kernel, or globally force a non-stock ICD as part of this validation. Keep all experimental driver selection app-local and reversible.
+
+
+## Vulkan memory heaps and memory types
+
+The user's Termux capture from `vulkaninfo` reports:
+
+- Memory heap count: 2
+- Heap 0: 11,776,921,600 bytes (10.97 GiB), `DEVICE_LOCAL`
+- Heap 1: 104,857,600 bytes (100 MiB), `DEVICE_LOCAL`
+- Memory type count: 4
+
+Reported memory types:
+
+| Type | Heap | Properties |
+|---|---:|---|
+| 0 | 0 | `DEVICE_LOCAL`, `HOST_VISIBLE`, `HOST_COHERENT` |
+| 1 | 0 | `DEVICE_LOCAL`, `HOST_VISIBLE`, `HOST_CACHED` |
+| 2 | 0 | `DEVICE_LOCAL`, `LAZILY_ALLOCATED` |
+| 3 | 1 | `DEVICE_LOCAL`, `PROTECTED` |
+
+Interpretation:
+
+- The reported heaps and types are Vulkan driver's memory model, not a promise that one game can allocate the full 10.97 GiB. On a mobile unified-memory device, heap size must not be treated as currently free memory or as a per-process allocation budget.
+- Type 0 is host-visible and coherent; type 1 is host-visible and cached. The runtime must still select a compatible memory type for each resource and honor mapping/synchronization requirements.
+- Type 2 is lazily allocated and is relevant only for resources and render-pass usage that support it; it is not a general-purpose upload heap.
+- Type 3 is protected memory and should not be treated as ordinary CPU-mappable storage.
+- NYAMIST should keep its own CPU-side profiling/cache footprint bounded and avoid reserving large GPU allocations merely because the reported heap is large.
+
+Additional filtered limits captured in the same session:
+
+- `maxStorageBufferRange = 2147483648`
+- `maxPushConstantsSize = 256`
+- `maxBoundDescriptorSets = 7`
+- `maxComputeWorkGroupInvocations = 1024`
+- `timestampPeriod = 76.9231` ns
+- `subgroupSize = 16`
+- One visible queue-family excerpt reported `queueCount = 2` and Graphics, Compute, Transfer, and Protected queue flags. The filtered excerpt is not sufficient to claim that all queue families were captured.
+
+These values are driver-reported limits and properties; actual runtime use still requires querying the device and checking allocation results.
