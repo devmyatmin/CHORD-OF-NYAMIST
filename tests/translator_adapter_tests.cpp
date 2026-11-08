@@ -108,7 +108,7 @@ void testShortRunCannotClaimSustained() {
 void testPartialRenderMetricsRemainVisibleWithoutPromotion() {
     using namespace nyamist::runtime;
     auto source = dxvkReport() +
-        "frame_count=27508\\nduration_seconds=20\\nprocess_exit_code=0\\n";
+        "frame_count=27508\nduration_seconds=20\nprocess_exit_code=0\n";
     const auto report = DxvkAdapter(parse(source)).inspect();
     check(report.validation == ValidationLevel::discovered,
           "partial render data must not promote a translator to smoke-tested");
