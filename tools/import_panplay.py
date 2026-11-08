@@ -207,6 +207,9 @@ def _d3d11_log_evidence(archive: zipfile.ZipFile, file_names: list[str]) -> dict
         "source_log": None,
         "device_created_confirmed": False,
         "feature_level": None,
+        "selected_feature_level": None,
+        "maximum_feature_level": None,
+        "feature_levels_used": [],
         "swapchain_configured_confirmed": False,
         "swapchain": {},
     }
@@ -216,12 +219,22 @@ def _d3d11_log_evidence(archive: zipfile.ZipFile, file_names: list[str]) -> dict
     name = candidates[0]
     raw = _read_member(archive, name)
     text = raw.decode("utf-8", errors="replace")
-    feature_match = re.search(
+    # Keep the Vulkan/DXVK maximum capability separate from the feature
+    # level actually selected for the created D3D11 device.
+    maximum_matches = re.findall(
+        r"D3D11InternalCreateDevice:\s*Maximum supported feature level:\s*"
+        r"D3D_FEATURE_LEVEL_([0-9]+_[0-9]+)",
+        text,
+        re.IGNORECASE,
+    )
+    selected_matches = re.findall(
         r"D3D11InternalCreateDevice:\s*Using feature level\s+"
         r"D3D_FEATURE_LEVEL_([0-9]+_[0-9]+)",
         text,
         re.IGNORECASE,
     )
+    maximum_feature_level = maximum_matches[-1] if maximum_matches else None
+    selected_feature_level = selected_matches[-1] if selected_matches else None
     lines = text.splitlines()
     marker_index = next(
         (index for index, line in enumerate(lines)
@@ -251,8 +264,11 @@ def _d3d11_log_evidence(archive: zipfile.ZipFile, file_names: list[str]) -> dict
 
     return {
         "source_log": name,
-        "device_created_confirmed": feature_match is not None,
-        "feature_level": feature_match.group(1) if feature_match else None,
+        "device_created_confirmed": selected_feature_level is not None,
+        "feature_level": selected_feature_level,
+        "selected_feature_level": selected_feature_level,
+        "maximum_feature_level": maximum_feature_level,
+        "feature_levels_used": selected_matches,
         "swapchain_configured_confirmed": marker_index is not None,
         "swapchain": swapchain,
     }
@@ -367,8 +383,16 @@ def _report_env(
         ("evidence_source", f"PanPlay session ZIP import: {source_name}"),
         ("render_present_passed", "false"),
     ]
-    if device_created and dxvk_log_evidence.get("feature_level"):
-        fields.append(("d3d11_feature_level", str(dxvk_log_evidence["feature_level"])))
+    if device_created and dxvk_log_evidence.get("selected_feature_level"):
+        fields.append((
+            "d3d11_selected_feature_level",
+            str(dxvk_log_evidence["selected_feature_level"]),
+        ))
+    if device_created and dxvk_log_evidence.get("maximum_feature_level"):
+        fields.append((
+            "d3d11_maximum_supported_feature_level",
+            str(dxvk_log_evidence["maximum_feature_level"]),
+        ))
     if performance and performance.get("dxvkStats") is True:
         frames = _integer(performance, "frames", minimum=1)
         duration = _finite_number(performance, "durationSec", minimum=0.001,
@@ -451,6 +475,9 @@ def import_archives(
             "source_log": None,
             "device_created_confirmed": False,
             "feature_level": None,
+            "selected_feature_level": None,
+            "maximum_feature_level": None,
+            "feature_levels_used": [],
             "swapchain_configured_confirmed": False,
             "swapchain": {},
         }
