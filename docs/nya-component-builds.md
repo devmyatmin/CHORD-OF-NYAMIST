@@ -13,7 +13,7 @@ Nya is an outer distribution label. It does not claim that upstream projects wer
 
 ## Pinned source inputs
 
-The machine-readable source lock is configs/component-locks.json. Build scripts deliberately use immutable commits rather than moving branch names.
+The machine-readable source lock is configs/component-locks.json. Build scripts deliberately use immutable commits rather than moving branch names. Both build paths bootstrap the exact Meson version in that lock (currently 1.4.2) into an isolated Python virtual environment under `.nya-build/tooling`; they do not rely on the Ubuntu runner’s apt Meson package. The pinned Mesa revision requires Meson >=1.4.0.
 
 ### NyaPANVK
 
@@ -33,14 +33,14 @@ The WCP internal profile continues to identify its component as DXVK or VKD3D fo
 
 ## Build locally
 
-For NyaPANVK, install the host Mesa build prerequisites, Android SDK command-line tools and Android NDK r29 (revision 29.0.14206865). Set ANDROID_NDK_ROOT to that NDK directory:
+For NyaPANVK, install the host Mesa build prerequisites, Python 3 venv support, Android SDK command-line tools and Android NDK r29 (revision 29.0.14206865). Set ANDROID_NDK_ROOT to that NDK directory. The build script installs the lockfile-pinned Meson 1.4.2 into an isolated venv:
 
 ~~~sh
 export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/29.0.14206865"
 NYA_BUILD_JOBS=2 bash tools/build-nya-panvk.sh
 ~~~
 
-For NyaDXVK and NyaVKD3D, install git, curl, Python 3, Meson, Ninja, tar and zstd:
+For NyaDXVK and NyaVKD3D, install git, curl, Python 3 with venv support, Ninja, tar and zstd. The same isolated Meson 1.4.2 bootstrap is used automatically:
 
 ~~~sh
 NYA_BUILD_JOBS=2 bash tools/build-nya-dxvk.sh
@@ -50,7 +50,7 @@ Both scripts place disposable build trees under .nya-build/ and generated artifa
 
 ## GitHub Actions
 
-The manually dispatched workflow is .github/workflows/component-build.yml. Select panvk, dxvk or all. The PanVK job uses Android NDK r29 and performs static binary validation. The DXVK job verifies WCP integrity and embeds upstream source, patch and toolchain provenance. Pull requests run only lightweight lockfile and shell-syntax checks; they do not launch expensive cross-builds.
+The workflow is .github/workflows/component-build.yml. Manual dispatch can select panvk, dxvk or all. Pull requests that touch the configured component-build paths run lockfile validation, shell syntax checks, and both component cross-build jobs. The jobs use the pinned Meson venv; PanVK uses Android NDK r29 and performs static binary validation, while DXVK verifies WCP integrity and embeds upstream source, patch and toolchain provenance.
 
 ## Import and first real-game test in PanPlay
 
