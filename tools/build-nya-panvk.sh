@@ -11,7 +11,7 @@ JOBS="${NYA_BUILD_JOBS:-2}"
 BUILDER_REPO="https://github.com/zenithblue-oss/panvk-kbase-android.git"
 BUILDER_COMMIT="cf70e02b918e1864cbcd746a7fefa57b96c673ce"
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing prerequisite: $1" >&2; exit 2; }; }
-for cmd in git python3 cmake meson ninja pkg-config clang clang++ readelf file sha256sum; do need "$cmd"; done
+for cmd in git python3 cmake meson ninja pkg-config clang clang++ readelf file sha256sum zip unzip; do need "$cmd"; done
 : "${ANDROID_NDK_ROOT:?Set ANDROID_NDK_ROOT to Android NDK r29.}"
 NDK_HOST="linux-x86_64"
 if [[ ! -x "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/$NDK_HOST/bin/aarch64-linux-android${ANDROID_API}-clang" ]]; then NDK_HOST="linux-$(uname -m)"; fi
@@ -103,5 +103,61 @@ source_path.write_text(json.dumps(source, indent=2) + "\n")
 build_path.write_text(json.dumps(build, indent=2) + "\n")
 PY
 (cd "$OUT" && sha256sum "$DRIVER_NAME" > SHA256SUMS.txt)
-echo "NyaPANVK build ready: $OUT/$DRIVER_NAME"
-echo "SHA-256: $DRIVER_SHA256"
+
+# PanPlay accepts imported Vulkan drivers as a flat .adpkg.zip with meta.json
+# and the Android ICD library at archive root.
+PACKAGE_NAME="NyaPANVK-\${MESA_VERSION}-\${PATCH_LEVEL}-git\${DRIVER_GIT_SHA8}.adpkg.zip"
+PACKAGE_DIR="$WORK/package"
+rm -rf "$PACKAGE_DIR"
+mkdir -p "$PACKAGE_DIR"
+cp "$DRIVER_SO" "$PACKAGE_DIR/libvulkan_panfrost.so"
+cp "$OUT/SOURCE.json" "$PACKAGE_DIR/SOURCE.json"
+cp "$OUT/BUILD.json" "$PACKAGE_DIR/BUILD.json"
+cp "$ROOT/configs/component-locks.json" "$PACKAGE_DIR/component-locks.json"
+cp "$BUILDER/NOTICE.md" "$PACKAGE_DIR/NOTICE.md"
+cp -a "$BUILDER/LICENSES" "$PACKAGE_DIR/LICENSES"
+python3 - "$PACKAGE_DIR/meta.json" <<'PY'
+import json
+import os
+import sys
+
+meta = {
+    "schemaVersion": 1,
+    "name": "NyaPANVK",
+    "author": "Mesa / PanVK contributors; downstream build by NYAMIST-LAYER",
+    "packageVersion": f"{os.environ['MESA_VERSION']}-{os.environ['PATCH_LEVEL']}-git{os.environ['DRIVER_GIT_SHA8']}",
+    "driverVersion": f"Mesa {os.environ['MESA_VERSION']}",
+    "description": (
+        "Experimental Android ARM64 PanVK Vulkan driver for Mali GPUs using "
+        "the mali_kbase kernel interface. Downstream NyaPANVK package label; "
+        "upstream Mesa/PanVK driver identity and licenses are preserved. "
+        f"Source Mesa {os.environ['MESA_PIN']}, patch level {os.environ['PATCH_LEVEL']}. "
+        "Import as an additional app-local driver; this package does not modify the system driver."
+    ),
+    "libraryName": "libvulkan_panfrost.so",
+    "sha256": os.environ["DRIVER_SHA256"],
+    "sourceCommit": os.environ["MESA_PIN"],
+    "patchSeriesId": "sha256:" + os.environ["PATCH_SERIES_ID"],
+    "buildId": os.environ["MESA_PATCHED_HEAD"],
+    "profile": os.environ["PROFILE"],
+    "androidApi": int(os.environ["ANDROID_API"]),
+    "abi": "arm64-v8a"
+}
+with open(sys.argv[1], "w", encoding="utf-8") as f:
+    json.dump(meta, f, indent=2)
+    f.write("\n")
+PY
+(
+  cd "$PACKAGE_DIR"
+  sha256sum libvulkan_panfrost.so meta.json SOURCE.json BUILD.json > SHA256SUMS.txt
+  zip -qr "$OUT/$PACKAGE_NAME" .
+)
+unzip -t "$OUT/$PACKAGE_NAME" >/dev/null
+sha256sum "$OUT/$PACKAGE_NAME" > "$OUT/$PACKAGE_NAME.sha256"
+unzip -Z1 "$OUT/$PACKAGE_NAME" | grep -qx "libvulkan_panfrost.so"
+unzip -Z1 "$OUT/$PACKAGE_NAME" | grep -qx "meta.json"
+
+echo "NyaPANVK raw library: $OUT/$DRIVER_NAME"
+echo "NyaPANVK PanPlay import package: $OUT/$PACKAGE_NAME"
+echo "Driver SHA-256: $DRIVER_SHA256"
+echo "Package SHA-256: $(awk '{print $1}' "$OUT/$PACKAGE_NAME.sha256")"
