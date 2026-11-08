@@ -43,11 +43,26 @@ Establish repeatable D3D11 real-game execution on REDMI K80 Ultra through the ex
 - [ ] Retain a one-step rollback to the unmodified runtime profile.
 - [ ] Keep automatic application disabled until repeatable evidence justifies a separately reviewed design.
 
-## Parked until the D3D11 objective is complete
+## Milestone 4 — local lightweight graphics advisor
 
-- D3D12/VKD3D-Proton game support.
-- Local AI model selection and inference.
-- Custom PanVK/DXVK packaging or rebuilding upstream graphics components.
+- [x] Define the offline/post-session model boundary and safety contract.
+- [ ] Audit and normalize PerfRecorder typed CSV streams and metadata consistency.
+- [ ] Benchmark a tiny mobile-first local model on CPU with bounded memory/thread use.
+- [ ] Add an optional model adapter that emits schema-validated, evidence-linked proposals.
+- [ ] Keep deterministic policy validation and A/B evaluation as final authority.
+- [ ] Evaluate PanVK Vulkan compute and MediaTek NPU access only as separate, measured backends.
+- [ ] Keep model inference out of the game frame/render/present path.
+
+## Milestone 5 — separate D3D12/VKD3D-Proton validation
+
+- [ ] Pin and record the exact VKD3D-Proton and Vulkan driver identities.
+- [ ] Validate D3D12 capability requirements against the actual PanVK feature set.
+- [ ] Prove D3D12 device creation, swapchain presentation, scene rendering, clean exit, and sustained gameplay.
+- [ ] Establish repeated D3D12 baselines before any tuning.
+
+## Explicitly excluded
+
+- Custom PanVK/DXVK/VKD3D packaging or rebuilding upstream graphics components as a shortcut.
 - Broad device support beyond the REDMI K80 Ultra target.
 
 ## Release gate
