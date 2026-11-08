@@ -19,6 +19,7 @@ add_library(nyamist_runtime
     src/runtime/device_probe_adapter.cpp
     src/runtime/session_snapshot.cpp
     src/runtime/pipeline_gate.cpp
+    src/runtime/command_advisor.cpp
     src/runtime/translator_adapters.cpp
 )
 target_include_directories(nyamist_runtime PUBLIC include)
@@ -77,4 +78,8 @@ if(NYAMIST_BUILD_TESTS)
     add_executable(nyamist-pipeline-gate-tests tests/pipeline_gate_tests.cpp)
     target_link_libraries(nyamist-pipeline-gate-tests PRIVATE nyamist_runtime)
     add_test(NAME nyamist-pipeline-gate-tests COMMAND nyamist-pipeline-gate-tests)
+
+    add_executable(nyamist-command-advisor-tests tests/command_advisor_tests.cpp)
+    target_link_libraries(nyamist-command-advisor-tests PRIVATE nyamist_runtime)
+    add_test(NAME nyamist-command-advisor-tests COMMAND nyamist-command-advisor-tests)
 endif()

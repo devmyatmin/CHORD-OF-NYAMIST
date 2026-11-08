@@ -90,3 +90,8 @@ it is not a shared-memory or driver ABI. See docs/session-snapshot.md.
 ## Pipeline Gate
 
 PipelineGate consumes a RuntimePlan plus a DeviceSessionSnapshot and emits a blocked/warning/ready decision. It requires a fresh session, successful Vulkan physical-device enumeration, and explicit RuntimeCoordinator permission before allowing a controlled smoke test. Missing/stale telemetry warns but does not pretend that graphics rendering failed. Production readiness is passed through only when the coordinator independently has sustained evidence and the session passes freshness and Vulkan checks. The gate is deterministic, read-only, and outside the frame path. See docs/pipeline-gate.md.
+
+
+## Command Advisor
+
+RuntimeCommandAdvisor emits a bounded schema-v1 proposal for the shader compilation worker budget using fresh CPU utilization and a PipelineGateDecision. It requires smoke-test authorization, limits workers to clamp(logical_cpu_count / 2, 1, 4), and makes at most a one-step change except when correcting a budget above the CPU-derived ceiling. Each proposal records source, sample timestamp, expected benefit, risk, and rollback value. Automatic application is always disabled. This is deterministic policy code; no local AI model is shipped. See docs/command-advisor.md.

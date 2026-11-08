@@ -47,6 +47,7 @@
 - [ ] Keep D3D12 isolated from the D3D11 baseline until repeatable
 
 ## Phase 4 — Lightweight local AI advisor
+- [x] Add deterministic bounded Command Advisor proposal interface with evidence and rollback values (no automatic application)
 - [ ] Select a small permissively licensed model/runtime after measuring memory and latency
 - [ ] Consume structured compatibility and performance evidence only
 - [ ] Emit bounded machine-readable recommendations with evidence and rollback values

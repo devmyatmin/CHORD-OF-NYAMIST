@@ -57,6 +57,7 @@ Observed on this run: 50.00% smaller cache files, 20.59× faster median writes, 
 - Read-only Termux device/runtime probe and on-device core build script.
 - Immutable in-memory DeviceSessionSnapshot and typed telemetry aggregation with stale/future/out-of-range sample filtering.
 - Deterministic Pipeline Gate that blocks stale sessions/missing Vulkan devices and separates smoke-test permission from production readiness.
+- Deterministic Command Advisor that emits bounded shader-worker proposals with evidence and rollback values; automatic application is disabled.
 - Unit tests and GitHub Actions CI.
 
 External graphics components are inspected and coordinated, not vendored or loaded by the NYAMIST core. Their own shader/pipeline caches remain under their ownership.
@@ -142,3 +143,8 @@ ABI. See [session snapshot contract](docs/session-snapshot.md).
 ### Pipeline Gate
 
 The Pipeline Gate combines RuntimeCoordinator evidence with a fresh DeviceSessionSnapshot. It returns blocked/warning/ready states, keeps missing telemetry as a warning, blocks stale/future sessions and missing Vulkan device enumeration, and never treats a smoke-test allowance as production approval. See [pipeline gate contract](docs/pipeline-gate.md).
+
+
+### Command Advisor
+
+The current advisor is deterministic and rule-based, not an on-device AI model. It uses fresh CPU utilization evidence and a Pipeline Gate decision to propose a bounded shader-worker budget (1–4), one step at a time, with source/timestamp evidence and rollback value. It never applies the proposal. See [Command Advisor contract](docs/command-advisor.md).
