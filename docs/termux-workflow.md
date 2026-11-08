@@ -28,7 +28,7 @@ git switch main
 git pull --ff-only origin main
 ~~~
 
-The active baseline is now on `main`; do not use the retired review branch `baseline/dx11-first`.
+The active baseline is on `main`; do not use the retired review branch `baseline/dx11-first`.
 
 ## 3. Capture read-only device information
 
@@ -38,7 +38,9 @@ chmod +x tools/termux-probe.sh tools/termux-build-core.sh tools/export-device-pr
 ./tools/export-device-probe.sh
 ~~~
 
-The first report is a human-readable diagnostic snapshot. The exporter writes a timestamped schema-v1 `.env` file for the NYAMIST device-probe importer. It intentionally does not query the application's Vulkan context or infer that PanVK is active.
+The first report is a human-readable diagnostic snapshot. The exporter writes a timestamped schema-v1 `.env` file containing device facts. It intentionally does not query the application's Vulkan context or infer that PanVK is active.
+
+The exporter sets `vulkan.enumeration_status=unavailable` because Vulkan was not queried from this Termux process. This is an explicit scope marker, not evidence that the GPU or Vulkan driver is unsupported. Consequently, `nyamist-cli inspect-device` will report Vulkan as unavailable and return a nonzero status for this device-facts-only report. Use that CLI command with a complete app/launcher report that actually records successful Vulkan physical-device enumeration.
 
 ## 4. Build and test the NYAMIST sidecar
 
@@ -47,14 +49,6 @@ The first report is a human-readable diagnostic snapshot. The exporter writes a 
 ~~~
 
 This configures CMake in `build-termux/`, compiles the portable C++20 sidecar, runs CTest, and prints the CLI advisory. It does **not** build PanVK, DXVK, Wine/FEX/Box64, or a Windows game.
-
-To inspect the exported device facts after the build:
-
-~~~sh
-./build-termux/nyamist-cli inspect-device nyamist-device-probe-YYYYMMDD-HHMMSS.env
-~~~
-
-Replace the filename with the actual report printed by `export-device-probe.sh`.
 
 ## Safety and interpretation
 
