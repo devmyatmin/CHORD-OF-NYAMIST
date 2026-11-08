@@ -9,7 +9,10 @@ JOBS="${NYA_BUILD_JOBS:-2}"
 BUILDER_REPO="https://github.com/zenithblue-oss/panplay.git"
 BUILDER_COMMIT="469b997a061b9bd404d32b52c9d78c5ee228c903"
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing prerequisite: $1" >&2; exit 2; }; }
-for cmd in git curl python3 meson ninja zstd tar sha256sum awk; do need "$cmd"; done
+need python3
+# Keep DXVK/VKD3D on the same pinned Meson toolchain as the PanVK build.
+source "$ROOT/tools/use-pinned-meson.sh"
+for cmd in git curl ninja zstd tar sha256sum awk; do need "$cmd"; done
 
 mkdir -p "$WORK" "$OUT"
 BUILDER="$WORK/panplay-builder"
@@ -58,7 +61,7 @@ export BUILDER_SCRIPT_SHA="$(sha256sum "$BUILDER/scripts/build-dxvk.sh" | awk '{
 export DXVK_SHA="$(sha256sum "$OUT/$DXVK_NAME" | awk '{print $1}')"
 export VKD3D_SHA="$(sha256sum "$OUT/$VKD3D_NAME" | awk '{print $1}')"
 python3 - "$OUT/SOURCE.json" "$OUT/BUILD.json" <<'PY'
-import json, os, pathlib, platform, sys
+import json, os, pathlib, platform, subprocess, sys
 source_path, build_path = map(pathlib.Path, sys.argv[1:])
 source = {
     "schemaVersion": 1,
@@ -105,6 +108,8 @@ build = {
     "status": "compiled-and-package-validated; device-runtime-validation-pending",
     "host": platform.platform(),
     "python": platform.python_version(),
+    "mesonVersion": os.environ["NYA_MESON_VERSION"],
+    "meson": subprocess.check_output(["meson", "--version"], text=True).strip(),
     "jobs": int(os.environ["JOBS"])
 }
 source_path.write_text(json.dumps(source, indent=2) + "\n")
