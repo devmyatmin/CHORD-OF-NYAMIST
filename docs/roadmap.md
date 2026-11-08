@@ -17,7 +17,8 @@
 - [x] Run PanProbe 41-test suite (41/41 reported)
 - [x] Run DXVK D3D11 ARM64EC feature-level test (10_0–11_1 pass)
 - [x] Run D3D11 synthetic Cube rendering test
-- [x] Add first read-only PanVK report adapter, CLI inspection, and validation tests
+- [x] Add read-only PanVK report adapter, CLI inspection, and evidence-gated validation tests
+- [x] Add read-only DXVK and VKD3D-Proton adapters, CLI inspection, and report-schema tests
 - [ ] Add automatic importer for raw PanProbe JSON/ZIP exports
 - [ ] Attach D3D11 render/present evidence to the matching PanVK build identity
 - [ ] Run sustained D3D11 rendering test for at least 5 minutes
@@ -25,9 +26,10 @@
 - [ ] Record a complete rollback procedure and preserve stock Vulkan driver
 
 ## Phase 2 — Runtime integration and monitoring
-- [ ] Add read-only DXVK version/session adapter
+- [x] Add read-only DXVK version/session adapter
 - [ ] Add device facts and Vulkan capability adapter
 - [ ] Persist versioned session and compatibility profiles
+- [ ] Import raw PanProbe JSON/ZIP and PanPlay logs into the normalized adapter report schema
 - [ ] Capture frame-time percentiles, memory, and thermal telemetry where accessible
 - [ ] Keep DXVK shader/pipeline caches under DXVK control
 - [ ] Add deterministic A/B evaluation and regression reporting
@@ -35,7 +37,7 @@
 ## Phase 3 — Experimental D3D12
 - [x] Verify VKD3D-Proton D3D12 feature-level path reaches 11_0 and 11_1
 - [x] Record 12_0–12_2 as unsupported on the current tested configuration
-- [ ] Add read-only VKD3D-Proton adapter
+- [x] Add read-only VKD3D-Proton adapter
 - [ ] Run sustained D3D12 render/present validation
 - [ ] Keep D3D12 isolated from the D3D11 baseline until repeatable
 
