@@ -183,8 +183,10 @@ TranslatorProbeSnapshot TranslatorAdapterBase::parseReport(std::istream& input) 
     snapshot.duration_seconds = optionalUnsigned(values, "duration_seconds");
     snapshot.present_calls = optionalUnsigned(values, "present_calls");
     snapshot.present_failures = optionalUnsigned(values, "present_failures");
+    snapshot.present_failures_reported = values.contains("present_failures");
     snapshot.process_exit_code = optionalInt(values, "process_exit_code", -1);
     snapshot.device_lost_events = optionalUnsigned(values, "device_lost_events");
+    snapshot.device_lost_status_reported = values.contains("device_lost_events");
     snapshot.sustained_test_passed = optionalBool(values, "sustained_test_passed");
     return snapshot;
 }
@@ -211,8 +213,9 @@ ComponentReport TranslatorAdapterBase::inspect() const {
     const bool render_present_observed =
         snapshot_.device_created && snapshot_.render_present_passed &&
         snapshot_.frame_count > 0 && snapshot_.duration_seconds > 0 &&
-        snapshot_.present_calls > 0 && snapshot_.present_failures == 0 &&
-        snapshot_.process_exit_code == 0 && snapshot_.device_lost_events == 0;
+        snapshot_.present_calls > 0 && snapshot_.present_failures_reported &&
+        snapshot_.present_failures == 0 && snapshot_.process_exit_code == 0 &&
+        snapshot_.device_lost_status_reported && snapshot_.device_lost_events == 0;
     const bool sustained_evidence_valid =
         render_present_observed && snapshot_.sustained_test_passed &&
         snapshot_.duration_seconds >= 300U;
@@ -239,12 +242,28 @@ ComponentReport TranslatorAdapterBase::inspect() const {
                          snapshot_.supported_feature_levels);
     appendListCapability(report, "d3d.shader_models", snapshot_.shader_models);
 
+    if (snapshot_.frame_count > 0) {
+        report.capabilities.emplace_back(
+            "render.frames.observed=" + std::to_string(snapshot_.frame_count));
+    }
+    if (snapshot_.duration_seconds > 0) {
+        report.capabilities.emplace_back(
+            "render.duration_seconds.observed=" + std::to_string(snapshot_.duration_seconds));
+    }
+    if (snapshot_.present_calls > 0) {
+        report.capabilities.emplace_back(
+            "render.present_calls.observed=" + std::to_string(snapshot_.present_calls));
+    }
+    if (snapshot_.process_exit_code != -1) {
+        report.capabilities.emplace_back(
+            "process.exit_code=" + std::to_string(snapshot_.process_exit_code));
+    }
+    if (snapshot_.device_lost_status_reported) {
+        report.capabilities.emplace_back(
+            "device.lost_events=" + std::to_string(snapshot_.device_lost_events));
+    }
     if (render_present_observed) {
-        report.capabilities.emplace_back("render.frames=" + std::to_string(snapshot_.frame_count));
-        report.capabilities.emplace_back(
-            "render.duration_seconds=" + std::to_string(snapshot_.duration_seconds));
-        report.capabilities.emplace_back(
-            "render.present_calls=" + std::to_string(snapshot_.present_calls));
+        report.capabilities.emplace_back("render.present.validated=true");
     }
     if (!snapshot_.device_created) {
         report.diagnostics.emplace_back(
@@ -253,6 +272,14 @@ ComponentReport TranslatorAdapterBase::inspect() const {
     if (snapshot_.present_failures > 0) {
         report.diagnostics.emplace_back(
             "Render evidence rejected because one or more Present calls failed.");
+    }
+    if (snapshot_.render_present_passed && !snapshot_.present_failures_reported) {
+        report.diagnostics.emplace_back(
+            "Render evidence rejected because Present-failure status was not reported.");
+    }
+    if (snapshot_.render_present_passed && !snapshot_.device_lost_status_reported) {
+        report.diagnostics.emplace_back(
+            "Render evidence rejected because device-lost status was not reported.");
     }
     if (snapshot_.device_lost_events > 0) {
         report.diagnostics.emplace_back(
