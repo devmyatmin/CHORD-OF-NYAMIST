@@ -11,7 +11,10 @@ JOBS="${NYA_BUILD_JOBS:-2}"
 BUILDER_REPO="https://github.com/zenithblue-oss/panvk-kbase-android.git"
 BUILDER_COMMIT="cf70e02b918e1864cbcd746a7fefa57b96c673ce"
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing prerequisite: $1" >&2; exit 2; }; }
-for cmd in git python3 cmake meson ninja pkg-config clang clang++ readelf file sha256sum zip unzip; do need "$cmd"; done
+need python3
+# Mesa requires Meson >=1.4.0; use the exact version recorded in component-locks.json.
+source "$ROOT/tools/use-pinned-meson.sh"
+for cmd in git cmake ninja pkg-config clang clang++ readelf file sha256sum zip unzip; do need "$cmd"; done
 : "${ANDROID_NDK_ROOT:?Set ANDROID_NDK_ROOT to Android NDK r29.}"
 NDK_HOST="linux-x86_64"
 if [[ ! -x "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/$NDK_HOST/bin/aarch64-linux-android${ANDROID_API}-clang" ]]; then NDK_HOST="linux-$(uname -m)"; fi
@@ -98,7 +101,8 @@ build = {
     "status": "compiled-and-statically-validated; hardware-validation-pending",
     "host": platform.platform(),
     "python": platform.python_version(),
-    "ndkHost": os.environ["NDK_HOST"]
+    "ndkHost": os.environ["NDK_HOST"],
+    "mesonPin": os.environ["NYA_MESON_VERSION"]
 }
 for tool in ("clang", "meson", "ninja"):
     try: build[tool] = subprocess.check_output([tool, "--version"], text=True).splitlines()[0]
