@@ -36,6 +36,7 @@ struct PanVkProbeSnapshot {
     std::uint64_t test_duration_seconds = 0;
     int process_exit_code = -1;
     std::uint64_t device_lost_events = 0;
+    bool device_lost_status_reported = false;
     bool sustained_test_passed = false;
 };
 
