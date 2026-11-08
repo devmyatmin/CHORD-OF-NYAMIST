@@ -96,7 +96,7 @@ jobs:
       - name: Install cross-build prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends             build-essential git curl xz-utils zstd python3 meson ninja-build tar
+          sudo apt-get install -y --no-install-recommends             build-essential git curl xz-utils zstd python3 meson ninja-build tar glslang-tools
       - name: Build and validate NyaDXVK and NyaVKD3D
         run: bash tools/build-nya-dxvk.sh
       - name: Upload NyaDXVK and NyaVKD3D
