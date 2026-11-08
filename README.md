@@ -55,6 +55,7 @@ Observed on this run: 50.00% smaller cache files, 20.59× faster median writes, 
 - Component probe registry and runtime readiness coordinator.
 - Read-only PanVK, DXVK, and VKD3D-Proton report adapters with CLI inspection and evidence-gated validation levels.
 - Read-only Termux device/runtime probe and on-device core build script.
+- Immutable in-memory DeviceSessionSnapshot and typed telemetry aggregation with stale/future/out-of-range sample filtering.
 - Unit tests and GitHub Actions CI.
 
 External graphics components are inspected and coordinated, not vendored or loaded by the NYAMIST core. Their own shader/pipeline caches remain under their ownership.
@@ -125,3 +126,13 @@ reported device facts, Vulkan physical-device identity, extension lists, and
 feature booleans without loading or changing a Vulkan driver. The checked-in
 `configs/device-probe.example.env` is synthetic CI data, not target-device
 proof. See [`docs/device-probe-adapter.md`](docs/device-probe-adapter.md).
+
+
+### Session snapshot and telemetry
+
+The in-memory `DeviceSessionSnapshot` joins a schema-v1 device/Vulkan report
+with typed telemetry. `TelemetryAggregator` selects the newest sample per
+metric, rejects future and out-of-range readings, and keeps stale readings
+separate from fresh policy inputs. Samples identify their source and timestamp.
+This is a NYAMIST control-plane object, not shared memory or a graphics-driver
+ABI. See [session snapshot contract](docs/session-snapshot.md).

@@ -17,6 +17,7 @@ add_library(nyamist_runtime
     src/runtime/runtime_coordinator.cpp
     src/runtime/panvk_adapter.cpp
     src/runtime/device_probe_adapter.cpp
+    src/runtime/session_snapshot.cpp
     src/runtime/translator_adapters.cpp
 )
 target_include_directories(nyamist_runtime PUBLIC include)
@@ -67,4 +68,8 @@ if(NYAMIST_BUILD_TESTS)
     add_executable(nyamist-device-probe-tests tests/device_probe_adapter_tests.cpp)
     target_link_libraries(nyamist-device-probe-tests PRIVATE nyamist_runtime)
     add_test(NAME nyamist-device-probe-adapter-tests COMMAND nyamist-device-probe-tests)
+
+    add_executable(nyamist-session-snapshot-tests tests/session_snapshot_tests.cpp)
+    target_link_libraries(nyamist-session-snapshot-tests PRIVATE nyamist_runtime)
+    add_test(NAME nyamist-session-snapshot-tests COMMAND nyamist-session-snapshot-tests)
 endif()

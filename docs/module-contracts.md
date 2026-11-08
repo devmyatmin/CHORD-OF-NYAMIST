@@ -70,3 +70,18 @@ NYAMIST cache keys must include the NYAMIST schema/policy version and all releva
 ## Versioning and compatibility
 
 Adapters must tolerate unknown optional fields and report unknown versions explicitly. A component version mismatch is a diagnostic, not permission to guess a compatible behavior. Breaking adapter contracts require a schema version bump.
+
+
+## Device session and telemetry
+
+The Device Facts and Vulkan Capability adapters consume the same bounded,
+schema-v1 read-only report. Both are monitor components; Vulkan physical-device
+enumeration is discovered evidence and never implies render/present success.
+
+DeviceSessionSnapshot combines the validated report with a TelemetrySnapshot.
+The typed TelemetryAggregator requires per-reading timestamps and source
+identities, applies metric-specific bounds, rejects future readings, and
+separates stale readings from fresh policy inputs. Missing metrics remain
+absent. Equal-timestamp conflicting values are omitted. The snapshot is
+immutable after construction and is an in-memory NYAMIST-owned contract only;
+it is not a shared-memory or driver ABI. See docs/session-snapshot.md.

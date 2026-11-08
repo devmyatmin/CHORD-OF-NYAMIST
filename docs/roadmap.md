@@ -30,8 +30,10 @@
 ## Phase 2 — Runtime integration and monitoring
 - [x] Add read-only DXVK version/session adapter
 - [x] Add versioned read-only device facts and Vulkan capability report adapters
+- [x] Add immutable in-memory schema-v1 DeviceSessionSnapshot and freshness-gated telemetry aggregation
 - [ ] Persist versioned session and compatibility profiles
 - [ ] Import PanPlay logs into the normalized adapter report schema
+- [x] Add typed telemetry aggregation for CPU/GPU utilization, available memory, GPU/battery temperature, and p95 frame time (collector integration pending)
 - [ ] Capture frame-time percentiles, memory, and thermal telemetry where accessible
 - [ ] Keep DXVK shader/pipeline caches under DXVK control
 - [ ] Add deterministic A/B evaluation and regression reporting
