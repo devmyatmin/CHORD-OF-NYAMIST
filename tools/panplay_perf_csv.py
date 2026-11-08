@@ -80,6 +80,8 @@ def parse_perf_csv(data: bytes) -> dict[str, Any]:
         "gpu_load_pct": [],
         "vidmem_used_mb": [],
         "vidmem_alloc_mb": [],
+        "sysmem_used_mb": [],
+        "sysmem_alloc_mb": [],
         "draw_calls": [],
         "submissions": [],
         "renderpasses": [],
@@ -153,7 +155,9 @@ def parse_perf_csv(data: bytes) -> dict[str, Any]:
     if stats_count:
         aggregates: dict[str, dict[str, float | int]] = {}
         for field, values in stats_values.items():
-            if values:
+            # Omit all-zero columns: some PanPlay telemetry fields use zero as
+            # an unavailable sentinel, so exporting them would imply a false reading.
+            if values and any(value != 0.0 for value in values):
                 aggregates[field] = {
                     "samples": len(values),
                     "avg": round(sum(values) / len(values), 3),
