@@ -51,7 +51,8 @@
 - [ ] Keep automatic application disabled until A/B regression evidence exists
 
 ## Phase 5 — Performance engineering and release
-- [ ] Run the V1/V2 benchmark on REDMI K80 Ultra and record actual write/read latency and disk footprint
+- [x] Run REDMI K80 Ultra Termux cache microbenchmark (4 MiB, 10 iterations): V2 file 4,194,363 bytes vs V1 8,388,660 bytes; median write 11.031 ms vs 227.076 ms; median warm read 10.703 ms vs 57.281 ms
+- [ ] Repeat cache microbenchmark across payload sizes and fresh sessions
 - [ ] Compare cold launch vs warm launch
 - [ ] Measure shader compilation time and repeat-run stutter
 - [ ] Measure CPU/GPU frame time, memory use, and thermal throttling
