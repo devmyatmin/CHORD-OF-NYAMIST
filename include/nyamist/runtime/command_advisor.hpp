@@ -17,7 +17,7 @@ struct CommandProposal {
     bool evidence_sufficient = false;
     bool automatic_application_allowed = false;
     std::uint32_t minimum_value = 1U;
-    std::uint32_t maximum_value = 1U;
+    std::uint32_t maximum_value = 4U;
     std::uint32_t current_value = 1U;
     std::uint32_t proposed_value = 1U;
     std::uint32_t rollback_value = 1U;

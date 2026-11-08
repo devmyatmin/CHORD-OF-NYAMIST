@@ -87,6 +87,8 @@ void testMissingCpuTelemetryProducesNoRecommendation() {
     check(proposal.action == "insufficient_evidence",
           "missing CPU telemetry must not be replaced by a guessed value");
     check(!proposal.evidence_sufficient, "proposal must mark missing evidence");
+    check(proposal.maximum_value == 4U,
+          "without a verified CPU count only the global hard ceiling may be reported");
     check(proposal.proposed_value == proposal.current_value,
           "insufficient evidence must preserve current setting");
 }
