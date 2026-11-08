@@ -196,6 +196,7 @@ PanVkProbeSnapshot PanVkAdapter::parseReport(std::istream& input) {
     snapshot.test_duration_seconds = optionalUnsigned(values, "test_duration_seconds");
     snapshot.process_exit_code = optionalInt(values, "process_exit_code", -1);
     snapshot.device_lost_events = optionalUnsigned(values, "device_lost_events");
+    snapshot.device_lost_status_reported = values.contains("device_lost_events");
     snapshot.sustained_test_passed = optionalBool(values, "sustained_test_passed");
 
     return snapshot;
@@ -223,7 +224,8 @@ ComponentReport PanVkAdapter::inspect() const {
         snapshot_.test_duration_seconds > 0 &&
         snapshot_.process_exit_code == 0;
     const bool render_evidence_valid =
-        render_present_observed && snapshot_.device_lost_events == 0;
+        render_present_observed && snapshot_.device_lost_status_reported &&
+        snapshot_.device_lost_events == 0;
     const bool sustained_evidence_valid =
         render_evidence_valid &&
         snapshot_.sustained_test_passed &&
@@ -300,6 +302,10 @@ ComponentReport PanVkAdapter::inspect() const {
     if (snapshot_.sustained_test_passed && snapshot_.test_duration_seconds < 300U) {
         report.diagnostics.emplace_back(
             "Sustained-test flag ignored: the recorded duration is below 300 seconds.");
+    }
+    if (render_present_observed && !snapshot_.device_lost_status_reported) {
+        report.diagnostics.emplace_back(
+            "Render evidence rejected because device-lost status was not reported.");
     }
     if (render_present_observed && snapshot_.device_lost_events > 0) {
         report.diagnostics.emplace_back(
