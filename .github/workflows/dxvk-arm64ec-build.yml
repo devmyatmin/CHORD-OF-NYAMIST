@@ -1,0 +1,204 @@
+name: DXVK ARM64EC Baseline
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/dxvk-arm64ec-build.yml"
+      - "third_party/dxvk.lock.json"
+      - "tools/verify-dxvk-arm64ec.sh"
+  push:
+    branches: [feature/modular-graphics-runtime]
+    paths:
+      - ".github/workflows/dxvk-arm64ec-build.yml"
+      - "third_party/dxvk.lock.json"
+      - "tools/verify-dxvk-arm64ec.sh"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dxvk-arm64ec-baseline
+  cancel-in-progress: true
+
+jobs:
+  build-arm64ec:
+    name: Build pinned DXVK ARM64EC + x86
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout NYAMIST build recipe
+        uses: actions/checkout@v4
+
+      - name: Load immutable source and toolchain pins
+        shell: bash
+        run: |
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          from pathlib import Path
+
+          lock = json.loads(Path("third_party/dxvk.lock.json").read_text())
+          print("DXVK_VERSION=" + lock["dxvk"]["version"])
+          print("DXVK_TAG=" + lock["dxvk"]["tag"])
+          print("DXVK_COMMIT=" + lock["dxvk"]["commit"])
+          print("DXVK_REPOSITORY=" + lock["dxvk"]["repository"])
+          print("LLVM_MINGW_RELEASE=" + lock["toolchain"]["release"])
+          print("LLVM_MINGW_ARCHIVE=" + lock["toolchain"]["archive"])
+          print("LLVM_MINGW_SHA256=" + lock["toolchain"]["sha256"])
+          PY
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential ca-certificates curl git glslang-tools \
+            meson ninja-build pkg-config python3 unzip xz-utils zip zstd
+
+      - name: Fetch and verify pinned upstream DXVK source
+        shell: bash
+        run: |
+          git clone --branch "$DXVK_TAG" --recurse-submodules --depth 1 \
+            "$DXVK_REPOSITORY" dxvk-src
+          ACTUAL_COMMIT="$(git -C dxvk-src rev-parse HEAD)"
+          echo "DXVK source commit: $ACTUAL_COMMIT"
+          test "$ACTUAL_COMMIT" = "$DXVK_COMMIT"
+          git -C dxvk-src submodule status --recursive
+
+      - name: Fetch and verify pinned LLVM-MinGW cross toolchain
+        shell: bash
+        run: |
+          ARCHIVE_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_RELEASE/$LLVM_MINGW_ARCHIVE"
+          curl --fail --location --retry 3 "$ARCHIVE_URL" -o llvm-mingw.tar.xz
+          echo "$LLVM_MINGW_SHA256  llvm-mingw.tar.xz" | sha256sum --check -
+          sudo mkdir -p /opt/llvm-mingw
+          sudo tar -xJf llvm-mingw.tar.xz --strip-components=1 -C /opt/llvm-mingw
+          echo "/opt/llvm-mingw/bin" >> "$GITHUB_PATH"
+          export PATH="/opt/llvm-mingw/bin:$PATH"
+          command -v arm64ec-w64-mingw32-clang
+          command -v arm64ec-w64-mingw32-clang++
+          command -v i686-w64-mingw32-clang
+          command -v i686-w64-mingw32-clang++
+          command -v llvm-readobj
+          glslangValidator --version
+
+      - name: Configure ARM64EC and x86 Windows targets
+        shell: bash
+        run: |
+          cat > arm64ec.txt <<'EOF'
+          [binaries]
+          c = 'arm64ec-w64-mingw32-clang'
+          cpp = 'arm64ec-w64-mingw32-clang++'
+          ar = 'llvm-ar'
+          strip = 'llvm-strip'
+          windres = 'arm64ec-w64-mingw32-windres'
+          widl = 'arm64ec-w64-mingw32-widl'
+          pkg-config = 'pkg-config'
+
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'aarch64'
+          cpu = 'aarch64'
+          endian = 'little'
+          EOF
+
+          cat > x86.txt <<'EOF'
+          [binaries]
+          c = 'i686-w64-mingw32-clang'
+          cpp = 'i686-w64-mingw32-clang++'
+          ar = 'llvm-ar'
+          strip = 'llvm-strip'
+          windres = 'i686-w64-mingw32-windres'
+          widl = 'i686-w64-mingw32-widl'
+          pkg-config = 'pkg-config'
+
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'x86'
+          cpu = 'i686'
+          endian = 'little'
+          EOF
+
+      - name: Build ARM64EC and 32-bit x86 DXVK DLLs
+        shell: bash
+        run: |
+          cd dxvk-src
+          meson setup build-arm64ec --cross-file ../arm64ec.txt \
+            --buildtype=release -Dstrip=true -Dbuild_id=true --wrap-mode=nodownload
+          ninja -C build-arm64ec -j2
+
+          meson setup build-x86 --cross-file ../x86.txt \
+            --buildtype=release -Dstrip=true -Dbuild_id=true --wrap-mode=nodownload
+          ninja -C build-x86 -j2
+
+      - name: Assemble isolated Winlator-compatible package
+        shell: bash
+        run: |
+          rm -rf package artifacts
+          mkdir -p package/system32 package/syswow64 artifacts
+
+          cp dxvk-src/build-arm64ec/src/d3d10/d3d10core.dll package/system32/
+          cp dxvk-src/build-arm64ec/src/d3d11/d3d11.dll package/system32/
+          cp dxvk-src/build-arm64ec/src/d3d8/d3d8.dll package/system32/
+          cp dxvk-src/build-arm64ec/src/d3d9/d3d9.dll package/system32/
+          cp dxvk-src/build-arm64ec/src/dxgi/dxgi.dll package/system32/
+
+          cp dxvk-src/build-x86/src/d3d10/d3d10core.dll package/syswow64/
+          cp dxvk-src/build-x86/src/d3d11/d3d11.dll package/syswow64/
+          cp dxvk-src/build-x86/src/d3d8/d3d8.dll package/syswow64/
+          cp dxvk-src/build-x86/src/d3d9/d3d9.dll package/syswow64/
+          cp dxvk-src/build-x86/src/dxgi/dxgi.dll package/syswow64/
+
+          llvm-strip --strip-all package/system32/*.dll
+          llvm-strip --strip-all package/syswow64/*.dll
+
+          python3 - "$DXVK_VERSION" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          version = sys.argv[1]
+          files = []
+          for directory in ("system32", "syswow64"):
+              for dll in ("d3d10core.dll", "d3d11.dll", "d3d8.dll", "d3d9.dll", "dxgi.dll"):
+                  target = chr(92) + chr(36) + "{" + directory + "}/" + dll
+                  files.append({"source": directory + "/" + dll, "target": target})
+
+          profile = {
+              "type": "DXVK",
+              "versionName": version + "-arm64ec-baseline",
+              "versionCode": 0,
+              "description": (
+                  "Vanilla upstream DXVK " + version
+                  + "; ARM64EC system32 and x86 syswow64 built from pinned source "
+                  "with LLVM-MinGW. No GPLAsync or binary-semaphore patches."
+              ),
+              "files": files,
+          }
+          Path("package/profile.json").write_text(json.dumps(profile, indent=2) + "\n")
+          PY
+
+          DXVK_VERSION_VALUE="$DXVK_VERSION" bash tools/verify-dxvk-arm64ec.sh package
+
+          tar --zstd -cf "artifacts/dxvk-arm64ec-$DXVK_VERSION-baseline.wcp" \
+            -C package profile.json system32 syswow64
+          (cd package && zip -qr "../artifacts/dxvk-arm64ec-$DXVK_VERSION-baseline.zip" profile.json system32 syswow64)
+
+          {
+            echo "DXVK version: $DXVK_VERSION"
+            echo "DXVK tag: $DXVK_TAG"
+            echo "DXVK commit: $DXVK_COMMIT"
+            echo "LLVM-MinGW release: $LLVM_MINGW_RELEASE"
+            echo "LLVM-MinGW archive SHA-256: $LLVM_MINGW_SHA256"
+            echo "Flavor: vanilla baseline; no GPLAsync/binsem patches"
+            echo "Targets: ARM64EC system32 + x86 syswow64"
+          } > artifacts/build-manifest.txt
+          sha256sum artifacts/*
+
+      - name: Upload reproducible build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dxvk-arm64ec-3.1.1-baseline
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 14

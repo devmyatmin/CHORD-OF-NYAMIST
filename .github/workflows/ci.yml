@@ -21,7 +21,10 @@ jobs:
         run: PYTHONPATH=tools python3 -m unittest discover -s tools/tests -v
 
       - name: Shell syntax check
-        run: bash -n tools/termux-probe.sh tools/termux-build-core.sh
+        run: bash -n tools/termux-probe.sh tools/termux-build-core.sh tools/verify-dxvk-arm64ec.sh
+
+      - name: Validate DXVK source lock
+        run: python3 -m json.tool third_party/dxvk.lock.json > /dev/null
 
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON -DNYAMIST_BUILD_BENCHMARKS=ON
