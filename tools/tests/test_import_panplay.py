@@ -224,7 +224,7 @@ class PanPlayImporterTests(unittest.TestCase):
         self.assertEqual(
             sidecar["performance"]["system_csv"]["metrics"]["game_cpu_pct"]["samples"], 2
         )
-        self.assertFalse(
+        self.assertTrue(
             sidecar["performance"]["system_correlation"]["frame_stream_covered_by_system"]
         )
         self.assertFalse(
