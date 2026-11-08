@@ -45,7 +45,7 @@ The 10.97 GiB heap is not free memory and is not a per-game allocation guarantee
 The user-provided PanPlay SessionLogs and matching PerfRecorder export contain a sustained Stranded Deep session on the REDMI K80 Ultra:
 
 - Session duration: 519 seconds; PerfRecorder duration: 489.130544 seconds.
-- DXVK: 3.1.1-5-arm64ec; API: D3D11; selected feature level: D3D_FEATURE_LEVEL_11_0 (DXVK logged maximum supported feature level 11_1).
+- DXVK: 3.1.1-5-arm64ec; API: D3D11; selected feature level: D3D_FEATURE_LEVEL_11_0; maximum supported feature level: D3D_FEATURE_LEVEL_11_1. The importer now records these as separate fields so the maximum capability cannot be mistaken for the level actually selected.
 - DXGI log selected device: Mali-G925-Immortalis MC12, PanVK string 26.2.99. The separate session/device manifest reports Mesa PanVK 26.3.0-devel (git-795ca7ff3e). Treat this version-string difference as an unresolved provenance/version-reporting discrepancy until the exact ICD binary/build is matched.
 - DXVK logged actual swapchain properties: BGRA8 UNORM, SRGB nonlinear color space, IMMEDIATE present mode, 1280x720 buffer, four images.
 - PerfRecorder: 41,868 frames; average 85.5968 FPS; low1Fps 4.6416; low01Fps 0.6783; P50 3.867 ms; P95 43.983 ms; P99 63.733 ms; 11,766 stutters.
