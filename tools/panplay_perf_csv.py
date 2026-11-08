@@ -225,7 +225,7 @@ def parse_perf_csv(data: bytes) -> dict[str, Any]:
             else None
         ),
         "frame_interval_end_timestamp_us": frame_last_timestamp,
-        "frame_timestamp_semantics": "interval_end",
+        "frame_timestamp_semantics": "interval_end" if frame_times_us else None,
         "first_frame_interval_start_vs_first_statistics_delta_us": (
             frame_first_timestamp - frame_first_frametime - stats_first_timestamp
             if frame_first_timestamp is not None
