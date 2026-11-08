@@ -115,12 +115,3 @@ The probe is read-only. It does not change the stock driver or require privilege
 6. Telemetry aggregation and validated advisor recommendations.
 
 See [roadmap](docs/roadmap.md), [architecture](docs/architecture.md), and [Termux workflow](docs/termux-workflow.md).
-
-
-## DXVK ARM64EC baseline
-
-The first reproducible DXVK build is pinned to upstream **v3.1.1** and its exact source commit in the source lock file. Since upstream does not publish an ARM64EC build, the dedicated GitHub Actions workflow cross-compiles ARM64EC system DLLs and x86 WOW64 DLLs with a SHA-256-pinned LLVM-MinGW toolchain.
-
-The initial flavor is vanilla upstream DXVK, with no GPLAsync or binary-semaphore patches. The workflow verifies ARM64EC PE metadata and package mappings, then uploads WCP and ZIP artifacts. It does not install DLLs into a game prefix or Android system folders. A passing build does not establish game compatibility; device testing must still prove successful rendering/Present, zero device loss, visual correctness, and at least five minutes of sustained operation.
-
-See the DXVK ARM64EC baseline and device-validation gates in the documentation file docs/dxvk-arm64ec.md.
