@@ -8,7 +8,7 @@ NYAMIST coordinates independently maintained graphics components through read-on
 
 ## Modular runtime
 
-\`\`\`text
+```text
 D3D11 game -> Wine/FEX/Box64 -> DXVK --------+
                                              +-> Android Vulkan loader -> PanVK -> Mali GPU
 D3D12 game -> Wine/FEX/Box64 -> VKD3D-Proton-+
@@ -16,7 +16,7 @@ D3D12 game -> Wine/FEX/Box64 -> VKD3D-Proton-+
 NYAMIST sidecar:
   Core | Component Registry | Runtime Coordinator
   Device Profiles | Validation | Advisor | Monitor
-\`\`\`
+```
 
 - **DXVK** translates Direct3D 9/10/11 to Vulkan.
 - **VKD3D-Proton** translates Direct3D 12 to Vulkan.
@@ -54,20 +54,20 @@ As of 2026-11-08, PanVK RC5 PanProbe reported 41/41 passing. User-run DXVK D3D11
 
 Requirements: CMake 3.20+ and a C++20 compiler.
 
-\`\`\`sh
+```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ./build/nyamist-cli inspect-panvk configs/panvk-rc5-redmi-k80-ultra.example.env
 ./build/nyamist-cli inspect-dxvk configs/dxvk-d3d11-report.template.env
 ./build/nyamist-cli inspect-vkd3d configs/vkd3d-d3d12-report.template.env
-\`\`\`
+```
 
 All three inspection commands read normalized evidence files only; they do not load or activate drivers or translators. The checked-in templates remain at the discovered level until matching render/present counters are explicitly captured.
 
 ### Termux
 
-\`\`\`sh
+```sh
 pkg update
 pkg install git clang cmake ninja pkg-config python
 git clone https://github.com/devmyatmin/NYAMIST-LAYER.git
@@ -75,14 +75,14 @@ cd NYAMIST-LAYER
 chmod +x tools/termux-probe.sh tools/termux-build-core.sh
 ./tools/termux-probe.sh | tee k80ultra-probe.txt
 ./tools/termux-build-core.sh
-\`\`\`
+```
 
 The probe is read-only. It does not change the stock driver or require privileged GPU access. The portable core build is not a PanVK driver build.
 
 ## Safety boundaries
 
 - Keep the stock Android Vulkan driver intact as a rollback path.
-- Never overwrite vendor Vulkan libraries, chmod \`/dev/mali0\`, flash a kernel, or weaken SELinux.
+- Never overwrite vendor Vulkan libraries, chmod `/dev/mali0`, flash a kernel, or weaken SELinux.
 - Do not take ownership of DXVK, VKD3D-Proton, or PanVK caches.
 - Advisor recommendations remain advisory until deterministic validation and A/B tests pass.
 
