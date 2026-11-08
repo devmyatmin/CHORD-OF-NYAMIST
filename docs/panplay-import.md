@@ -40,3 +40,23 @@ The importer's bounds are 64 MiB compressed archive size, 128 MiB aggregate expa
 ## Tests
 
 `tools/tests/test_import_panplay.py` covers D3D11 and VKD3D identity detection, p95 normalization, discovery-only adapter output, unsupported/ambiguous API selection, manifest hash mismatch, performance/session ID mismatch, non-finite metrics, missing DXVK frame statistics, and duplicate ZIP members.
+
+
+## Post-import game-session review
+
+For a real-game run, use
+[the REDMI K80 Ultra game-validation runbook](game-validation-runbook.md).
+After importing a session and its matching performance ZIP, run:
+
+~~~sh
+python3 tools/check_game_session.py build/game-tests/d3d11-session.json \
+  --minimum-duration-seconds 300 \
+  --output build/game-tests/d3d11-review.json
+~~~
+
+The checker validates that the export identifies DXVK/D3D11, records a clean
+process exit, spans the requested duration in both session and PerfRecorder,
+and includes DXVK frame and p95 data. It reports REVIEW_READY, INCOMPLETE, or
+BLOCKED for human review. REVIEW_READY never upgrades the translator report:
+PanPlay still does not export explicit Vulkan Present success/failure counters
+or an authoritative device-loss counter, so rendering remains discovered-only.
