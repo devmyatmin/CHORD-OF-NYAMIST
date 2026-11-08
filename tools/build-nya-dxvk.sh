@@ -2,10 +2,10 @@
 # Build NyaDXVK and NyaVKD3D from the pinned PanPlay build recipe.
 # Nya is the outer package label; component profile identities remain upstream-compatible.
 set -Eeuo pipefail
-ROOT="$(cd "$(dirname "${{BASH_SOURCE[0]}")/.." && pwd)"
-WORK="${{NYA_WORK_DIR:-$ROOT/.nya-build/dxvk}"
-OUT="${{NYA_OUT_DIR:-$ROOT/dist/nya-dxvk}"
-JOBS="${{NYA_BUILD_JOBS:-2}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORK="${NYA_WORK_DIR:-$ROOT/.nya-build/dxvk}"
+OUT="${NYA_OUT_DIR:-$ROOT/dist/nya-dxvk}"
+JOBS="${NYA_BUILD_JOBS:-2}"
 BUILDER_REPO="https://github.com/zenithblue-oss/panplay.git"
 BUILDER_COMMIT="469b997a061b9bd404d32b52c9d78c5ee228c903"
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing prerequisite: $1" >&2; exit 2; }; }
