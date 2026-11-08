@@ -21,7 +21,27 @@ jobs:
         run: PYTHONPATH=tools python3 -m unittest discover -s tools/tests -v
 
       - name: Shell syntax check
-        run: bash -n tools/termux-probe.sh tools/termux-build-core.sh tools/export-device-probe.sh
+        run: bash -n tools/termux-probe.sh tools/termux-build-core.sh tools/export-device-probe.sh tools/build-nya-panvk.sh tools/build-nya-dxvk.sh
+
+      - name: Validate Nya component source lock
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          lock = json.loads(Path("configs/component-locks.json").read_text())
+          assert lock["schemaVersion"] == 1
+          components = lock["components"]
+          for name, fields in {
+              "panvk": ("builderCommit", "mesaCommit"),
+              "dxvk": ("builderCommit", "sourceCommit"),
+              "vkd3d": ("builderCommit", "sourceCommit"),
+          }.items():
+              for field in fields:
+                  assert len(components[name][field]) == 40, (name, field)
+          assert components["dxvk"]["packageRevisionFromPinnedBuilder"] == "3.1.1-4-arm64ec"
+          assert components["dxvk"]["currentApkObservedPackageRevision"] == "3.1.1-5-arm64ec"
+          print("Nya component source lock: PASS")
+          PY
 
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON -DNYAMIST_BUILD_BENCHMARKS=ON
