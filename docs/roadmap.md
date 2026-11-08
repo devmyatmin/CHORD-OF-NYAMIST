@@ -33,7 +33,7 @@
 - [x] Add immutable in-memory schema-v1 DeviceSessionSnapshot and freshness-gated telemetry aggregation
 - [x] Add deterministic Pipeline Gate for session freshness, Vulkan enumeration, and runtime prerequisites
 - [x] Persist versioned device sessions and compatibility profiles with bounded schema-v1 storage, content addressing, and corruption rejection
-- [ ] Import PanPlay logs into the normalized adapter report schema
+- [x] Import PanPlay session/performance ZIPs into normalized DXVK/VKD3D-Proton discovery reports; keep rendering validation unpromoted until explicit Present counters exist
 - [x] Add typed telemetry aggregation for CPU/GPU utilization, available memory, GPU/battery temperature, and p95 frame time (collector integration pending)
 - [ ] Capture frame-time percentiles, memory, and thermal telemetry where accessible
 - [ ] Keep DXVK shader/pipeline caches under DXVK control
