@@ -2,21 +2,21 @@
 # Build NyaPANVK from pinned PanVK/Mesa source. Output is an app-local ICD artifact.
 # This script never installs the driver or changes Android system/vendor files.
 set -Eeuo pipefail
-ROOT="$(cd "$(dirname "${{BASH_SOURCE[0]}")/.." && pwd)"
-WORK="${{NYA_WORK_DIR:-$ROOT/.nya-build/panvk}"
-OUT="${{NYA_OUT_DIR:-$ROOT/dist/nya-panvk}"
-ANDROID_API="${{ANDROID_API:-35}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORK="${NYA_WORK_DIR:-$ROOT/.nya-build/panvk}"
+OUT="${NYA_OUT_DIR:-$ROOT/dist/nya-panvk}"
+ANDROID_API="${ANDROID_API:-35}"
 PROFILE="g615-v11-csf"
-JOBS="${{NYA_BUILD_JOBS:-2}"
+JOBS="${NYA_BUILD_JOBS:-2}"
 BUILDER_REPO="https://github.com/zenithblue-oss/panvk-kbase-android.git"
 BUILDER_COMMIT="cf70e02b918e1864cbcd746a7fefa57b96c673ce"
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing prerequisite: $1" >&2; exit 2; }; }
 for cmd in git python3 cmake meson ninja pkg-config clang clang++ readelf file sha256sum; do need "$cmd"; done
-: "${{ANDROID_NDK_ROOT:?Set ANDROID_NDK_ROOT to Android NDK r29.}"
+: "${ANDROID_NDK_ROOT:?Set ANDROID_NDK_ROOT to Android NDK r29.}"
 NDK_HOST="linux-x86_64"
-if [[ ! -x "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/$NDK_HOST/bin/aarch64-linux-android${{ANDROID_API}-clang" ]]; then NDK_HOST="linux-$(uname -m)"; fi
-if [[ ! -x "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/$NDK_HOST/bin/aarch64-linux-android${{ANDROID_API}-clang" && "$(uname -m)" == "aarch64" ]]; then NDK_HOST="linux-arm64"; fi
-[[ -x "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/$NDK_HOST/bin/aarch64-linux-android${{ANDROID_API}-clang" ]] || { echo "Android NDK compiler missing for API $ANDROID_API under $ANDROID_NDK_ROOT" >&2; exit 2; }
+if [[ ! -x "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/$NDK_HOST/bin/aarch64-linux-android${ANDROID_API}-clang" ]]; then NDK_HOST="linux-$(uname -m)"; fi
+if [[ ! -x "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/$NDK_HOST/bin/aarch64-linux-android${ANDROID_API}-clang" && "$(uname -m)" == "aarch64" ]]; then NDK_HOST="linux-arm64"; fi
+[[ -x "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/$NDK_HOST/bin/aarch64-linux-android${ANDROID_API}-clang" ]] || { echo "Android NDK compiler missing for API $ANDROID_API under $ANDROID_NDK_ROOT" >&2; exit 2; }
 
 mkdir -p "$WORK" "$OUT"
 BUILDER="$WORK/panvk-kbase-android"
@@ -51,7 +51,7 @@ DRIVER_SHA256="$(sha256sum "$DRIVER_SO" | awk '{print $1}')"
 DRIVER_GIT_SHA8="$(python3 "$BUILDER/scripts/driver_identity.py" --field sha8 "$DRIVER_SO")"
 PATCH_SERIES_ID="$(python3 "$BUILDER/scripts/compute-patch-series-id.py" --profile "$PROFILE")"
 MESA_VERSION="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["mesaVersion"])' "$BUILDER/sources.lock")"
-DRIVER_NAME="NyaPANVK-${{MESA_VERSION}-$PATCH_LEVEL-git$DRIVER_GIT_SHA8-android-arm64.so"
+DRIVER_NAME="NyaPANVK-${MESA_VERSION}-$PATCH_LEVEL-git$DRIVER_GIT_SHA8-android-arm64.so"
 
 cp "$DRIVER_SO" "$OUT/$DRIVER_NAME"
 cp "$BUILDER/NOTICE.md" "$OUT/NOTICE.md"
