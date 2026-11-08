@@ -24,7 +24,7 @@ jobs:
         run: bash -n tools/termux-probe.sh tools/termux-build-core.sh
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON -DNYAMIST_BUILD_BENCHMARKS=ON
 
       - name: Build
         run: cmake --build build --parallel 2
@@ -32,10 +32,11 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
-      - name: CLI smoke test
+      - name: CLI and benchmark smoke tests
         run: |
           ./build/nyamist-cli advice
           ./build/nyamist-cli fingerprint "nyamist-ci-smoke-test"
           ./build/nyamist-cli demo-cache ./build/demo-cache
           ./build/nyamist-cli inspect-dxvk configs/dxvk-d3d11-report.template.env
           ./build/nyamist-cli inspect-vkd3d configs/vkd3d-d3d12-report.template.env
+          ./build/nyamist-cache-bench ./build/cache-benchmark 1 3
