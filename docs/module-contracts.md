@@ -85,3 +85,8 @@ separates stale readings from fresh policy inputs. Missing metrics remain
 absent. Equal-timestamp conflicting values are omitted. The snapshot is
 immutable after construction and is an in-memory NYAMIST-owned contract only;
 it is not a shared-memory or driver ABI. See docs/session-snapshot.md.
+
+
+## Pipeline Gate
+
+PipelineGate consumes a RuntimePlan plus a DeviceSessionSnapshot and emits a blocked/warning/ready decision. It requires a fresh session, successful Vulkan physical-device enumeration, and explicit RuntimeCoordinator permission before allowing a controlled smoke test. Missing/stale telemetry warns but does not pretend that graphics rendering failed. Production readiness is passed through only when the coordinator independently has sustained evidence and the session passes freshness and Vulkan checks. The gate is deterministic, read-only, and outside the frame path. See docs/pipeline-gate.md.

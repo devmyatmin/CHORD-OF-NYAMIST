@@ -18,6 +18,7 @@ add_library(nyamist_runtime
     src/runtime/panvk_adapter.cpp
     src/runtime/device_probe_adapter.cpp
     src/runtime/session_snapshot.cpp
+    src/runtime/pipeline_gate.cpp
     src/runtime/translator_adapters.cpp
 )
 target_include_directories(nyamist_runtime PUBLIC include)
@@ -72,4 +73,8 @@ if(NYAMIST_BUILD_TESTS)
     add_executable(nyamist-session-snapshot-tests tests/session_snapshot_tests.cpp)
     target_link_libraries(nyamist-session-snapshot-tests PRIVATE nyamist_runtime)
     add_test(NAME nyamist-session-snapshot-tests COMMAND nyamist-session-snapshot-tests)
+
+    add_executable(nyamist-pipeline-gate-tests tests/pipeline_gate_tests.cpp)
+    target_link_libraries(nyamist-pipeline-gate-tests PRIVATE nyamist_runtime)
+    add_test(NAME nyamist-pipeline-gate-tests COMMAND nyamist-pipeline-gate-tests)
 endif()
