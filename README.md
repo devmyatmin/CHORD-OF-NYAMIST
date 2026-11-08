@@ -33,7 +33,19 @@ See [Modular Runtime Architecture](docs/modular-runtime.md) and [Module Contract
 - The cache stores NYAMIST-owned metadata only. DXVK, VKD3D-Proton, and Mesa/PanVK retain ownership of their own shader and pipeline caches.
 - The current advisor is deterministic and rule-based. Model selection and local inference are deferred until memory, latency, and A/B regression measurements justify them.
 
-The binary representation reduces cache payload size, but device-side throughput and memory improvements still require benchmarking on the target phone.
+### REDMI K80 Ultra cache benchmark
+
+User-run Termux benchmark on 2026-11-08, using a 4 MiB synthetic payload and 10 iterations:
+
+| Metric | V1 hexadecimal | V2 binary |
+|---|---:|---:|
+| Cache file size | 8,388,660 bytes | 4,194,363 bytes |
+| Median write | 227.076 ms | 11.031 ms |
+| Median warm read | 57.281 ms | 10.703 ms |
+| Write throughput | 17.615 MiB/s | 362.602 MiB/s |
+| Warm-read throughput | 69.832 MiB/s | 373.728 MiB/s |
+
+Observed on this run: 50.00% smaller cache files, 20.59× faster median writes, and 5.35× faster median warm reads. The V1 write path uses the legacy hexadecimal stream encoder; V1 reads use the current optimized backward-compatible decoder, not the original per-byte stream decoder. This is a cache-format microbenchmark with synthetic data and a warm filesystem cache. It is not a game-FPS, GPU-throughput, cold-storage, or total-device-RAM result. Repeat runs and game-workload A/B tests are still needed.
 
 ## Current implementation
 
