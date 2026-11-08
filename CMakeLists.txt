@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(nyamist_layer VERSION 0.1.0 LANGUAGES CXX)
+project(nyamist_graphics_runtime VERSION 0.2.0 LANGUAGES CXX)
 
 option(NYAMIST_BUILD_TESTS "Build NYAMIST unit tests" ON)
 
@@ -11,18 +11,33 @@ add_library(nyamist_core
 target_include_directories(nyamist_core PUBLIC include)
 target_compile_features(nyamist_core PUBLIC cxx_std_20)
 
-if(MSVC)
-    target_compile_options(nyamist_core PRIVATE /W4 /permissive-)
-else()
-    target_compile_options(nyamist_core PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
-endif()
+add_library(nyamist_runtime
+    src/runtime/component_registry.cpp
+    src/runtime/runtime_coordinator.cpp
+)
+target_include_directories(nyamist_runtime PUBLIC include)
+target_compile_features(nyamist_runtime PUBLIC cxx_std_20)
+target_link_libraries(nyamist_runtime PUBLIC nyamist_core)
+
+foreach(target nyamist_core nyamist_runtime)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4 /permissive-)
+    else()
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
+    endif()
+endforeach()
 
 add_executable(nyamist-cli src/main.cpp)
-target_link_libraries(nyamist-cli PRIVATE nyamist_core)
+target_link_libraries(nyamist-cli PRIVATE nyamist_core nyamist_runtime)
 
 if(NYAMIST_BUILD_TESTS)
     include(CTest)
+
     add_executable(nyamist-tests tests/test_main.cpp)
     target_link_libraries(nyamist-tests PRIVATE nyamist_core)
     add_test(NAME nyamist-unit-tests COMMAND nyamist-tests)
+
+    add_executable(nyamist-runtime-tests tests/runtime_tests.cpp)
+    target_link_libraries(nyamist-runtime-tests PRIVATE nyamist_runtime)
+    add_test(NAME nyamist-runtime-tests COMMAND nyamist-runtime-tests)
 endif()
