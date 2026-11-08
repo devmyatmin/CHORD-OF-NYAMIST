@@ -13,17 +13,15 @@ Nya is an outer distribution label. It does not claim that upstream projects wer
 
 ## Pinned source inputs
 
-The machine-readable source lock is configs/component-locks.json. Build scripts deliberately use immutable commits rather than moving branch names. Both build paths bootstrap the exact Meson version in that lock (currently 1.4.2) into an isolated Python virtual environment under `.nya-build/tooling`; they do not rely on the Ubuntu runner’s apt Meson package. The pinned Mesa revision requires Meson >=1.4.0.
+The machine-readable source lock is configs/component-locks.json. Build scripts deliberately use immutable commits rather than moving branch names. Both build paths bootstrap the exact Meson version in that lock (currently 1.4.2) into an isolated Python virtual environment under `.nya-build/tooling`; they do not rely on the Ubuntu runner’s apt Meson package. The pinned Mesa revision requires Meson >=1.4.0. The isolated Meson environment also pins `packaging`, `Mako` and `MarkupSafe`, which Mesa imports during configuration.
 
 ### NyaPANVK
 
 The builder is zenithblue-oss/panvk-kbase-android at cf70e02b918e1864cbcd746a7fefa57b96c673ce. It pins Mesa to 5a07217f034b3e50d8c7c7794f97a2df1742613b and applies the upstream universal patch series with prepare-rc5-tree.sh. The selected g615-v11-csf build profile is used only after the universal v6-v14 tree is prepared; it is not intended to limit the resulting ICD to G615.
 
-The build emits five PanPlay-compatible profile packages from the pinned upstream profile set: `g52-v7-jm`, `g57-v9-jm`, `g610-v10-csf`, `g615-v11-csf`, and `g720-v12-csf`. These are five metadata-labelled target packages over one universal v6-v14 `libvulkan_panfrost.so`, not five independently compiled machine-code drivers. Each package records its profile JSON, source provenance, and shared binary SHA-256. The five profile labels must not be read as five hardware validation passes: G52/G610/G720 remain planned, G57 has only limited separate external probe evidence, and G615 is the primary reference profile.
-
 The pinned recipe expects patch level p0175 and Mesa driver identity git-795ca7ff3e, matching the PanVK RC5 identity recorded from the REDMI K80 Ultra tests. The inspected PanPlay driver SHA-256 is 62c2b3f98ca987d5ab50b6f01e2d2c1c5b3ee995fe93666aa5da9415f65c3348. That is a reference hash for comparison, not a promise that a new build will be byte-identical.
 
-The produced NyaPANVK output includes the standalone Android arm64-v8a shared library and five PanPlay-compatible `NyaPANVK-<profile>.adpkg.zip` packages. The import archive contains `libvulkan_panfrost.so`, `meta.json`, SOURCE.json, BUILD.json, checksums, the upstream NOTICE.md and LICENSES. PanPlay's Drivers screen accepts this archive through **Import driver (.adpkg.zip)**. The build job performs static ELF/ICD checks only. Vulkan loading, PanProbe, surface presentation and sustained device tests remain separate hardware gates.
+The produced NyaPANVK output includes the standalone Android arm64-v8a shared library and a PanPlay-compatible `NyaPANVK-*.adpkg.zip`. The import archive contains `libvulkan_panfrost.so`, `meta.json`, SOURCE.json, BUILD.json, checksums, the upstream NOTICE.md and LICENSES. PanPlay's Drivers screen accepts this archive through **Import driver (.adpkg.zip)**. The build job performs static ELF/ICD checks only. Vulkan loading, PanProbe, surface presentation and sustained device tests remain separate hardware gates.
 
 ### NyaDXVK and NyaVKD3D
 

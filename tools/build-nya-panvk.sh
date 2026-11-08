@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="${NYA_WORK_DIR:-$ROOT/.nya-build/panvk}"
 OUT="${NYA_OUT_DIR:-$ROOT/dist/nya-panvk}"
 ANDROID_API="${ANDROID_API:-35}"
-PROFILE="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["components"]["panvk"]["buildProfile"])' "$ROOT/configs/component-locks.json")"
+PROFILE="g615-v11-csf"
 JOBS="${NYA_BUILD_JOBS:-2}"
 BUILDER_REPO="https://github.com/zenithblue-oss/panvk-kbase-android.git"
 BUILDER_COMMIT="cf70e02b918e1864cbcd746a7fefa57b96c673ce"
@@ -90,8 +90,6 @@ source = {
     "driverReportedMesaSha8": os.environ["DRIVER_GIT_SHA8"],
     "buildProfile": os.environ["PROFILE"],
     "profileScope": "universal Mali v6-v14 Android ICD",
-    "packagedProfiles": ["g52-v7-jm", "g57-v9-jm", "g610-v10-csf", "g615-v11-csf", "g720-v12-csf"],
-    "profilePackagingPolicy": "Five metadata-labelled packages reuse this same universal ICD binary; profile labels do not create five separate machine-code drivers.",
     "target": "aarch64-linux-android / arm64-v8a",
     "androidApi": int(os.environ["ANDROID_API"]),
     "ndkRevision": os.environ["NDK_REVISION"],
@@ -114,125 +112,60 @@ build_path.write_text(json.dumps(build, indent=2) + "\n")
 PY
 (cd "$OUT" && sha256sum "$DRIVER_NAME" > SHA256SUMS.txt)
 
-# PanPlay accepts imported Vulkan drivers as flat .adpkg.zip files.
-# The pinned upstream tree is one universal v6-v14 ICD; each profile package
-# carries a distinct target profile and provenance, while reusing the same .so.
-mapfile -t PROFILE_IDS < <(python3 - "$ROOT/configs/component-locks.json" <<'PY'
-import json, sys
-lock = json.load(open(sys.argv[1], encoding="utf-8"))
-for item in lock["components"]["panvk"]["buildProfiles"]:
-    print(item["id"])
-PY
-)
-EXPECTED_PROFILES=(g52-v7-jm g57-v9-jm g610-v10-csf g615-v11-csf g720-v12-csf)
-[[ "\${#PROFILE_IDS[@]}" -eq 5 ]] || { echo "Expected exactly five NyaPANVK profiles" >&2; exit 1; }
-[[ "\${PROFILE_IDS[*]}" == "\${EXPECTED_PROFILES[*]}" ]] || {
-  echo "NyaPANVK profile list differs from the five locked profile targets" >&2
-  exit 1
-}
-PROFILE_PACKAGE_ROWS="$WORK/profile-packages.tsv"
-: > "$PROFILE_PACKAGE_ROWS"
-for PROFILE_ID in "\${PROFILE_IDS[@]}"; do
-  PROFILE_JSON="$BUILDER/profiles/$PROFILE_ID.json"
-  [[ -s "$PROFILE_JSON" ]] || { echo "Missing pinned upstream profile: $PROFILE_JSON" >&2; exit 1; }
-  PROFILE_GPU="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["gpu"])' "$PROFILE_JSON")"
-  PROFILE_ARCH="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["panArch"])' "$PROFILE_JSON")"
-  PROFILE_FRONTEND="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["frontend"])' "$PROFILE_JSON")"
-  PROFILE_PATCH_SERIES_ID="$(python3 "$BUILDER/scripts/compute-patch-series-id.py" --profile "$PROFILE_ID")"
-  PACKAGE_NAME="NyaPANVK-$MESA_VERSION-$PATCH_LEVEL-git$DRIVER_GIT_SHA8-$PROFILE_ID.adpkg.zip"
-  PACKAGE_DIR="$WORK/packages/$PROFILE_ID"
-  rm -rf "$PACKAGE_DIR"
-  mkdir -p "$PACKAGE_DIR"
-  cp "$DRIVER_SO" "$PACKAGE_DIR/libvulkan_panfrost.so"
-  cp "$OUT/BUILD.json" "$PACKAGE_DIR/BUILD.json"
-  cp "$ROOT/configs/component-locks.json" "$PACKAGE_DIR/component-locks.json"
-  cp "$BUILDER/NOTICE.md" "$PACKAGE_DIR/NOTICE.md"
-  cp "$PROFILE_JSON" "$PACKAGE_DIR/PROFILE.json"
-  cp -a "$BUILDER/LICENSES" "$PACKAGE_DIR/LICENSES"
-  export PROFILE_ID PROFILE_GPU PROFILE_ARCH PROFILE_FRONTEND PROFILE_PATCH_SERIES_ID PACKAGE_NAME PROFILE_JSON
-  python3 - "$OUT/SOURCE.json" "$PACKAGE_DIR/SOURCE.json" "$PACKAGE_DIR/meta.json" <<'PY'
-import json, os, pathlib, sys
-base_source = json.loads(pathlib.Path(sys.argv[1]).read_text())
-profile = json.loads(pathlib.Path(os.environ["PROFILE_JSON"]).read_text())
-source = dict(base_source)
-source["artifact"] = os.environ["PACKAGE_NAME"]
-source["buildProfile"] = os.environ["PROFILE_ID"]
-source["profileDetails"] = profile
-source["patchSeriesId"] = os.environ["PROFILE_PATCH_SERIES_ID"]
-source["profilePackagingPolicy"] = (
-    "Profile-labelled PanPlay package over one universal v6-v14 ICD binary; "
-    "the Vulkan driver selects GPU architecture/frontend at runtime."
-)
-pathlib.Path(sys.argv[2]).write_text(json.dumps(source, indent=2) + "\n")
+# PanPlay accepts imported Vulkan drivers as a flat .adpkg.zip with meta.json
+# and the Android ICD library at archive root.
+PACKAGE_NAME="NyaPANVK-\${MESA_VERSION}-\${PATCH_LEVEL}-git\${DRIVER_GIT_SHA8}.adpkg.zip"
+PACKAGE_DIR="$WORK/package"
+rm -rf "$PACKAGE_DIR"
+mkdir -p "$PACKAGE_DIR"
+cp "$DRIVER_SO" "$PACKAGE_DIR/libvulkan_panfrost.so"
+cp "$OUT/SOURCE.json" "$PACKAGE_DIR/SOURCE.json"
+cp "$OUT/BUILD.json" "$PACKAGE_DIR/BUILD.json"
+cp "$ROOT/configs/component-locks.json" "$PACKAGE_DIR/component-locks.json"
+cp "$BUILDER/NOTICE.md" "$PACKAGE_DIR/NOTICE.md"
+cp -a "$BUILDER/LICENSES" "$PACKAGE_DIR/LICENSES"
+python3 - "$PACKAGE_DIR/meta.json" <<'PY'
+import json
+import os
+import sys
+
 meta = {
     "schemaVersion": 1,
     "name": "NyaPANVK",
     "author": "Mesa / PanVK contributors; downstream build by NYAMIST-LAYER",
-    "packageVersion": (
-        f"{os.environ['MESA_VERSION']}-{os.environ['PATCH_LEVEL']}-"
-        f"git{os.environ['DRIVER_GIT_SHA8']}-{os.environ['PROFILE_ID']}"
-    ),
+    "packageVersion": f"{os.environ['MESA_VERSION']}-{os.environ['PATCH_LEVEL']}-git{os.environ['DRIVER_GIT_SHA8']}",
     "driverVersion": f"Mesa {os.environ['MESA_VERSION']}",
     "description": (
-        "Experimental Android ARM64 universal PanVK Vulkan ICD for Mali GPUs "
-        "using the mali_kbase kernel interface. "
-        f"Profile package: {os.environ['PROFILE_ID']} / {profile['gpu']} "
-        f"(Pan arch {profile['panArch']}, {profile['frontend']}). "
-        "This is a metadata-labelled profile package over the same universal "
-        "v6-v14 driver binary, not a separate architecture-specific binary. "
-        "Upstream Mesa/PanVK identity and licenses are preserved."
+        "Experimental Android ARM64 PanVK Vulkan driver for Mali GPUs using "
+        "the mali_kbase kernel interface. Downstream NyaPANVK package label; "
+        "upstream Mesa/PanVK driver identity and licenses are preserved. "
+        f"Source Mesa {os.environ['MESA_PIN']}, patch level {os.environ['PATCH_LEVEL']}. "
+        "Import as an additional app-local driver; this package does not modify the system driver."
     ),
     "libraryName": "libvulkan_panfrost.so",
     "sha256": os.environ["DRIVER_SHA256"],
     "sourceCommit": os.environ["MESA_PIN"],
-    "patchSeriesId": os.environ["PROFILE_PATCH_SERIES_ID"],
+    "patchSeriesId": "sha256:" + os.environ["PATCH_SERIES_ID"],
     "buildId": os.environ["MESA_PATCHED_HEAD"],
-    "profile": os.environ["PROFILE_ID"],
+    "profile": os.environ["PROFILE"],
     "androidApi": int(os.environ["ANDROID_API"]),
     "abi": "arm64-v8a"
 }
-pathlib.Path(sys.argv[3]).write_text(json.dumps(meta, indent=2) + "\n")
-PY
-  (
-    cd "$PACKAGE_DIR"
-    sha256sum libvulkan_panfrost.so meta.json SOURCE.json BUILD.json PROFILE.json > SHA256SUMS.txt
-    zip -qr "$OUT/$PACKAGE_NAME" .
-  )
-  unzip -t "$OUT/$PACKAGE_NAME" >/dev/null
-  PACKAGE_ENTRIES="$WORK/$PROFILE_ID-package-entries.txt"
-  unzip -Z1 "$OUT/$PACKAGE_NAME" > "$PACKAGE_ENTRIES"
-  grep -Fxq "libvulkan_panfrost.so" "$PACKAGE_ENTRIES"
-  grep -Fxq "meta.json" "$PACKAGE_ENTRIES"
-  grep -Fxq "PROFILE.json" "$PACKAGE_ENTRIES"
-  sha256sum "$OUT/$PACKAGE_NAME" > "$OUT/$PACKAGE_NAME.sha256"
-  printf '%s\t%s\t%s\t%s\t%s\n' \
-    "$PROFILE_ID" "$PACKAGE_NAME" "$PROFILE_GPU" "$PROFILE_ARCH" "$PROFILE_FRONTEND" \
-    >> "$PROFILE_PACKAGE_ROWS"
-  echo "NyaPANVK profile package ready: $OUT/$PACKAGE_NAME"
-done
-python3 - "$PROFILE_PACKAGE_ROWS" "$OUT/PROFILE-PACKAGES.json" "$DRIVER_SHA256" <<'PY'
-import json, pathlib, sys
-rows = []
-for line in pathlib.Path(sys.argv[1]).read_text().splitlines():
-    profile, filename, gpu, arch, frontend = line.split("\t")
-    rows.append({
-        "profile": profile, "file": filename, "gpu": gpu,
-        "panArch": int(arch), "frontend": frontend,
-        "sharedUniversalIcdSha256": sys.argv[3]
-    })
-pathlib.Path(sys.argv[2]).write_text(json.dumps({
-    "schemaVersion": 1,
-    "packageCount": len(rows),
-    "binaryCount": 1,
-    "policy": "Five profile-labelled packages share one universal v6-v14 ICD binary.",
-    "packages": rows
-}, indent=2) + "\n")
-assert len(rows) == 5
+with open(sys.argv[1], "w", encoding="utf-8") as f:
+    json.dump(meta, f, indent=2)
+    f.write("\n")
 PY
 (
-  cd "$OUT"
-  sha256sum "$DRIVER_NAME" ./*.adpkg.zip > SHA256SUMS.txt
+  cd "$PACKAGE_DIR"
+  sha256sum libvulkan_panfrost.so meta.json SOURCE.json BUILD.json > SHA256SUMS.txt
+  zip -qr "$OUT/$PACKAGE_NAME" .
 )
-echo "NyaPANVK universal Android ARM64 library: $OUT/$DRIVER_NAME"
-echo "NyaPANVK profile packages: 5"
-echo "Shared driver SHA-256: $DRIVER_SHA256"
+unzip -t "$OUT/$PACKAGE_NAME" >/dev/null
+sha256sum "$OUT/$PACKAGE_NAME" > "$OUT/$PACKAGE_NAME.sha256"
+unzip -Z1 "$OUT/$PACKAGE_NAME" | grep -qx "libvulkan_panfrost.so"
+unzip -Z1 "$OUT/$PACKAGE_NAME" | grep -qx "meta.json"
+
+echo "NyaPANVK raw library: $OUT/$DRIVER_NAME"
+echo "NyaPANVK PanPlay import package: $OUT/$PACKAGE_NAME"
+echo "Driver SHA-256: $DRIVER_SHA256"
+echo "Package SHA-256: $(awk '{print $1}' "$OUT/$PACKAGE_NAME.sha256")"
