@@ -2,7 +2,7 @@
 
 Date: 2026-11-08
 Validation source: user-run Termux commands on the target phone.
-Status: Vulkan physical-device enumeration passed; DXVK/game rendering and PanVK remain unvalidated.
+Status: The stock Android Vulkan driver enumerated successfully in Termux. Separately, app-local PanVK RC5 loaded and passed PanProbe 41/41. DXVK game rendering, PanPlay surface/swapchain presentation, and sustained game stability remain unvalidated.
 
 ## Device identification
 
@@ -65,16 +65,17 @@ These are reported capabilities, not proof that every extension or optional feat
 - `DISPLAY` not being set only caused surface information to be skipped in the Termux CLI context.
 - The `large_page_conf` sysfs warning did not prevent physical-device enumeration.
 - `sparseBinding = false` is one unsupported optional feature and does not, by itself, establish DXVK incompatibility.
-- No DXVK game, swapchain presentation in a game container, PanVK driver, or PanVK kbase backend has been tested on this phone yet.
+- A separate PanPlay/PanProbe test loaded app-local PanVK RC5, enumerated one device, and passed 41/41 PanProbe checks. This is smoke-test evidence; it does not establish successful Android surface/swapchain presentation or sustained rendering.
+- No sustained commercial-game D3D11 run through DXVK has been validated on this phone yet.
 
 ## Next validation gates
 
-1. Keep the stock vendor Vulkan driver unchanged.
-2. Capture the complete `vulkaninfo` output and query device features/extensions in the intended Android game-container process.
-3. Build or obtain an isolated PanVK test package for the exact Android ABI/API and G925 kbase path; do not replace system Vulkan libraries.
-4. Run PanVK's own device probe first, then a minimal Vulkan rendering/presentation test.
-5. Only after PanVK passes should DXVK D3D11 translation be tested with a known-good test application.
-6. Record driver identity, test result, logs, and rollback path for each experiment.
+1. Keep the stock vendor Vulkan driver unchanged and retain app-local PanVK selection only.
+2. In PanPlay, confirm the tested RC5 ICD is the one actually loaded for the session; record its build identity and logs.
+3. Validate Android surface/swapchain presentation in the PanPlay path. The existing 41/41 PanProbe result does not cover this gate.
+4. Confirm DXVK creates a D3D11 device on that same PanVK physical device.
+5. Run one repeatable real D3D11 game scene for at least 300 seconds and preserve matching SessionLogs/PerfRecorder exports.
+6. Record driver identity, test result, visual issues, logs, and rollback path for each experiment.
 
 ## Safety
 
