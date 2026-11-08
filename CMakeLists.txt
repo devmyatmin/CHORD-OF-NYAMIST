@@ -15,6 +15,7 @@ add_library(nyamist_runtime
     src/runtime/component_registry.cpp
     src/runtime/runtime_coordinator.cpp
     src/runtime/panvk_adapter.cpp
+    src/runtime/translator_adapters.cpp
 )
 target_include_directories(nyamist_runtime PUBLIC include)
 target_compile_features(nyamist_runtime PUBLIC cxx_std_20)
@@ -45,4 +46,8 @@ if(NYAMIST_BUILD_TESTS)
     add_executable(nyamist-panvk-tests tests/panvk_adapter_tests.cpp)
     target_link_libraries(nyamist-panvk-tests PRIVATE nyamist_runtime)
     add_test(NAME nyamist-panvk-adapter-tests COMMAND nyamist-panvk-tests)
+
+    add_executable(nyamist-translator-tests tests/translator_adapter_tests.cpp)
+    target_link_libraries(nyamist-translator-tests PRIVATE nyamist_runtime)
+    add_test(NAME nyamist-translator-adapter-tests COMMAND nyamist-translator-tests)
 endif()
