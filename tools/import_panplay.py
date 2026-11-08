@@ -217,7 +217,7 @@ def _d3d11_log_evidence(archive: zipfile.ZipFile, file_names: list[str]) -> dict
     raw = _read_member(archive, name)
     text = raw.decode("utf-8", errors="replace")
     feature_match = re.search(
-        r"D3D11InternalCreateDevice:\\s*Using feature level\\s+"
+        r"D3D11InternalCreateDevice:\s*Using feature level\s+"
         r"D3D_FEATURE_LEVEL_([0-9]+_[0-9]+)",
         text,
         re.IGNORECASE,
@@ -238,9 +238,9 @@ def _d3d11_log_evidence(archive: zipfile.ZipFile, file_names: list[str]) -> dict
             "Image count": "image_count",
         }
         for line in lines[marker_index + 1:marker_index + 12]:
-            clean = re.sub(r"^\\s*(?:info|warn|err):\\s*", "", line, flags=re.IGNORECASE)
+            clean = re.sub(r"^\s*(?:info|warn|err):\s*", "", line, flags=re.IGNORECASE)
             match = re.match(
-                r"^\\s*(Format|Color space|Present mode|Buffer size|Image count):\\s*(.*?)\\s*$",
+                r"^\s*(Format|Color space|Present mode|Buffer size|Image count):\s*(.*?)\s*$",
                 clean,
             )
             if match:
