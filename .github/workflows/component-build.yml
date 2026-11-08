@@ -57,7 +57,7 @@ jobs:
         run: |
           ROOT="$GITHUB_WORKSPACE"
           source tools/use-pinned-meson.sh
-          python3 -c 'from packaging.version import Version; print(f"Python packaging: {Version(\"24.2\")} (pinned)")'
+          python3 -c 'import packaging; from packaging.version import Version; assert packaging.__version__ == "24.2"; print("Python packaging:", Version("24.2"), "(pinned)")'
 
   build-panvk:
     if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.component == 'all' || inputs.component == 'panvk'))
