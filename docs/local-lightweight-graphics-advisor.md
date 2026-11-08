@@ -168,10 +168,14 @@ Nov 8 system capture facts:
 
 In this capture, the PerfRecorder wall envelope is 525.081 seconds while its
 reported frame duration is 489.130544 seconds. The system CSV spans from
-1.007 seconds to 524.583 seconds after `performance.startMs`. The frame
-timestamp stream begins at 7.143973 seconds and spans 489.113138 seconds.
-These envelopes are compatible with the system samples covering the frame
-stream under the provisional startMs anchor, but the 35.950456-second
-wall-versus-frame-duration difference must remain visible as capture-window
-coverage, not silently normalized away.
+1.007 seconds to 524.583 seconds after `performance.startMs`. The first
+statistics (`S`) sample is at 7.143973 seconds; the first frame (`F`) sample
+is at 7.180018 seconds. The frame timestamp span is 489.113138 seconds, so
+the final frame timestamp is approximately 496.293156 seconds after
+`performance.startMs`. Under the provisional startMs anchor, the system
+samples cover the frame timestamp range and continue about 28.290 seconds
+beyond the final frame timestamp. The 35.950456-second wall-versus-reported-
+frame-duration difference, including the initial and trailing unrecorded
+frame-window portions, must remain visible rather than being silently
+normalized away.
 
