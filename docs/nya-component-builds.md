@@ -29,7 +29,7 @@ The pinned builder recipe is zenithblue-oss/panplay at 469b997a061b9bd404d32b52c
 
 Important version reconciliation: the inspected PanPlay APK contains dxvk-3.1.1-5-arm64ec.wcp, but the pinned public builder commit currently declares and builds 3.1.1-4-arm64ec. The first NyaDXVK build therefore keeps the builder's truthful 3.1.1-4 version and marks APK parity as unverified. Do not rename it to 3.1.1-5 or claim it reproduces the APK until the missing source revision or patch is found and pinned.
 
-The WCP internal profile continues to identify its component as DXVK or VKD3D for loader compatibility. Nya appears in the outer artifact filename and provenance metadata.
+The WCP internal profile continues to identify its component as DXVK or VKD3D for loader compatibility. Nya appears in the outer artifact filename and provenance metadata. Before invoking the pinned upstream build recipe, NyaBuild pre-fetches the exact llvm-mingw release archive using bounded curl retries and verifies its locked SHA-256; the upstream script then re-checks that same digest before extraction.
 
 ## Build locally
 
