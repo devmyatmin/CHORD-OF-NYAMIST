@@ -431,14 +431,15 @@ void validateSession(const DeviceSessionSnapshot& session) {
         throw std::invalid_argument("session does not satisfy the schema-v1 profile contract");
     }
     for (const auto& [metric,reading] : telemetry.fresh_readings) {
-        (void)metric;
-        if (!validReading(device,reading,telemetry.aggregated_at_unix_ms,
-                          telemetry.freshness_window_ms,true))
+        if (metric!=reading.metric ||
+            !validReading(device,reading,telemetry.aggregated_at_unix_ms,
+                          telemetry.freshness_window_ms,true) ||
+            telemetry.stale_readings.contains(metric))
             throw std::invalid_argument("session contains invalid fresh telemetry");
     }
     for (const auto& [metric,reading] : telemetry.stale_readings) {
-        (void)metric;
-        if (!validReading(device,reading,telemetry.aggregated_at_unix_ms,
+        if (metric!=reading.metric ||
+            !validReading(device,reading,telemetry.aggregated_at_unix_ms,
                           telemetry.freshness_window_ms,false))
             throw std::invalid_argument("session contains invalid stale telemetry");
     }
@@ -549,7 +550,7 @@ std::vector<std::string> listProfiles(
     for (std::filesystem::directory_iterator it(root,error),end;
          !error && it!=end; it.increment(error)) {
         if (!it->is_regular_file(error) || error) continue;
-        if (it->path().extension()!=extension) continue;
+        if (it->path().extension().string()!=extension) continue;
         const auto key=it->path().stem().string();
         if (isProfileKey(key) && validator(key)) result.push_back(key);
     }
