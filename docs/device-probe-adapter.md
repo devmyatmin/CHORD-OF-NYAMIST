@@ -43,6 +43,10 @@ components, not active Vulkan drivers. Successful physical-device enumeration
 is only discovered; it does not establish queue submission, render/present,
 long-duration stability, or game compatibility.
 
+## Termux device-facts export
+
+Run `chmod +x tools/export-device-probe.sh` once, then `./tools/export-device-probe.sh` in Termux. The script writes a schema-v1 report with Android properties, kernel release, ABI, online CPU count, and memory counters when available. It is read-only and does not require root. Its Vulkan status is deliberately `unavailable`: Termux-side visibility is not treated as evidence for the Vulkan loader/device context used by the game. Import the generated file with `nyamist-cli inspect-device <report.env>` after building the CLI.
+
 ## Next integration boundary
 
 A future collector may populate this format from Android getprop, kernel and

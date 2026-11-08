@@ -97,8 +97,9 @@ pkg update
 pkg install git clang cmake ninja pkg-config python
 git clone https://github.com/devmyatmin/NYAMIST-LAYER.git
 cd NYAMIST-LAYER
-chmod +x tools/termux-probe.sh tools/termux-build-core.sh
+chmod +x tools/termux-probe.sh tools/termux-build-core.sh tools/export-device-probe.sh
 ./tools/termux-probe.sh | tee k80ultra-probe.txt
+./tools/export-device-probe.sh
 ./tools/termux-build-core.sh
 \`\`\`
 
@@ -151,3 +152,6 @@ The Pipeline Gate combines RuntimeCoordinator evidence with a fresh DeviceSessio
 ### Command Advisor
 
 The current advisor is deterministic and rule-based, not an on-device AI model. It uses fresh CPU utilization evidence and a Pipeline Gate decision to propose a bounded shader-worker budget (1–4), one step at a time, with source/timestamp evidence and rollback value. It never applies the proposal. See [Command Advisor contract](docs/command-advisor.md).
+
+
+The schema-v1 exporter records Android device facts from Termux without root. It deliberately marks Vulkan enumeration unavailable because Termux observations do not prove the game's Vulkan loader/device context. See [Device Probe Adapter](docs/device-probe-adapter.md).

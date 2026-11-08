@@ -30,6 +30,7 @@
 ## Phase 2 — Runtime integration and monitoring
 - [x] Add read-only DXVK version/session adapter
 - [x] Add versioned read-only device facts and Vulkan capability report adapters
+- [x] Add read-only Termux schema-v1 device-facts exporter (Vulkan remains explicitly unqueried)
 - [x] Add immutable in-memory schema-v1 DeviceSessionSnapshot and freshness-gated telemetry aggregation
 - [x] Add deterministic Pipeline Gate for session freshness, Vulkan enumeration, and runtime prerequisites
 - [x] Persist versioned device sessions and compatibility profiles with bounded schema-v1 storage, content addressing, and corruption rejection
