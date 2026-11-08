@@ -217,11 +217,13 @@ ComponentReport PanVkAdapter::inspect() const {
     report.descriptor.origin = snapshot_.evidence_source;
 
     const bool device_available = snapshot_.load_success && snapshot_.device_count > 0;
-    const bool render_evidence_valid =
+    const bool render_present_observed =
         snapshot_.render_present_passed &&
         snapshot_.render_present_frames > 0 &&
-        snapshot_.process_exit_code == 0 &&
-        snapshot_.device_lost_events == 0;
+        snapshot_.test_duration_seconds > 0 &&
+        snapshot_.process_exit_code == 0;
+    const bool render_evidence_valid =
+        render_present_observed && snapshot_.device_lost_events == 0;
     const bool sustained_evidence_valid =
         render_evidence_valid &&
         snapshot_.sustained_test_passed &&
@@ -299,7 +301,7 @@ ComponentReport PanVkAdapter::inspect() const {
         report.diagnostics.emplace_back(
             "Sustained-test flag ignored: the recorded duration is below 300 seconds.");
     }
-    if (render_evidence_valid && snapshot_.device_lost_events > 0) {
+    if (render_present_observed && snapshot_.device_lost_events > 0) {
         report.diagnostics.emplace_back(
             "Render evidence rejected because device-lost events were reported.");
     }
