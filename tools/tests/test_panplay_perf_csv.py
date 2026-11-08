@@ -70,8 +70,8 @@ class PanPlayPerfCsvTests(unittest.TestCase):
     def test_frame_timestamp_is_interval_end_and_crosschecks_first_statistics_sample(self):
         data = (
             HEADER
-            + "S,7143973,0,31,48,0,0,4,4,2,15,2,0\\n"
-            + "F,7180018,36044\\n"
+            + "S,7143973,0,31,48,0,0,4,4,2,15,2,0\n"
+            + "F,7180018,36044\n"
         ).encode()
         result = parse_perf_csv(data)
 
