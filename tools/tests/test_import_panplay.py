@@ -167,7 +167,14 @@ class PanPlayImporterTests(unittest.TestCase):
                 + frame_records
             )
             archive.writestr(f"{perf_id}.csv", typed_csv)
-            archive.writestr(f"{perf_id}-sys.csv", "epoch_ms,game_cpu_pct\n0,20\n")
+            archive.writestr(
+                f"{perf_id}-sys.csv",
+                "epoch_ms,procs,game_cpu_pct,game_cpu_cores,sys_cpu_pct,"
+                "game_rss_mb,mem_avail_mb,batt_temp_c,batt_current_ma,"
+                "batt_power_mw,cpu_freq_max_mhz,gpu_freq_mhz,gpu_util_pct,cpu_freqs_mhz\\n"
+                "1794139191000,2,20,1.2,,900,2400,39.5,800,3200,1800,,,500|1800|1800\\n"
+                "1794139192008,3,24,1.5,,950,2300,39.6,900,3500,1900,,,500|1900|1900\\n"
+            )
         return path
 
     def test_imports_d3d11_and_p95_but_keeps_render_validation_discovery_only(self):
@@ -213,6 +220,16 @@ class PanPlayImporterTests(unittest.TestCase):
         self.assertEqual(sidecar["performance"]["csv_stream"]["frame_records"], 3)
         self.assertEqual(sidecar["performance"]["csv_stream"]["statistics_records"], 1)
         self.assertEqual(sidecar["performance"]["csv_stream"]["frametime_p95_ms"], 15.0)
+        self.assertEqual(sidecar["performance"]["system_csv"]["records"], 2)
+        self.assertEqual(
+            sidecar["performance"]["system_csv"]["metrics"]["game_cpu_pct"]["samples"], 2
+        )
+        self.assertFalse(
+            sidecar["performance"]["system_correlation"]["frame_stream_covered_by_system"]
+        )
+        self.assertFalse(
+            sidecar["performance"]["system_correlation"]["causality_inferred"]
+        )
         self.assertEqual(sidecar["device"]["device_facts"]["gpuId"], "0xd8300015")
         self.assertTrue(sidecar["validation"]["automatic_application_allowed"] is False)
 
