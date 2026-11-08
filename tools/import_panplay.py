@@ -556,6 +556,9 @@ def import_archives(
                 if extra["dxvk_log_evidence"]["device_created_confirmed"] else None
             ),
             "feature_level": extra["dxvk_log_evidence"]["feature_level"],
+            "selected_feature_level": extra["dxvk_log_evidence"]["selected_feature_level"],
+            "maximum_feature_level": extra["dxvk_log_evidence"]["maximum_feature_level"],
+            "feature_levels_used": extra["dxvk_log_evidence"]["feature_levels_used"],
             "swapchain_configured_confirmed": extra["dxvk_log_evidence"]["swapchain_configured_confirmed"],
             "swapchain": extra["dxvk_log_evidence"]["swapchain"],
             "render_present_passed": False,
