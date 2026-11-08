@@ -140,7 +140,7 @@ class PanPlayImporterTests(unittest.TestCase):
             "driverVersion": "26.3.0-test",
             "dxvk": "3.1.1-test",
             "dxvkStats": dxvk_stats,
-            "frames": 36000 if dxvk_stats else 0,
+            "frames": 3 if dxvk_stats else 0,
             "durationSec": 360.0,
             "avgFps": 100.0,
             "frametimeP50Ms": 8.0 if dxvk_stats else None,
@@ -154,7 +154,19 @@ class PanPlayImporterTests(unittest.TestCase):
         }
         with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             archive.writestr(f"{perf_id}.json", json.dumps(summary))
-            archive.writestr(f"{perf_id}.csv", "time,frames\n0,100\n")
+            frame_records = (
+                "F,1000000,10000\nF,1010000,15000\nF,1025000,8000\n"
+                if dxvk_stats else ""
+            )
+            typed_csv = (
+                "# F,timestamp_us,frametime_us\n"
+                "# S,timestamp_us,gpu_load_pct,vidmem_used_mb,vidmem_alloc_mb,"
+                "sysmem_used_mb,sysmem_alloc_mb,draw_calls,submissions,renderpasses,"
+                "barriers,graphics_pipelines,compiler_busy\n"
+                "S,1000000,72,128,256,0,0,100,3,2,1,10,0\n"
+                + frame_records
+            )
+            archive.writestr(f"{perf_id}.csv", typed_csv)
             archive.writestr(f"{perf_id}-sys.csv", "epoch_ms,game_cpu_pct\n0,20\n")
         return path
 
@@ -174,7 +186,9 @@ class PanPlayImporterTests(unittest.TestCase):
         self.assertIn("d3d11_selected_feature_level=11_0\n", report)
         self.assertIn("d3d11_maximum_supported_feature_level=11_1\n", report)
         self.assertIn("render_present_passed=false\n", report)
-        self.assertIn("frame_count=36000\n", report)
+        self.assertIn("frame_count=3\n", report)
+        self.assertIn("frame_csv_frame_records=3\n", report)
+        self.assertIn("frame_csv_statistics_records=1\n", report)
         self.assertNotIn("present_calls=", report)
         self.assertNotIn("present_failures=", report)
         self.assertTrue(sidecar["translator"]["device_created_confirmed"])
@@ -196,6 +210,9 @@ class PanPlayImporterTests(unittest.TestCase):
         self.assertFalse(sidecar["translator"]["render_present_passed"])
         self.assertEqual(sidecar["validation"]["level"], "discovered")
         self.assertEqual(sidecar["performance"]["p95_frame_time_microseconds"], 10000)
+        self.assertEqual(sidecar["performance"]["csv_stream"]["frame_records"], 3)
+        self.assertEqual(sidecar["performance"]["csv_stream"]["statistics_records"], 1)
+        self.assertEqual(sidecar["performance"]["csv_stream"]["frametime_p95_ms"], 15.0)
         self.assertEqual(sidecar["device"]["device_facts"]["gpuId"], "0xd8300015")
         self.assertTrue(sidecar["validation"]["automatic_application_allowed"] is False)
 
