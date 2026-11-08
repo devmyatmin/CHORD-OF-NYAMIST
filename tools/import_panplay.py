@@ -18,6 +18,8 @@ import zipfile
 from pathlib import PurePosixPath, Path
 from typing import Any
 
+from panplay_perf_csv import PerfCsvError, parse_perf_csv
+
 MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
 MAX_TOTAL_UNCOMPRESSED = 128 * 1024 * 1024
 MAX_MEMBER_BYTES = 32 * 1024 * 1024
@@ -335,6 +337,14 @@ def _load_performance_archive(path: Path) -> dict[str, Any]:
         unknown = sorted(info.filename for info in files if info.filename not in allowed)
         if unknown:
             raise ImportErrorDetail(f"unexpected performance ZIP member: {unknown[0]}")
+        csv_name = f"{session_id}.csv"
+        if csv_name in {info.filename for info in files}:
+            try:
+                summary["_csv_stream"] = parse_perf_csv(_read_member(archive, csv_name))
+            except PerfCsvError as exc:
+                raise ImportErrorDetail(f"invalid PerfRecorder CSV: {exc}") from exc
+        else:
+            summary["_csv_stream"] = None
         return summary
     finally:
         archive.close()
@@ -401,6 +411,22 @@ def _report_env(
             ("frame_count", str(frames)),
             ("duration_seconds", str(int(duration))),
         ])
+        csv_stream = performance.get("_csv_stream")
+        if isinstance(csv_stream, dict):
+            fields.extend([
+                ("frame_csv_frame_records", str(csv_stream.get("frame_records", 0))),
+                ("frame_csv_statistics_records", str(csv_stream.get("statistics_records", 0))),
+            ])
+            if isinstance(csv_stream.get("frame_timestamp_span_seconds"), (int, float)):
+                fields.append((
+                    "frame_csv_timestamp_span_seconds",
+                    str(csv_stream["frame_timestamp_span_seconds"]),
+                ))
+            if isinstance(csv_stream.get("avg_fps_from_frame_times"), (int, float)):
+                fields.append((
+                    "frame_csv_avg_fps",
+                    str(csv_stream["avg_fps_from_frame_times"]),
+                ))
     exit_code = session.get("exit")
     if isinstance(exit_code, int) and not isinstance(exit_code, bool):
         fields.append(("process_exit_code", str(exit_code)))
@@ -447,17 +473,25 @@ def import_archives(
         if not isinstance(_required_dxvk_stats, bool):
             raise ImportErrorDetail("performance dxvkStats must be a boolean")
         if _required_dxvk_stats:
-            _integer(performance, "frames", minimum=1)
+            expected_frames = _integer(performance, "frames", minimum=1)
             _finite_number(performance, "durationSec", minimum=0.001,
                            maximum=86_400.0, optional=False)
             for key in ("frametimeP50Ms", "frametimeP95Ms", "frametimeP99Ms"):
                 _finite_number(performance, key, minimum=0.000001,
                                maximum=120_000.0, optional=False)
         else:
+            expected_frames = 0
             # A performance record without DXVK frame samples is still useful for
             # system telemetry, but it cannot supply a DXVK p95 comparison metric.
             if performance.get("frames") not in (None, 0):
                 raise ImportErrorDetail("frames must be zero/absent when dxvkStats is false")
+        csv_stream = performance.get("_csv_stream")
+        if isinstance(csv_stream, dict):
+            actual_frames = csv_stream.get("frame_records")
+            if actual_frames != expected_frames:
+                raise ImportErrorDetail(
+                    f"PerfRecorder CSV frame count ({actual_frames}) does not match summary ({expected_frames})"
+                )
 
     device = manifest.get("device")
     android = manifest.get("android")
@@ -503,6 +537,8 @@ def import_archives(
         if performance.get("dxvkStats") is True and p95_ms is not None:
             performance_summary["p95_frame_time_microseconds"] = int(round(float(p95_ms) * 1000.0))
         performance_summary["dxvk_stats"] = performance["dxvkStats"]
+        if isinstance(performance.get("_csv_stream"), dict):
+            performance_summary["csv_stream"] = performance["_csv_stream"]
 
     manifest_info = session.get("manifestInfo")
     if not isinstance(manifest_info, dict):
@@ -580,6 +616,7 @@ def import_archives(
         "notes": [
             "PanPlay's deviceLost field is a log scan, not an explicit zero-event counter.",
             "DXVK D3D11 feature-level log confirms device creation; actual swapchain properties confirm setup only.",
+            "PerfRecorder typed CSV has separate frame (F) and statistics (S) records; CSV aggregates are retained without raw samples.",
             "PerfRecorder DXVK frame statistics and swapchain setup do not prove successful Vulkan Present calls.",
             "Do not promote this import to smoke_tested or sustained_tested without successful Present evidence, zero failure/device-loss counters, and normal process-exit evidence.",
         ],
