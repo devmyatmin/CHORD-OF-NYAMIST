@@ -22,9 +22,9 @@ target_link_libraries(nyamist_runtime PUBLIC nyamist_core)
 
 foreach(target nyamist_core nyamist_runtime)
     if(MSVC)
-        target_compile_options(\${target} PRIVATE /W4 /permissive-)
+        target_compile_options(${target} PRIVATE /W4 /permissive-)
     else()
-        target_compile_options(\${target} PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
     endif()
 endforeach()
 
