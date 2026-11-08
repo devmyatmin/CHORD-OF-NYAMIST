@@ -77,16 +77,16 @@ class PanPlaySystemCsvTests(unittest.TestCase):
             frame_stream={
                 "frame_timestamp_start_us": 3_500_000,
                 "frame_timestamp_end_us": 3_500_000,
-                "frame_interval_start_timestamp_us": 1_000_000,
+                "frame_interval_start_timestamp_us": 1_500_000,
                 "frame_timestamp_span_seconds": 0.0,
-                "frametime_sum_seconds": 2.5,
+                "frametime_sum_seconds": 2.0,
                 "frame_timestamp_semantics": "interval_end",
                 "largest_frame_stalls": [
                     {
                         "frame_timestamp_us": 3_500_000,
-                        "interval_start_timestamp_us": 1_000_000,
+                        "interval_start_timestamp_us": 1_500_000,
                         "interval_end_timestamp_us": 3_500_000,
-                        "frametime_ms": 2500.0,
+                        "frametime_ms": 2000.0,
                     }
                 ],
             },
@@ -98,11 +98,13 @@ class PanPlaySystemCsvTests(unittest.TestCase):
         self.assertTrue(result["frame_stream_covered_by_system"])
         self.assertFalse(result["causality_inferred"])
         window = result["largest_frame_stalls"][0]
-        self.assertEqual(window["system_samples_in_frame_interval"], 3)
-        self.assertEqual(window["frame_interval_start_relative_seconds"], 1.0)
+        self.assertEqual(window["system_samples_in_frame_interval"], 2)
+        self.assertEqual(window["frame_interval_start_relative_seconds"], 1.5)
         self.assertEqual(window["frame_interval_end_relative_seconds"], 3.5)
-        self.assertEqual(window["metrics"]["game_cpu_pct"]["median"], 30.0)
+        self.assertEqual(window["metrics"]["game_cpu_pct"]["median"], 35.0)
         self.assertEqual(window["metrics"]["batt_temp_c"]["max"], 41.0)
+        self.assertEqual(window["nearest_prior_system_sample_delta_seconds"], 0.5)
+        self.assertEqual(window["nearest_following_system_sample_delta_seconds"], 0.5)
 
     def test_missing_system_coverage_is_reported_not_fabricated(self):
         data = (

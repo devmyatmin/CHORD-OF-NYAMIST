@@ -253,12 +253,13 @@ def correlate_frame_stalls(
 
         before_index = first_index - 1
         after_index = last_index
+        # Epoch values are milliseconds; exported field names are seconds.
         before_delta = (
-            round(start_epoch - epochs[before_index], 3)
+            round((start_epoch - epochs[before_index]) / 1000.0, 6)
             if before_index >= 0 else None
         )
         after_delta = (
-            round(epochs[after_index] - end_epoch, 3)
+            round((epochs[after_index] - end_epoch) / 1000.0, 6)
             if after_index < len(epochs) else None
         )
         windows.append({

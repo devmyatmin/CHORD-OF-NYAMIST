@@ -158,8 +158,9 @@ selecting system samples.
 
 The epoch mapping from `performance.startMs` to system `epoch_ms` remains
 provisional because the export does not explicitly document a shared
-epoch/monotonic clock origin. Coverage and nearest-sample offsets are recorded;
-no causal diagnosis is inferred. Do not use these correlations to authorize
+epoch/monotonic clock origin. Coverage and nearest-sample offsets are recorded
+in seconds (converted from the system CSV's millisecond epoch values); no
+causal diagnosis is inferred. Do not use these correlations to authorize
 tuning until the epoch anchor is independently verified against the exporter
 implementation or a shared clock anchor.
 
