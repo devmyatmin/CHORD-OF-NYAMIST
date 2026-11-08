@@ -77,5 +77,5 @@ Never duplicate, rewrite, or delete another component's cache.
 3. Add a versioned session/compatibility profile store and persist validated evidence (store implemented; live collector integration remains pending).
 4. Add sustained D3D11 test evidence and keep it as the default target.
 5. Add the D3D12 adapter as experimental, preserving the observed FL11_1 ceiling.
-6. Add monitor aggregation and deterministic A/B evaluation.
+6. Add monitor aggregation and deterministic A/B evaluation (evaluator implemented; live telemetry collector and controlled workload harness remain pending).
 7. Introduce a local AI advisor only after structured telemetry and repeatable baselines exist.
