@@ -172,7 +172,7 @@ class PanPlayImporterTests(unittest.TestCase):
                 "epoch_ms,procs,game_cpu_pct,game_cpu_cores,sys_cpu_pct,"
                 "game_rss_mb,mem_avail_mb,batt_temp_c,batt_current_ma,"
                 "batt_power_mw,cpu_freq_max_mhz,gpu_freq_mhz,gpu_util_pct,cpu_freqs_mhz\n"
-                "1794139191000,2,20,1.2,,900,2400,39.5,800,3200,1800,,,500|1800|1800\n"
+                "1794139190990,2,20,1.2,,900,2400,39.5,800,3200,1800,,,500|1800|1800\n"
                 "1794139192008,3,24,1.5,,950,2300,39.6,900,3500,1900,,,500|1900|1900\n"
             )
         return path
