@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <span>
 #include <stdexcept>
@@ -173,8 +174,9 @@ std::string savePayload(
             const auto declared_size = parseSize(size_text);
             const auto position = input.tellg();
             if (!declared_size || *declared_size != payload.size() ||
-                position == std::streampos(-1) ||
-                file_size - static_cast<std::uintmax_t>(position) != *declared_size) {
+                position == std::streampos(-1)) return std::nullopt;
+            const auto offset = static_cast<std::uintmax_t>(position);
+            if (file_size < offset || file_size - offset != *declared_size) {
                 return std::nullopt;
             }
             std::vector<std::byte> data(*declared_size);
