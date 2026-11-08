@@ -38,7 +38,7 @@ DXVK translates D3D11/DXGI commands to Vulkan. PanVK implements Vulkan. The kern
 | Pipeline gate | Deterministic readiness decisions | Does not launch games or change settings |
 | Profile store | Versioned device/session/compatibility evidence | NYAMIST data only |
 | A/B evaluator | Repeated workload comparison | Reports evidence; never applies settings |
-| Advisor | Bounded optimization proposals | Automatic application remains disabled |
+| Advisor | Deterministic bounded proposals; optional local-model analysis after capture | Model is advisory; deterministic policy remains authoritative |
 
 Readiness levels are deliberately strict:
 - **unavailable** — required component or capability is absent.
