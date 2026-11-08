@@ -8,7 +8,7 @@ NYAMIST coordinates independently maintained graphics components through read-on
 
 ## Modular runtime
 
-```text
+\`\`\`text
 D3D11 game -> Wine/FEX/Box64 -> DXVK --------+
                                              +-> Android Vulkan loader -> PanVK -> Mali GPU
 D3D12 game -> Wine/FEX/Box64 -> VKD3D-Proton-+
@@ -16,7 +16,7 @@ D3D12 game -> Wine/FEX/Box64 -> VKD3D-Proton-+
 NYAMIST sidecar:
   Core | Component Registry | Runtime Coordinator
   Device Profiles | Validation | Advisor | Monitor
-```
+\`\`\`
 
 - **DXVK** translates Direct3D 9/10/11 to Vulkan.
 - **VKD3D-Proton** translates Direct3D 12 to Vulkan.
@@ -38,6 +38,7 @@ The binary representation reduces cache payload size, but device-side throughput
 ## Current implementation
 
 - Portable C++20 core, deterministic fingerprinting, and validated binary metadata cache with V1 read compatibility.
+- V1-versus-V2 cache microbenchmark for file size, write latency, and warm-read latency.
 - Rule-based optimization advisor interface.
 - Component probe registry and runtime readiness coordinator.
 - Read-only PanVK, DXVK, and VKD3D-Proton report adapters with CLI inspection and evidence-gated validation levels.
@@ -46,28 +47,34 @@ The binary representation reduces cache payload size, but device-side throughput
 
 External graphics components are inspected and coordinated, not vendored or loaded by the NYAMIST core. Their own shader/pipeline caches remain under their ownership.
 
-## Current REDMI K80 Ultra test status
-
-As of 2026-11-08, PanVK RC5 PanProbe reported 41/41 passing. User-run DXVK D3D11 tests reached feature level 11_1; VKD3D-Proton D3D12 tests reached feature level 11_1, while 12_0–12_2 remained unsupported. The 20-second tests exited normally. These are experimental discovery/smoke-test results, not sustained-stability or broad game-compatibility certification.
-
 ## Build
 
 Requirements: CMake 3.20+ and a C++20 compiler.
 
-```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON
+\`\`\`sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON -DNYAMIST_BUILD_BENCHMARKS=ON
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ./build/nyamist-cli inspect-panvk configs/panvk-rc5-redmi-k80-ultra.example.env
 ./build/nyamist-cli inspect-dxvk configs/dxvk-d3d11-report.template.env
 ./build/nyamist-cli inspect-vkd3d configs/vkd3d-d3d12-report.template.env
-```
+\`\`\`
 
 All three inspection commands read normalized evidence files only; they do not load or activate drivers or translators. The checked-in templates remain at the discovered level until matching render/present counters are explicitly captured.
 
-### Termux
+### Termux cache benchmark
 
-```sh
+After pulling the latest branch and running the Termux build:
+
+\`\`\`sh
+./build-termux/nyamist-cache-bench "$HOME/nyamist-cache-benchmark" 4 10
+\`\`\`
+
+The final arguments are payload size in MiB (1–64) and iteration count (3–100). The benchmark compares V1 hexadecimal storage with V2 binary storage, verifies that both return identical bytes, and reports cache-file size plus median write and warm-read latency. It uses synthetic data and a warm filesystem cache; it does not measure game FPS, GPU throughput, cold-storage latency, or total device RAM.
+
+### Termux build
+
+\`\`\`sh
 pkg update
 pkg install git clang cmake ninja pkg-config python
 git clone https://github.com/devmyatmin/NYAMIST-LAYER.git
@@ -75,14 +82,14 @@ cd NYAMIST-LAYER
 chmod +x tools/termux-probe.sh tools/termux-build-core.sh
 ./tools/termux-probe.sh | tee k80ultra-probe.txt
 ./tools/termux-build-core.sh
-```
+\`\`\`
 
 The probe is read-only. It does not change the stock driver or require privileged GPU access. The portable core build is not a PanVK driver build.
 
 ## Safety boundaries
 
 - Keep the stock Android Vulkan driver intact as a rollback path.
-- Never overwrite vendor Vulkan libraries, chmod `/dev/mali0`, flash a kernel, or weaken SELinux.
+- Never overwrite vendor Vulkan libraries, chmod \`/dev/mali0\`, flash a kernel, or weaken SELinux.
 - Do not take ownership of DXVK, VKD3D-Proton, or PanVK caches.
 - Advisor recommendations remain advisory until deterministic validation and A/B tests pass.
 
