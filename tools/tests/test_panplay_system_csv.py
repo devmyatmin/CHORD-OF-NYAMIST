@@ -75,12 +75,19 @@ class PanPlaySystemCsvTests(unittest.TestCase):
             session_start_ms=1_000_500,
             session_duration_seconds=8,
             frame_stream={
-                "frame_timestamp_start_us": 1_000_000,
-                "frame_timestamp_end_us": 3_000_000,
-                "frame_timestamp_span_seconds": 2.0,
+                "frame_timestamp_start_us": 3_501_000,
+                "frame_timestamp_end_us": 3_501_000,
+                "frame_interval_start_timestamp_us": 1_001_000,
+                "frame_timestamp_span_seconds": 0.0,
                 "frametime_sum_seconds": 2.5,
+                "frame_timestamp_semantics": "interval_end",
                 "largest_frame_stalls": [
-                    {"frame_timestamp_us": 1_000_000, "frametime_ms": 2500.0}
+                    {
+                        "frame_timestamp_us": 3_501_000,
+                        "interval_start_timestamp_us": 1_001_000,
+                        "interval_end_timestamp_us": 3_501_000,
+                        "frametime_ms": 2500.0,
+                    }
                 ],
             },
             system_summary=summary,
@@ -92,6 +99,8 @@ class PanPlaySystemCsvTests(unittest.TestCase):
         self.assertFalse(result["causality_inferred"])
         window = result["largest_frame_stalls"][0]
         self.assertEqual(window["system_samples_in_frame_interval"], 3)
+        self.assertEqual(window["frame_interval_start_relative_seconds"], 1.001)
+        self.assertEqual(window["frame_interval_end_relative_seconds"], 3.501)
         self.assertEqual(window["metrics"]["game_cpu_pct"]["median"], 30.0)
         self.assertEqual(window["metrics"]["batt_temp_c"]["max"], 41.0)
 
@@ -109,8 +118,9 @@ class PanPlaySystemCsvTests(unittest.TestCase):
             session_start_ms=100_000,
             session_duration_seconds=10,
             frame_stream={
-                "frame_timestamp_start_us": 1_000_000,
+                "frame_timestamp_start_us": 2_000_000,
                 "frame_timestamp_end_us": 2_000_000,
+                "frame_interval_start_timestamp_us": 1_000_000,
                 "largest_frame_stalls": [],
             },
             system_summary=summary,
