@@ -50,10 +50,67 @@ void testCacheRoundTripAndInvalidation(const std::filesystem::path& root) {
     check(nyamist::fingerprint(*loaded) == nyamist::fingerprint(payload),
           "cache payload bytes must round-trip");
 
+    const auto path = root / (store.keyFor(identity) + ".nyc");
+    std::ifstream input(path, std::ios::binary);
+    std::string magic;
+    check(static_cast<bool>(std::getline(input, magic)) && magic == "NYAMIST_CACHE_V2",
+          "new cache entries must use compact binary V2 format");
+
     auto changed_driver = identity;
     changed_driver.driver_version = "test-driver-2";
     check(!store.load(changed_driver).has_value(),
           "driver version change must invalidate cache identity");
+}
+
+void testBinaryPayloadRoundTrip(const std::filesystem::path& root) {
+    nyamist::CacheStore store(root);
+    const auto identity = sampleIdentity();
+    const std::vector<std::byte> payload{
+        std::byte{0x00}, std::byte{0xff}, std::byte{0x10},
+        std::byte{0x00}, std::byte{0x7f}, std::byte{0x80}
+    };
+
+    store.saveValidated(identity, payload, true);
+    const auto loaded = store.load(identity);
+    check(loaded.has_value() && *loaded == payload,
+          "binary cache must preserve null and non-text bytes exactly");
+}
+
+void testLegacyV1CacheRead(const std::filesystem::path& root) {
+    nyamist::CacheStore store(root);
+    const auto identity = sampleIdentity();
+    const std::string payload_text = "legacy";
+    const auto path = root / (store.keyFor(identity) + ".nyc");
+    std::filesystem::create_directories(root);
+    {
+        std::ofstream output(path, std::ios::binary | std::ios::trunc);
+        output << "NYAMIST_CACHE_V1\n"
+               << store.keyFor(identity) << '\n'
+               << nyamist::fingerprint(payload_text) << '\n'
+               << "6c6567616379\n";
+    }
+
+    const auto loaded = store.load(identity);
+    check(loaded.has_value(), "legacy V1 cache entries must remain readable");
+    check(nyamist::fingerprint(*loaded) == nyamist::fingerprint(payload_text),
+          "legacy V1 payload must retain its exact contents");
+}
+
+void testTruncatedV2EntryRejected(const std::filesystem::path& root) {
+    nyamist::CacheStore store(root);
+    const auto identity = sampleIdentity();
+    std::filesystem::create_directories(root);
+    const auto path = root / (store.keyFor(identity) + ".nyc");
+    {
+        std::ofstream output(path, std::ios::binary | std::ios::trunc);
+        output << "NYAMIST_CACHE_V2\n"
+               << store.keyFor(identity) << '\n'
+               << nyamist::fingerprint("12345") << '\n'
+               << "5\n"
+               << "12";
+    }
+    check(!store.load(identity).has_value(),
+          "truncated binary cache payloads must be rejected");
 }
 
 void testValidationGate(const std::filesystem::path& root) {
@@ -113,6 +170,9 @@ int main() {
 
         testFingerprint();
         testCacheRoundTripAndInvalidation(root / "roundtrip");
+        testBinaryPayloadRoundTrip(root / "binary");
+        testLegacyV1CacheRead(root / "legacy-v1");
+        testTruncatedV2EntryRejected(root / "truncated-v2");
         testValidationGate(root / "validation");
         testCorruptEntryRejected(root / "corrupt");
         testRuleBasedAdvisor();
