@@ -14,6 +14,7 @@ target_compile_features(nyamist_core PUBLIC cxx_std_20)
 add_library(nyamist_runtime
     src/runtime/component_registry.cpp
     src/runtime/runtime_coordinator.cpp
+    src/runtime/panvk_adapter.cpp
 )
 target_include_directories(nyamist_runtime PUBLIC include)
 target_compile_features(nyamist_runtime PUBLIC cxx_std_20)
@@ -21,9 +22,9 @@ target_link_libraries(nyamist_runtime PUBLIC nyamist_core)
 
 foreach(target nyamist_core nyamist_runtime)
     if(MSVC)
-        target_compile_options(${target} PRIVATE /W4 /permissive-)
+        target_compile_options(\${target} PRIVATE /W4 /permissive-)
     else()
-        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
+        target_compile_options(\${target} PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
     endif()
 endforeach()
 
@@ -40,4 +41,8 @@ if(NYAMIST_BUILD_TESTS)
     add_executable(nyamist-runtime-tests tests/runtime_tests.cpp)
     target_link_libraries(nyamist-runtime-tests PRIVATE nyamist_runtime)
     add_test(NAME nyamist-runtime-tests COMMAND nyamist-runtime-tests)
+
+    add_executable(nyamist-panvk-tests tests/panvk_adapter_tests.cpp)
+    target_link_libraries(nyamist-panvk-tests PRIVATE nyamist_runtime)
+    add_test(NAME nyamist-panvk-adapter-tests COMMAND nyamist-panvk-tests)
 endif()
