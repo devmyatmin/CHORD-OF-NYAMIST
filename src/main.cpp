@@ -1,6 +1,9 @@
 #include "nyamist/cache_store.hpp"
 #include "nyamist/fingerprint.hpp"
 #include "nyamist/optimization_advisor.hpp"
+#include "nyamist/runtime/device_probe_adapter.hpp"
+#include "nyamist/runtime/panvk_adapter.hpp"
+#include "nyamist/runtime/translator_adapters.hpp"
 
 #include <cstddef>
 #include <iostream>
@@ -12,11 +15,26 @@ namespace {
 
 void printUsage() {
     std::cout
-        << "NYAMIST-LAYER prototype\n"
+        << "NYAMIST Graphics Runtime\n"
         << "Usage:\n"
         << "  nyamist-cli advice\n"
         << "  nyamist-cli fingerprint <text>\n"
-        << "  nyamist-cli demo-cache <directory>\n";
+        << "  nyamist-cli demo-cache <directory>\n"
+        << "  nyamist-cli inspect-panvk <report.env>\n"
+        << "  nyamist-cli inspect-device <report.env>\n"
+        << "  nyamist-cli inspect-dxvk <report.env>\n"
+        << "  nyamist-cli inspect-vkd3d <report.env>\n";
+}
+
+const char* validationName(nyamist::runtime::ValidationLevel level) {
+    using nyamist::runtime::ValidationLevel;
+    switch (level) {
+    case ValidationLevel::unavailable: return "unavailable";
+    case ValidationLevel::discovered: return "discovered";
+    case ValidationLevel::smoke_tested: return "smoke_tested";
+    case ValidationLevel::sustained_tested: return "sustained_tested";
+    }
+    return "unknown";
 }
 
 int runAdvice() {
@@ -68,6 +86,81 @@ int runDemoCache(const std::string& directory) {
     return 0;
 }
 
+void printMonitorReport(const nyamist::runtime::ComponentReport& report) {
+    std::cout << "Component: " << report.descriptor.id << '\n'
+              << "Origin: " << report.descriptor.origin << '\n'
+              << "Validation: " << validationName(report.validation) << '\n';
+    for (const auto& capability : report.capabilities) {
+        std::cout << "[capability] " << capability << '\n';
+    }
+    for (const auto& diagnostic : report.diagnostics) {
+        std::cout << "[diagnostic] " << diagnostic << '\n';
+    }
+}
+
+int runInspectDevice(const std::string& report_path) {
+    try {
+        const auto snapshot = nyamist::runtime::DeviceProbeReportParser::fromFile(report_path);
+        const auto device = nyamist::runtime::DeviceFactsAdapter(snapshot).inspect();
+        const auto vulkan = nyamist::runtime::VulkanCapabilityAdapter(snapshot).inspect();
+        printMonitorReport(device);
+        std::cout << '\n';
+        printMonitorReport(vulkan);
+        return device.validation == nyamist::runtime::ValidationLevel::unavailable ? 1 : 0;
+    } catch (const std::exception& error) {
+        std::cerr << "Device probe inspection failed: " << error.what() << '\n';
+        return 1;
+    }
+}
+
+int runInspectPanvk(const std::string& report_path) {
+    try {
+        const auto adapter =
+            nyamist::runtime::PanVkAdapter::fromReportFile(report_path);
+        const auto report = adapter.inspect();
+
+        std::cout << "Component: " << report.descriptor.id << '\n'
+                  << "Driver: " << report.descriptor.version << '\n'
+                  << "Origin: " << report.descriptor.origin << '\n'
+                  << "Validation: " << validationName(report.validation) << '\n';
+
+        for (const auto& capability : report.capabilities) {
+            std::cout << "[capability] " << capability << '\n';
+        }
+        for (const auto& diagnostic : report.diagnostics) {
+            std::cout << "[diagnostic] " << diagnostic << '\n';
+        }
+        return report.validation == nyamist::runtime::ValidationLevel::unavailable ? 1 : 0;
+    } catch (const std::exception& error) {
+        std::cerr << "PanVK report inspection failed: " << error.what() << '\n';
+        return 1;
+    }
+}
+
+template <typename Adapter>
+int runInspectTranslator(const std::string& report_path, const char* label) {
+    try {
+        const auto adapter = Adapter::fromReportFile(report_path);
+        const auto report = adapter.inspect();
+
+        std::cout << "Component: " << report.descriptor.id << '\n'
+                  << "Version: " << report.descriptor.version << '\n'
+                  << "Origin: " << report.descriptor.origin << '\n'
+                  << "Validation: " << validationName(report.validation) << '\n';
+
+        for (const auto& capability : report.capabilities) {
+            std::cout << "[capability] " << capability << '\n';
+        }
+        for (const auto& diagnostic : report.diagnostics) {
+            std::cout << "[diagnostic] " << diagnostic << '\n';
+        }
+        return report.validation == nyamist::runtime::ValidationLevel::unavailable ? 1 : 0;
+    } catch (const std::exception& error) {
+        std::cerr << label << " report inspection failed: " << error.what() << '\n';
+        return 1;
+    }
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -86,6 +179,18 @@ int main(int argc, char** argv) {
     }
     if (command == "demo-cache" && argc >= 3) {
         return runDemoCache(argv[2]);
+    }
+    if (command == "inspect-panvk" && argc == 3) {
+        return runInspectPanvk(argv[2]);
+    }
+    if (command == "inspect-device" && argc == 3) {
+        return runInspectDevice(argv[2]);
+    }
+    if (command == "inspect-dxvk" && argc == 3) {
+        return runInspectTranslator<nyamist::runtime::DxvkAdapter>(argv[2], "DXVK");
+    }
+    if (command == "inspect-vkd3d" && argc == 3) {
+        return runInspectTranslator<nyamist::runtime::Vkd3dProtonAdapter>(argv[2], "VKD3D-Proton");
     }
 
     printUsage();

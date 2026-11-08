@@ -1,33 +1,36 @@
 # Termux workflow
 
-Termux is the first device-side development environment for NYAMIST. Use it for source checkout, portable C++ builds, logs, and read-only hardware probing.
+Use Termux for source checkout, portable C++ builds, local logs and read-only device probing.
 
-## One-time setup
+## Setup
 
-```sh
+~~~sh
 pkg update
 pkg install git clang cmake ninja pkg-config python
-```
+~~~
 
-## Clone and probe
+## Checkout the focused baseline
 
-```sh
-git clone https://github.com/devmyatmin/NYAMIST-LAYER.git
+~~~sh
+git clone -b baseline/dx11-first https://github.com/devmyatmin/NYAMIST-LAYER.git
 cd NYAMIST-LAYER
-chmod +x tools/termux-probe.sh tools/termux-build-core.sh
+chmod +x tools/termux-probe.sh tools/termux-build-core.sh tools/export-device-probe.sh
+~~~
+
+After the baseline is merged, use the repository's `main` branch instead.
+
+## Probe and build
+
+~~~sh
 ./tools/termux-probe.sh | tee k80ultra-probe.txt
-```
-
-## Build the NYAMIST portable core
-
-```sh
+./tools/export-device-probe.sh
 ./tools/termux-build-core.sh
-```
+~~~
 
-The script configures CMake, builds the C++20 core, runs unit tests, and prints the target-profile advisor output. It does not build PanVK, DXVK, Wine, or a game runtime.
+The probe/export scripts are read-only. The C++20 build configures CMake, compiles NYAMIST, and runs unit tests. It does not build PanVK, DXVK, Wine/FEX/Box64, or a Windows game.
 
-## What to send back
+A Termux permission denial for `/dev/mali0` does not prove the GPU is unsupported. Validate PanVK through its intended app-local launcher path. Never chmod the Mali device node, replace vendor libraries, flash a kernel, or weaken SELinux.
 
-Send the complete contents of `k80ultra-probe.txt`, after redacting any device build fingerprint if desired. In particular, the Vulkan summary, Android API level, ABI, and `/dev/mali0` visibility determine the next integration step.
+## Report handling
 
-Do not run `chmod 666 /dev/mali0`, do not replace vendor libraries, and do not flash a kernel or driver. The probe is read-only.
+Review and redact device build fingerprints before sharing a probe report. Keep the raw PanProbe/PanPlay exports alongside normalized NYAMIST reports; normalized metadata is not a substitute for the original evidence.

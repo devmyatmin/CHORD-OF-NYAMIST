@@ -1,58 +1,76 @@
-# PanVK and DX11 on REDMI K80 Ultra — next device test
+# PanVK + DXVK validation — REDMI K80 Ultra
 
-## Current local baseline
+Last updated: 2026-11-08
 
-The user's `vulkaninfo --summary` output on REDMI K80 Ultra still reports:
+## Device and test scope
 
-- `driverID = DRIVER_ID_ARM_PROPRIETARY`
-- `driverName = Mali-G925-Immortalis MC12`
-- physical-device API version `1.3.278`
-- driver version `49.1.0`
+Target device: REDMI K80 Ultra, MediaTek Dimensity 9400+ / MT6991, Immortalis-G925 MC12, Android 16, arm64-v8a.
 
-This is the stock ARM Vulkan driver. It is a successful Vulkan enumeration checkpoint, not a PanVK or DXVK test. The missing `large_page_conf` sysfs parameter warning and missing `DISPLAY` message did not prevent physical-device enumeration; surface details were skipped because no display was configured in the Termux shell.
+PanVK was tested through the PanPlay/PanProbe app-local bundled/imported driver path. The stock Android Vulkan driver was not replaced.
 
-## Current upstream candidate
+## PanVK RC5 results
 
-The `zenithblue-oss/panvk-kbase-android` project currently documents a universal Android PanVK driver for Mali kbase architectures v6–v14, including v13 Immortalis-G925. Its README's device matrix records a Galaxy Tab S11 Ultra (Immortalis-G925 MC12) PanProbe 41/41 and PanPlay pass. This is encouraging same-GPU-family evidence, but it is not proof for the REDMI K80 Ultra firmware, kernel UAPI, memory allocator, or display path.
+- Imported PanVK .so: load success, one Vulkan device enumerated, PanProbe 41/41.
+- Bundled Mesa PanVK RC5: load success, one Vulkan device enumerated, PanProbe 41/41.
+- PanVK reported Mesa 26.3.0-devel (git-795ca7ff3e, build dated 2026-10-31), Vulkan API 1.4.363.
+- GPU identified through the kbase path as gpu_id 0xd8300015, CSF UAPI 1.30, architecture v13 / G925-family.
+- The app logged a non-conformant/testing-only warning and no gralloc hwmodule, using fallback gralloc. This does not prove Android surface presentation is broken; it remains a separate validation item.
+- RC5 did not show the shader-cache permission warning observed in the RC4 run.
 
-The project also provides PanPlay, an Android Windows-game launcher bundling Wine/Proton, FEX-Emu and PanVK. Its documented D3D9/D3D10/D3D11 path uses DXVK and supports D3D11 feature levels 10_0 through 11_1. Its PanProbe app provides 41 Vulkan tests. D3D12 feature level 12_x is documented as unsupported; DX12 remains out of this project's first milestone.
+## D3D11 / DXVK results
 
-Upstream references:
-- Repository: https://github.com/zenithblue-oss/panvk-kbase-android
-- Driver releases: https://github.com/zenithblue-oss/panvk-kbase-android/releases
-- PanPlay releases: https://github.com/zenithblue-oss/panvk-kbase-android/releases
-- PanProbe releases: https://github.com/zenithblue-oss/panvk-kbase-android/releases
+ARM64EC D3D11 feature-level test:
+- D3D_FEATURE_LEVEL_10_0: PASS
+- D3D_FEATURE_LEVEL_10_1: PASS
+- D3D_FEATURE_LEVEL_11_0: PASS
+- D3D_FEATURE_LEVEL_11_1: PASS
+- DXVK reported maximum and selected feature level 11_1.
+- 27,508 frames over 20 seconds; test-reported 1,375.3 FPS.
+- Wine exit code 0; no tombstone reported by the app.
 
-## Recommended validation sequence
+Synthetic D3D11 Cube benchmark:
+- 1280x720, 20,077 frames over about 23.96 seconds.
+- Reported average 838.1 FPS; 1% low 157.5 FPS; 0.1% low 47.1 FPS.
+- Average GPU load about 92.6%.
+- This is a small synthetic benchmark, not a real-game performance estimate. Stutter count and frame-time tails need further investigation.
 
-Use the upstream Android apps as a controlled reference test before attempting to integrate a driver into NYAMIST:
+## D3D12 / VKD3D-Proton results
 
-1. Install PanPlay and PanProbe from the upstream project's official releases only. Do not install a random repack or copy a driver into Android system directories.
-2. Run PanProbe's full test suite. Save the result and the reported `driverInfo`.
-3. Confirm that the driver identity says `panvk` / Mesa PanVK, not `Mali-G925-Immortalis MC12` / ARM proprietary.
-4. In PanPlay, add a small user-owned D3D11 test application and explicitly select DXVK (or Auto if the launch report confirms DXVK).
-5. Capture the PanPlay session log, D3D11 feature level, rendered output, and whether the app exits normally.
-6. If PanProbe or PanPlay crashes, stop and collect logs. Do not change permissions on `/dev/mali0`, replace vendor libraries, flash a kernel, or disable Android security controls.
-7. Only after repeatable PanVK + DXVK success should NYAMIST begin collecting profiles and recommending policy changes.
+ARM64EC D3D12 feature-level test:
+- D3D_FEATURE_LEVEL_11_0: PASS
+- D3D_FEATURE_LEVEL_11_1: PASS
+- D3D_FEATURE_LEVEL_12_0, 12_1, 12_2: UNSUPPORTED
+- Highest reported feature level: 11_1.
+- 19,003 frames over 20 seconds; test-reported 950.0 FPS.
+- Repeated Present calls returned hr=0x00000000.
+- Wine exit code 0; no tombstone reported by the app.
 
-## Important test interpretation
+Shader Model 6.6/6.7/6.8 messages in the VKD3D log are not equivalent to D3D12 feature level 12_x support.
 
-- PanProbe passing validates the tested Vulkan functionality, not every DXVK feature or every game.
-- A D3D11 cube/demo passing is a smoke test, not proof that a large game works.
-- The Galaxy Tab S11 Ultra G925 result is reference evidence, not a K80 Ultra result.
-- Keep the stock ARM driver intact as the fallback. The upstream launcher should select its bundled driver through its supported app-local mechanism.
-- NYAMIST should initially observe and record the upstream runtime; it should not patch DXVK or intercept Vulkan calls.
+## Interpretation
 
-## NYAMIST integration boundary
+These results provide positive PanVK load, Vulkan feature-test, D3D11/DXVK, and D3D12/VKD3D smoke-test evidence on this device. The feature-level applications exited normally after their approximately 20-second test windows; that is not evidence of a GPU crash.
 
-The near-term NYAMIST deliverable is a versioned device/runtime profile and read-only diagnostics adapter that can record:
+Not yet established:
+- 5–10 minute sustained rendering stability;
+- broad commercial-game compatibility;
+- full Android gralloc/surface behavior across launchers;
+- visual correctness across complex workloads;
+- reliable GPU telemetry under Android SELinux restrictions;
+- production readiness.
 
-- GPU identity and architecture;
-- Vulkan driver name, info, and API version;
-- PanProbe test summary;
-- Wine/FEX/Box64 and DXVK versions;
-- D3D11 feature level;
-- game launch outcome and session-log reference;
-- cold/warm run timings and memory/thermal observations where available.
+## Safety and rollback
 
-Any optimization remains advisory until it has a repeatable A/B result. DXVK owns its own shader/pipeline cache. NYAMIST stores only its own validated metadata.
+- Keep the stock ARM Vulkan driver intact.
+- Use only the driver's supported app-local selection mechanism.
+- Do not overwrite /vendor, chmod /dev/mali0, flash a kernel, or weaken SELinux.
+- DXVK, VKD3D-Proton, and PanVK retain ownership of their own caches.
+- NYAMIST stores only its own profiles, reports, and validated optimization metadata.
+
+## Next tests
+
+1. Run a sustained D3D11 render/present workload for at least 5 minutes.
+2. Capture frame-time percentiles, GPU/device-lost events, memory, and thermal behavior.
+3. Repeat the same workload after a cold start to compare cache behavior.
+4. Run a separate sustained D3D12 test; keep D3D12 experimental.
+5. Add read-only NYAMIST adapters for PanVK, DXVK, VKD3D-Proton, and device facts.
