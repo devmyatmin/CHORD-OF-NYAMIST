@@ -80,6 +80,30 @@ def assess_evidence(evidence: Any, minimum_duration_seconds: int = 300) -> dict[
         _check(checks, "translator_identity", "incomplete", detail)
         blockers.append(detail)
 
+    if translator_key == ("dxvk", "d3d11"):
+        if translator.get("device_created_confirmed") is True:
+            feature_level = translator.get("feature_level")
+            detail = "DXVK D3D11 device creation is recorded"
+            if isinstance(feature_level, str) and feature_level:
+                detail += f" at feature level {feature_level.replace('_', '.')}"
+            _check(checks, "d3d11_device_creation", "pass", detail + ".")
+        else:
+            detail = "DXVK log does not confirm successful D3D11 device creation."
+            _check(checks, "d3d11_device_creation", "incomplete", detail)
+            blockers.append(detail)
+
+        if translator.get("swapchain_configured_confirmed") is True:
+            swapchain = translator.get("swapchain")
+            buffer_size = swapchain.get("buffer_size") if isinstance(swapchain, dict) else None
+            detail = "DXVK actual swapchain properties were recorded"
+            if isinstance(buffer_size, str) and buffer_size:
+                detail += f" ({buffer_size})"
+            _check(checks, "swapchain_setup", "pass", detail + "; this does not prove successful Present.")
+        else:
+            detail = "DXVK log does not confirm actual swapchain properties."
+            _check(checks, "swapchain_setup", "incomplete", detail)
+            blockers.append(detail)
+
     exit_code = session.get("exit_code")
     crash = session.get("crash")
     if isinstance(exit_code, int) and not isinstance(exit_code, bool) and exit_code == 0 and crash is False:
@@ -179,6 +203,22 @@ def assess_evidence(evidence: Any, minimum_duration_seconds: int = 300) -> dict[
     else:
         status = "REVIEW_READY"
 
+    performance_summary_keys = (
+        "frames", "avgFps", "low1Fps", "low01Fps",
+        "frametimeP50Ms", "frametimeP95Ms", "frametimeP99Ms", "stutters",
+        "gpuLoadAvg", "gpuLoadMax", "gameCpuAvg", "gameCpuMax",
+        "ramPeakMb", "vidmemPeakMb", "memAvailMinMb",
+        "battTempAvgC", "battTempMaxC", "powerAvgMw", "powerMaxMw",
+    )
+    performance_summary = {
+        key: performance[key]
+        for key in performance_summary_keys
+        if key in performance
+        and isinstance(performance[key], (int, float))
+        and not isinstance(performance[key], bool)
+        and math.isfinite(float(performance[key]))
+    }
+
     return {
         "schema_version": 1,
         "assessment": status,
@@ -188,6 +228,7 @@ def assess_evidence(evidence: Any, minimum_duration_seconds: int = 300) -> dict[
         "minimum_duration_seconds": minimum_duration_seconds,
         "session_duration_seconds": session_duration,
         "performance_duration_seconds": perf_duration,
+        "performance_summary": performance_summary,
         "p95_frame_time_microseconds": p95_value if p95_ok else None,
         "checks": checks,
         "blockers": blockers,
@@ -238,6 +279,17 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Assessment: {result['assessment']}")
     for item in result["checks"]:
         print(f"[{item['state'].upper()}] {item['key']}: {item['detail']}")
+    if result["performance_summary"]:
+        summary = result["performance_summary"]
+        print("Performance summary:")
+        for key in (
+            "avgFps", "low1Fps", "low01Fps",
+            "frametimeP50Ms", "frametimeP95Ms", "frametimeP99Ms",
+            "stutters", "gpuLoadAvg", "ramPeakMb", "vidmemPeakMb",
+            "memAvailMinMb", "battTempMaxC",
+        ):
+            if key in summary:
+                print(f"  {key}: {summary[key]}")
     print(f"Render validation: {result['render_validation']}")
     if args.output:
         print(f"Assessment JSON: {args.output}")

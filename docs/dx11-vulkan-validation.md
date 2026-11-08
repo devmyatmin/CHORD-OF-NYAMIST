@@ -40,6 +40,21 @@ A separate PanPlay/PanProbe record reports that the app-local Mesa PanVK RC5 bui
 
 The 10.97 GiB heap is not free memory and is not a per-game allocation guarantee. Since the memory-budget extension was not found in this capture, do not infer available GPU memory from heap size. Use allocation success/failure and process/runtime telemetry where available.
 
+### Nov 8, 2026 — Stranded Deep DX11 real-game session
+
+The user-provided PanPlay SessionLogs and matching PerfRecorder export contain a sustained Stranded Deep session on the REDMI K80 Ultra:
+
+- Session duration: 519 seconds; PerfRecorder duration: 489.130544 seconds.
+- DXVK: 3.1.1-5-arm64ec; API: D3D11; selected feature level: D3D_FEATURE_LEVEL_11_0 (DXVK logged maximum supported feature level 11_1).
+- DXGI log selected device: Mali-G925-Immortalis MC12, PanVK string 26.2.99. The separate session/device manifest reports Mesa PanVK 26.3.0-devel (git-795ca7ff3e). Treat this version-string difference as an unresolved provenance/version-reporting discrepancy until the exact ICD binary/build is matched.
+- DXVK logged actual swapchain properties: BGRA8 UNORM, SRGB nonlinear color space, IMMEDIATE present mode, 1280x720 buffer, four images.
+- PerfRecorder: 41,868 frames; average 85.5968 FPS; low1Fps 4.6416; low01Fps 0.6783; P50 3.867 ms; P95 43.983 ms; P99 63.733 ms; 11,766 stutters.
+- Device telemetry: average/max GPU load 72.0%/100%; average/max game CPU 24.2%/41.1%; RAM peak 3,515.8 MiB; video-memory peak 2,208 MiB; minimum available RAM 2,043 MiB; battery temperature average/max 40.1/42.1 C; average/max power 5.13/8.46 W.
+- Session ended by user through overlay; crash=false, but exit_code is null. Clean process exit is not confirmed.
+- Assessment: sustained duration, frame samples, P95, and device telemetry pass; process exit remains incomplete. Vulkan Present success/failure counters are not exported.
+
+Interpretation: the DXVK log proves D3D11 device creation and swapchain setup, not that a frame was successfully presented. The average FPS is not sufficient to describe smoothness: the reported P95/P99 frame times and low-FPS fields show severe frame-pacing concerns that need review against the raw PerfRecorder CSV. Keep render validation at discovered-only and production_ready=false until explicit Present evidence and clean process-exit evidence are available. Do not tune performance overrides from this single run.
+
 ## Safe NYAMIST memory policy
 
 Until a runtime exposes a reliable memory budget:
@@ -67,8 +82,8 @@ Until a runtime exposes a reliable memory budget:
 
 - Pin the exact DXVK build and record its required Vulkan extensions/features.
 - Confirm the compatibility runtime can launch a known D3D11 test application.
-- Confirm DXVK creates a D3D11 device and selects the intended Vulkan physical device/ICD.
-- Test shader compilation, resource creation, synchronization, and swapchain presentation.
+- Confirm DXVK creates a D3D11 device and selects the intended Vulkan physical device/ICD. The Nov 8 Stranded Deep log now provides D3D11 feature-level and actual swapchain-setup evidence.
+- Separately confirm successful swapchain presentation, frame output, resource creation, and synchronization; swapchain properties alone are not Present evidence.
 - Save the complete logs and distinguish device-creation failures from shader, presentation, or game-specific failures.
 
 ### Gate C — game baseline

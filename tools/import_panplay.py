@@ -192,6 +192,72 @@ def _unique_basename(names: list[str], basename: str, *, required: bool) -> str 
     return matches[0]
 
 
+def _d3d11_log_evidence(archive: zipfile.ZipFile, file_names: list[str]) -> dict[str, Any]:
+    """Read conservative D3D11-device and swapchain-setup markers from one DXVK log.
+
+    A selected feature-level line is evidence that DXVK completed D3D11 device
+    creation. Swapchain properties prove setup/configuration only; they do not
+    prove that vkQueuePresentKHR successfully presented a frame.
+    """
+    candidates = [
+        name for name in file_names
+        if D3D11_LOG_RE.search(PurePosixPath(name).name)
+    ]
+    empty = {
+        "source_log": None,
+        "device_created_confirmed": False,
+        "feature_level": None,
+        "swapchain_configured_confirmed": False,
+        "swapchain": {},
+    }
+    if len(candidates) != 1:
+        return empty
+
+    name = candidates[0]
+    raw = _read_member(archive, name)
+    text = raw.decode("utf-8", errors="replace")
+    feature_match = re.search(
+        r"D3D11InternalCreateDevice:\s*Using feature level\s+"
+        r"D3D_FEATURE_LEVEL_([0-9]+_[0-9]+)",
+        text,
+        re.IGNORECASE,
+    )
+    lines = text.splitlines()
+    marker_index = next(
+        (index for index, line in enumerate(lines)
+         if "Presenter: Actual swapchain properties:" in line),
+        None,
+    )
+    swapchain: dict[str, str] = {}
+    if marker_index is not None:
+        field_map = {
+            "Format": "format",
+            "Color space": "color_space",
+            "Present mode": "present_mode",
+            "Buffer size": "buffer_size",
+            "Image count": "image_count",
+        }
+        for line in lines[marker_index + 1:marker_index + 12]:
+            clean = re.sub(r"^\s*(?:info|warn|err):\s*", "", line, flags=re.IGNORECASE)
+            match = re.match(
+                r"^\s*(Format|Color space|Present mode|Buffer size|Image count):\s*(.*?)\s*$",
+                clean,
+            )
+            if match:
+                key = field_map[match.group(1)]
+                value = match.group(2)
+                if value:
+                    swapchain[key] = value
+
+    return {
+        "source_log": name,
+        "device_created_confirmed": feature_match is not None,
+        "feature_level": feature_match.group(1) if feature_match else None,
+        "swapchain_configured_confirmed": marker_index is not None,
+        "swapchain": swapchain,
+    }
+
+
 def _load_session_archive(path: Path) -> tuple[dict[str, Any], dict[str, Any], list[str], dict[str, Any]]:
     archive = _safe_archive(path)
     try:
@@ -213,7 +279,9 @@ def _load_session_archive(path: Path) -> tuple[dict[str, Any], dict[str, Any], l
         if facts_name:
             facts = _object(_json_bytes(_read_member(archive, facts_name, json_member=True),
                                         facts_name), "device-facts.json")
-        # Return no raw log contents. Their names, hashes, and sizes are preserved below.
+        # Keep only bounded, structured DXVK log observations; raw log contents are
+        # not copied into the normalized sidecar.
+        dxvk_log_evidence = _d3d11_log_evidence(archive, names)
         inventories: dict[str, Any] = {}
         for item in manifest.get("files", []):
             if isinstance(item, dict):
@@ -221,7 +289,11 @@ def _load_session_archive(path: Path) -> tuple[dict[str, Any], dict[str, Any], l
                     "size": item.get("size"),
                     "sha256": item.get("sha256"),
                 }
-        return manifest, session, names, {"device_facts": facts, "file_inventory": inventories}
+        return manifest, session, names, {
+            "device_facts": facts,
+            "file_inventory": inventories,
+            "dxvk_log_evidence": dxvk_log_evidence,
+        }
     finally:
         archive.close()
 
@@ -281,18 +353,22 @@ def _report_env(
     source_name: str,
     session: dict[str, Any],
     performance: dict[str, Any] | None,
+    dxvk_log_evidence: dict[str, Any],
 ) -> str:
     translator_id, api, version = translator
+    device_created = dxvk_log_evidence.get("device_created_confirmed") is True
+    swapchain_configured = dxvk_log_evidence.get("swapchain_configured_confirmed") is True
     fields: list[tuple[str, str]] = [
         ("translator_id", translator_id),
         ("api", api),
         ("translator_version", version),
-        # PerfRecorder/session logs do not independently record device creation
-        # or the required successful/failed Present counters.
-        ("device_created", "false"),
+        ("device_created", "true" if device_created else "false"),
+        ("swapchain_configured", "true" if swapchain_configured else "false"),
         ("evidence_source", f"PanPlay session ZIP import: {source_name}"),
         ("render_present_passed", "false"),
     ]
+    if device_created and dxvk_log_evidence.get("feature_level"):
+        fields.append(("d3d11_feature_level", str(dxvk_log_evidence["feature_level"])))
     if performance and performance.get("dxvkStats") is True:
         frames = _integer(performance, "frames", minimum=1)
         duration = _finite_number(performance, "durationSec", minimum=0.001,
@@ -307,7 +383,7 @@ def _report_env(
     return (
         "# Generated by tools/import_panplay.py; imported observations only\n"
         + "".join(f"{key}={value}\n" for key, value in fields)
-        + "# Present counters and device-creation evidence were not exported by PanPlay.\n"
+        + "# Swapchain setup is not proof of a successful Vulkan Present call.\n"
     )
 
 
@@ -370,8 +446,18 @@ def import_archives(
         driver = {}
 
     translator = _detect_translator(file_names, session)
-    source_label = re.sub(r"[\\r\\n]+", "_", session_archive_path.name)
-    report = _report_env(translator, source_label, session, performance) if translator else None
+    if not translator or translator[:2] != ("dxvk", "d3d11"):
+        extra["dxvk_log_evidence"] = {
+            "source_log": None,
+            "device_created_confirmed": False,
+            "feature_level": None,
+            "swapchain_configured_confirmed": False,
+            "swapchain": {},
+        }
+    source_label = re.sub(r"[\r\n]+", "_", session_archive_path.name)
+    report = _report_env(
+        translator, source_label, session, performance, extra["dxvk_log_evidence"]
+    ) if translator else None
 
     performance_summary: dict[str, Any] | None = None
     if performance is not None:
@@ -436,7 +522,15 @@ def import_archives(
             "id": translator[0] if translator else None,
             "api": translator[1] if translator else None,
             "version": translator[2] if translator else None,
-            "device_created_confirmed": False,
+            "source_log": extra["dxvk_log_evidence"]["source_log"],
+            "device_created_confirmed": extra["dxvk_log_evidence"]["device_created_confirmed"],
+            "device_creation_evidence": (
+                "DXVK D3D11InternalCreateDevice selected feature-level log"
+                if extra["dxvk_log_evidence"]["device_created_confirmed"] else None
+            ),
+            "feature_level": extra["dxvk_log_evidence"]["feature_level"],
+            "swapchain_configured_confirmed": extra["dxvk_log_evidence"]["swapchain_configured_confirmed"],
+            "swapchain": extra["dxvk_log_evidence"]["swapchain"],
             "render_present_passed": False,
             "present_calls": None,
             "present_failures": None,
@@ -455,8 +549,9 @@ def import_archives(
         },
         "notes": [
             "PanPlay's deviceLost field is a log scan, not an explicit zero-event counter.",
-            "PerfRecorder DXVK frame statistics do not prove successful Vulkan Present calls.",
-            "Do not promote this import to smoke_tested or sustained_tested without explicit device creation, Present calls, zero failure/device-loss counters, and normal process-exit evidence.",
+            "DXVK D3D11 feature-level log confirms device creation; actual swapchain properties confirm setup only.",
+            "PerfRecorder DXVK frame statistics and swapchain setup do not prove successful Vulkan Present calls.",
+            "Do not promote this import to smoke_tested or sustained_tested without successful Present evidence, zero failure/device-loss counters, and normal process-exit evidence.",
         ],
     }
     return report, sidecar
