@@ -37,7 +37,7 @@
 - [x] Add typed telemetry aggregation for CPU/GPU utilization, available memory, GPU/battery temperature, and p95 frame time (collector integration pending)
 - [ ] Capture frame-time percentiles, memory, and thermal telemetry where accessible
 - [ ] Keep DXVK shader/pipeline caches under DXVK control
-- [ ] Add deterministic A/B evaluation and regression reporting
+- [x] Add deterministic A/B regression evaluator: at least 3 sustained 300-second runs per arm, matched workload/device, explicit render/Present and zero-failure evidence, median p95 comparison
 
 ## Phase 3 — Experimental D3D12
 - [x] Verify VKD3D-Proton D3D12 feature-level path reaches 11_0 and 11_1
