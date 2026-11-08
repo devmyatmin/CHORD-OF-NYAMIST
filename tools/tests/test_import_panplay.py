@@ -18,6 +18,7 @@ class PanPlayImporterTests(unittest.TestCase):
         api: str = "d3d11",
         include_vkd3d: bool = False,
         tamper_manifest: bool = False,
+        include_d3d11_runtime_markers: bool = True,
     ) -> tuple[Path, str]:
         path = root / "panplay-session.zip"
         session_id = "20261108-120000_Test_Game"
@@ -66,7 +67,20 @@ class PanPlayImporterTests(unittest.TestCase):
             f"{base}/wine-run.log": b"Wine started; session ended normally.\n",
         }
         if api == "d3d11":
-            members[f"{base}/dxvk-dxcube-arm64ec_d3d11.log"] = b"DXVK D3D11 log\n"
+            if include_d3d11_runtime_markers:
+                d3d11_log = (
+                    b"info: D3D11InternalCreateDevice: Maximum supported feature level: D3D_FEATURE_LEVEL_11_1\n"
+                    b"info: D3D11InternalCreateDevice: Using feature level D3D_FEATURE_LEVEL_11_0\n"
+                    b"info: Presenter: Actual swapchain properties:\n"
+                    b"info:   Format:       VK_FORMAT_B8G8R8A8_UNORM\n"
+                    b"info:   Color space:  VK_COLOR_SPACE_SRGB_NONLINEAR_KHR\n"
+                    b"info:   Present mode: VK_PRESENT_MODE_IMMEDIATE_KHR\n"
+                    b"info:   Buffer size:  1280x720\n"
+                    b"info:   Image count:  4\n"
+                )
+            else:
+                d3d11_log = b"DXVK D3D11 log without device-creation marker\n"
+            members[f"{base}/dxvk-dxcube-arm64ec_d3d11.log"] = d3d11_log
         elif api == "d3d9":
             members[f"{base}/dxvk-dxcube-i686_d3d9.log"] = b"DXVK D3D9 log\n"
         if include_vkd3d:
@@ -155,15 +169,44 @@ class PanPlayImporterTests(unittest.TestCase):
         self.assertIn("translator_id=dxvk\n", report)
         self.assertIn("api=d3d11\n", report)
         self.assertIn("translator_version=3.1.1-test\n", report)
-        self.assertIn("device_created=false\n", report)
+        self.assertIn("device_created=true\n", report)
+        self.assertIn("swapchain_configured=true\n", report)
+        self.assertIn("d3d11_feature_level=11_0\n", report)
         self.assertIn("render_present_passed=false\n", report)
         self.assertIn("frame_count=36000\n", report)
         self.assertNotIn("present_calls=", report)
         self.assertNotIn("present_failures=", report)
+        self.assertTrue(sidecar["translator"]["device_created_confirmed"])
+        self.assertTrue(sidecar["translator"]["swapchain_configured_confirmed"])
+        self.assertEqual(sidecar["translator"]["feature_level"], "11_0")
+        self.assertEqual(
+            sidecar["translator"]["swapchain"],
+            {
+                "format": "VK_FORMAT_B8G8R8A8_UNORM",
+                "color_space": "VK_COLOR_SPACE_SRGB_NONLINEAR_KHR",
+                "present_mode": "VK_PRESENT_MODE_IMMEDIATE_KHR",
+                "buffer_size": "1280x720",
+                "image_count": "4",
+            },
+        )
+        self.assertFalse(sidecar["translator"]["render_present_passed"])
         self.assertEqual(sidecar["validation"]["level"], "discovered")
         self.assertEqual(sidecar["performance"]["p95_frame_time_microseconds"], 10000)
         self.assertEqual(sidecar["device"]["device_facts"]["gpuId"], "0xd8300015")
         self.assertTrue(sidecar["validation"]["automatic_application_allowed"] is False)
+
+    def test_d3d11_log_without_device_marker_does_not_confirm_device_creation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session_zip, _ = self.make_session_archive(
+                Path(temp), include_d3d11_runtime_markers=False
+            )
+            report, sidecar = import_archives(session_zip)
+        self.assertIn("device_created=false\n", report)
+        self.assertIn("swapchain_configured=false\n", report)
+        self.assertFalse(sidecar["translator"]["device_created_confirmed"])
+        self.assertFalse(sidecar["translator"]["swapchain_configured_confirmed"])
+        self.assertIsNone(sidecar["translator"]["feature_level"])
+        self.assertFalse(sidecar["translator"]["render_present_passed"])
 
     def test_detects_vkd3d_from_vkd3d_log_but_does_not_invent_version(self):
         with tempfile.TemporaryDirectory() as temp:
