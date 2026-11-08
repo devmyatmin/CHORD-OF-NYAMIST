@@ -95,6 +95,18 @@ void testShortRunCannotClaimSustained() {
           "a short run must never be classified as sustained-tested");
 }
 
+void testMissingDeviceLostCounterRejectsRenderEvidence() {
+    auto source = sampleReport();
+    source +=
+        "render_present_passed=true\\n"
+        "render_present_frames=1000\\n"
+        "test_duration_seconds=20\\n"
+        "process_exit_code=0\\n";
+    const auto report = inspect(source);
+    check(report.validation == nyamist::runtime::ValidationLevel::discovered,
+          "missing device-lost status must not be treated as zero");
+}
+
 void testDeviceLostRejectsRenderEvidence() {
     auto source = sampleReport();
     source +=
@@ -153,6 +165,7 @@ int main() {
         testSustainedRequiresFiveMinutesAndCleanExit();
         testShortRunCannotClaimSustained();
         testDeviceLostRejectsRenderEvidence();
+        testMissingDeviceLostCounterRejectsRenderEvidence();
         testFailedLoadIsUnavailable();
         testNonPanVkIdentityRejected();
         testDuplicateKeyRejected();
