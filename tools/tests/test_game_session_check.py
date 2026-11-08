@@ -20,12 +20,22 @@ def complete_evidence():
             "id": "dxvk",
             "api": "d3d11",
             "version": "3.1.1-test",
+            "device_created_confirmed": True,
+            "feature_level": "11_0",
+            "swapchain_configured_confirmed": True,
+            "swapchain": {"buffer_size": "1280x720"},
         },
         "performance": {
             "dxvk_stats": True,
             "frames": 30000,
             "durationSec": 325.0,
             "p95_frame_time_microseconds": 18000,
+            "avgFps": 85.6,
+            "low1Fps": 4.64,
+            "low01Fps": 0.678,
+            "frametimeP95Ms": 43.983,
+            "frametimeP99Ms": 63.733,
+            "stutters": 11766,
             "gpuLoadAvg": 72.0,
             "ramPeakMb": 2400,
             "battTempMaxC": 41.0,
@@ -42,6 +52,23 @@ class GameSessionAssessmentTests(unittest.TestCase):
         present = next(item for item in result["checks"] if item["key"] == "vulkan_present")
         self.assertEqual(present["state"], "not_measured")
         self.assertIn("explicit successful Present", present["detail"])
+        device = next(item for item in result["checks"] if item["key"] == "d3d11_device_creation")
+        swapchain = next(item for item in result["checks"] if item["key"] == "swapchain_setup")
+        self.assertEqual(device["state"], "pass")
+        self.assertEqual(swapchain["state"], "pass")
+        self.assertEqual(result["performance_summary"]["avgFps"], 85.6)
+        self.assertEqual(result["performance_summary"]["low1Fps"], 4.64)
+        self.assertEqual(result["performance_summary"]["stutters"], 11766)
+
+    def test_missing_d3d11_device_and_swapchain_markers_are_incomplete(self):
+        evidence = complete_evidence()
+        evidence["translator"]["device_created_confirmed"] = False
+        evidence["translator"]["swapchain_configured_confirmed"] = False
+        result = assess_evidence(evidence)
+        self.assertEqual(result["assessment"], "INCOMPLETE")
+        states = {item["key"]: item["state"] for item in result["checks"]}
+        self.assertEqual(states["d3d11_device_creation"], "incomplete")
+        self.assertEqual(states["swapchain_setup"], "incomplete")
 
     def test_short_session_is_incomplete(self):
         evidence = complete_evidence()
