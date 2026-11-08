@@ -56,6 +56,7 @@ Observed on this run: 50.00% smaller cache files, 20.59× faster median writes, 
 - Read-only PanVK, DXVK, and VKD3D-Proton report adapters with CLI inspection and evidence-gated validation levels.
 - Read-only Termux device/runtime probe and on-device core build script.
 - Immutable in-memory DeviceSessionSnapshot and typed telemetry aggregation with stale/future/out-of-range sample filtering.
+- Bounded versioned session and compatibility profile persistence with content-addressed records, strict schema/timestamp validation, and corruption rejection.
 - Deterministic Pipeline Gate that blocks stale sessions/missing Vulkan devices and separates smoke-test permission from production readiness.
 - Deterministic Command Advisor that emits bounded shader-worker proposals with evidence and rollback values; automatic application is disabled.
 - Unit tests and GitHub Actions CI.
