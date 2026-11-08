@@ -32,7 +32,11 @@ The user's Termux `vulkaninfo` capture enumerated the stock ARM proprietary Mali
   - Type 3: device-local, protected
 - The filtered output did not contain `VK_EXT_memory_budget`, `heapBudget`, or `heapUsage`.
 
-This proves physical-device enumeration through the stock Android Vulkan driver in Termux. It does not prove PanVK works, that the same features are exposed by PanVK, or that DXVK can create a D3D11 device.
+This proves physical-device enumeration through the stock Android Vulkan driver in Termux. It does not prove that the same features are exposed by PanVK or that DXVK can create a D3D11 device.
+
+### Separate app-local PanVK RC5 evidence
+
+A separate PanPlay/PanProbe record reports that the app-local Mesa PanVK RC5 build loaded successfully, enumerated one device, identified the G925-family kbase GPU as `gpu_id 0xd8300015`, and passed PanProbe 41/41. This is separate from the stock-driver `vulkaninfo` capture above. It establishes PanVK load/device-probe success only; it does not establish Android surface/swapchain presentation, DXVK D3D11 device creation, or sustained real-game rendering.
 
 The 10.97 GiB heap is not free memory and is not a per-game allocation guarantee. Since the memory-budget extension was not found in this capture, do not infer available GPU memory from heap size. Use allocation success/failure and process/runtime telemetry where available.
 
@@ -54,12 +58,10 @@ Until a runtime exposes a reliable memory budget:
 
 ### Gate A — Vulkan ICD
 
-- Build or obtain a PanVK kbase package for arm64-v8a and the target Android environment.
-- Keep the stock vendor driver intact.
-- Select the experimental ICD only through a supported app-local/launcher mechanism.
-- Run the PanVK device probe.
-- Run a minimal Vulkan compute test and a graphics render/present test.
-- Capture device name, driver identity, API version, extensions, feature bits, memory properties, and logs from that same process.
+- Keep the stock vendor driver intact and select PanVK only through the supported app-local/launcher mechanism.
+- The recorded RC5 app-local test passed load and device enumeration with PanProbe 41/41.
+- Still verify a graphics surface/swapchain render-and-present test in the actual PanPlay path; the PanProbe score alone does not prove presentation.
+- Capture device name, driver identity, API version, extensions, feature bits, memory properties, and logs from that same app/container process.
 
 ### Gate B — DXVK
 
