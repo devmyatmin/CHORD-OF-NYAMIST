@@ -22,6 +22,8 @@ def complete_evidence():
             "version": "3.1.1-test",
             "device_created_confirmed": True,
             "feature_level": "11_0",
+            "selected_feature_level": "11_0",
+            "maximum_feature_level": "11_1",
             "swapchain_configured_confirmed": True,
             "swapchain": {"buffer_size": "1280x720"},
         },
@@ -55,6 +57,8 @@ class GameSessionAssessmentTests(unittest.TestCase):
         device = next(item for item in result["checks"] if item["key"] == "d3d11_device_creation")
         swapchain = next(item for item in result["checks"] if item["key"] == "swapchain_setup")
         self.assertEqual(device["state"], "pass")
+        self.assertIn("selected feature level 11.0", device["detail"])
+        self.assertIn("maximum supported 11.1", device["detail"])
         self.assertEqual(swapchain["state"], "pass")
         self.assertEqual(result["performance_summary"]["avgFps"], 85.6)
         self.assertEqual(result["performance_summary"]["low1Fps"], 4.64)
