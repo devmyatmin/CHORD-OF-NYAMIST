@@ -10,7 +10,7 @@
 | Android Vulkan loader | Select and load the intended Vulkan ICD | Silently replace the stock driver |
 | PanVK kbase | Implement Vulkan on the vendor Mali kbase kernel interface | Replace the kernel driver |
 | NYAMIST core | Discover components, collect profiles, produce advisory plans, validate metadata | Replace translators, Vulkan, or GPU rendering |
-| NYAMIST AI advisor | Analyze structured telemetry and suggest bounded policy changes | Emit unchecked commands or block every frame |
+| NYAMIST advisor | Analyze structured telemetry and suggest bounded policy changes | Emit unchecked commands or block every frame |
 
 ## Execution paths
 
@@ -24,6 +24,12 @@ PanVK is a Vulkan implementation, not a Direct3D translator. DXVK and VKD3D-Prot
 The Core exposes a common component-probe contract and registry. Separate adapters inspect DXVK, VKD3D-Proton, PanVK, the stock Vulkan ICD, and device/session telemetry. The Runtime Coordinator evaluates the required translator and selected Vulkan driver for a requested API.
 
 The coordinator is advisory. It does not launch games, dynamically load ICDs, patch upstream components, or alter Android system configuration. A discovered component may be eligible for a controlled smoke test; production readiness requires sustained-test evidence from both translator and driver.
+
+## Lightweight execution policy
+
+The NYAMIST control plane is deliberately outside the per-draw-call path. It should perform capability discovery, policy selection, validation, and cache lookup at session or workload boundaries rather than invoking an advisor for every frame or draw.
+
+The current shipped advisor is deterministic and rule-based. A local model is not part of the runtime yet. Any future model must consume compact structured evidence, return bounded proposals, and remain behind deterministic validation and A/B regression gates.
 
 ## Android and Termux boundary
 
@@ -39,6 +45,8 @@ Do not chmod the Mali device node, flash a kernel, overwrite vendor Vulkan libra
 - NYAMIST stores only its own versioned device/game profiles, compatibility observations, recommendations, and validation evidence.
 
 Cache identity must include source/workload fingerprint, source and target API, GPU architecture, Vulkan API version, driver version, translator version, and NYAMIST schema/policy version. A relevant version change causes a cache miss rather than unsafe reuse.
+
+NYAMIST cache V2 stores payload bytes directly instead of hexadecimal text. A 64 MiB per-entry ceiling, filesystem-size check, exact declared-length check, and payload checksum reject oversized, truncated, or corrupt records. V1 text/hex records remain readable for compatibility. The checksum is for accidental-corruption detection, not security.
 
 The current FNV-1a 64-bit fingerprint is deterministic naming only. It is not cryptographic and must never be used for signatures, trust, or executable integrity.
 
