@@ -25,8 +25,12 @@ RuntimePlan RuntimeCoordinator::evaluate(const RuntimeRequest& request) const {
     const auto translator = registry_.inspect(translator_id);
     const auto driver = registry_.inspect(request.vulkan_driver_id);
 
-    if (!translator || translator->validation == ValidationLevel::unavailable) {
-        plan.blockers.push_back("Required translator is unavailable: " + translator_id);
+    if (!translator ||
+        translator->descriptor.kind != ComponentKind::translator ||
+        translator->validation == ValidationLevel::unavailable) {
+        plan.blockers.push_back(
+            "Required translator is unavailable or has an invalid component kind: " +
+            translator_id);
     } else {
         plan.selected_components.push_back(translator_id);
         if (!isAtLeastSmokeTested(translator->validation)) {
@@ -35,9 +39,12 @@ RuntimePlan RuntimeCoordinator::evaluate(const RuntimeRequest& request) const {
         }
     }
 
-    if (!driver || driver->validation == ValidationLevel::unavailable) {
+    if (!driver ||
+        driver->descriptor.kind != ComponentKind::vulkan_driver ||
+        driver->validation == ValidationLevel::unavailable) {
         plan.blockers.push_back(
-            "Required Vulkan driver is unavailable: " + request.vulkan_driver_id);
+            "Required Vulkan driver is unavailable or has an invalid component kind: " +
+            request.vulkan_driver_id);
     } else {
         plan.selected_components.push_back(request.vulkan_driver_id);
         if (!isAtLeastSmokeTested(driver->validation)) {

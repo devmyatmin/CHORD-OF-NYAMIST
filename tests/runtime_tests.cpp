@@ -79,6 +79,18 @@ void testProductionRequiresSustainedValidation() {
     check(plan.production_ready, "sustained-tested components should pass readiness gate");
 }
 
+void testComponentKindMismatchRejected() {
+    using namespace nyamist::runtime;
+    ComponentRegistry registry;
+    registry.add(probe("dxvk", ComponentKind::vulkan_driver, ValidationLevel::sustained_tested));
+    registry.add(probe("panvk", ComponentKind::vulkan_driver, ValidationLevel::sustained_tested));
+
+    RuntimeCoordinator coordinator(registry);
+    const auto plan = coordinator.evaluate({GraphicsApi::d3d11, "panvk"});
+    check(!plan.prerequisites_present, "a Vulkan driver must not masquerade as DXVK");
+    check(!plan.production_ready, "invalid component kinds must never be production-ready");
+}
+
 void testDuplicateComponentRejected() {
     using namespace nyamist::runtime;
     ComponentRegistry registry;
@@ -100,6 +112,7 @@ int main() {
         testRegistryAndD3D11Plan();
         testD3D12RequiresVkd3d();
         testProductionRequiresSustainedValidation();
+        testComponentKindMismatchRejected();
         testDuplicateComponentRejected();
         std::cout << "All NYAMIST runtime tests passed.\n";
         return 0;
