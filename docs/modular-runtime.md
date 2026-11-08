@@ -29,7 +29,7 @@ The translator produces Vulkan work. The Vulkan ICD implements Vulkan. The kerne
 | AI advisor | Candidate profile recommendations from structured telemetry | Direct driver settings or unvalidated runtime commands |
 | Monitor | Session logs, frame-time summaries, memory/thermal telemetry where accessible | Privileged kernel or SELinux changes |
 
-The current PanVK adapter reads a normalized evidence report through a bounded key=value parser and exposes a CLI inspection command. It does not open or load the ICD. See docs/panvk-adapter.md.
+The PanVK, DXVK, and VKD3D-Proton adapters read normalized evidence reports through bounded key=value parsers and expose CLI inspection commands. They do not open/load the ICD or launch/modify translators. Translator smoke-test promotion requires explicit Present counters and reported zero failure/device-loss status. See docs/panvk-adapter.md and docs/translator-adapters.md.
 
 ## Readiness levels
 
@@ -73,8 +73,8 @@ Never duplicate, rewrite, or delete another component's cache.
 ## Implementation sequence
 
 1. Establish module contracts and registry (complete).
-2. Add read-only adapters for device facts, PanProbe reports, DXVK, VKD3D-Proton, and PanVK ICD metadata (PanVK report adapter implemented; other adapters pending).
-3. Persist a versioned session/compatibility profile.
+2. Add read-only adapters for device facts and raw PanProbe import (PanVK, DXVK, and VKD3D-Proton normalized-report adapters implemented).
+3. Add a versioned session/compatibility profile importer and persist validated evidence.
 4. Add sustained D3D11 test evidence and keep it as the default target.
 5. Add the D3D12 adapter as experimental, preserving the observed FL11_1 ceiling.
 6. Add monitor aggregation and deterministic A/B evaluation.
