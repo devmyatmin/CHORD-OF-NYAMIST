@@ -85,7 +85,10 @@ def assess_evidence(evidence: Any, minimum_duration_seconds: int = 300) -> dict[
             feature_level = translator.get("feature_level")
             detail = "DXVK D3D11 device creation is recorded"
             if isinstance(feature_level, str) and feature_level:
-                detail += f" at feature level {feature_level.replace('_', '.')}"
+                detail += f" at selected feature level {feature_level.replace('_', '.')}"
+            maximum_feature_level = translator.get("maximum_feature_level")
+            if isinstance(maximum_feature_level, str) and maximum_feature_level:
+                detail += f" (maximum supported {maximum_feature_level.replace('_', '.')})"
             _check(checks, "d3d11_device_creation", "pass", detail + ".")
         else:
             detail = "DXVK log does not confirm successful D3D11 device creation."
