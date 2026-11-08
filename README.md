@@ -54,6 +54,7 @@ Observed on this run: 50.00% smaller cache files, 20.59× faster median writes, 
 - Rule-based optimization advisor interface.
 - Component probe registry and runtime readiness coordinator.
 - Read-only PanVK, DXVK, and VKD3D-Proton report adapters with CLI inspection and evidence-gated validation levels.
+- PanPlay SessionLogs/PerfRecorder ZIP importer with manifest SHA-256 verification, normalized performance sidecars, and discovery-only translator reports.
 - Read-only Termux device/runtime probe and on-device core build script.
 - Immutable in-memory DeviceSessionSnapshot and typed telemetry aggregation with stale/future/out-of-range sample filtering.
 - Bounded versioned session and compatibility profile persistence with content-addressed records, strict schema/timestamp validation, and corruption rejection.
