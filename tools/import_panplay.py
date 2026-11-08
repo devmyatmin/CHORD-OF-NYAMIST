@@ -370,7 +370,7 @@ def import_archives(
         driver = {}
 
     translator = _detect_translator(file_names, session)
-    source_label = session_archive_path.name.replace("\\n", "_").replace("\\r", "_")
+    source_label = re.sub(r"[\\r\\n]+", "_", session_archive_path.name)
     report = _report_env(translator, source_label, session, performance) if translator else None
 
     performance_summary: dict[str, Any] | None = None
