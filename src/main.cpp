@@ -114,20 +114,20 @@ int runInspectTranslator(const std::string& report_path, const char* label) {
         const auto adapter = Adapter::fromReportFile(report_path);
         const auto report = adapter.inspect();
 
-        std::cout << "Component: " << report.descriptor.id << '\\n'
-                  << "Version: " << report.descriptor.version << '\\n'
-                  << "Origin: " << report.descriptor.origin << '\\n'
-                  << "Validation: " << validationName(report.validation) << '\\n';
+        std::cout << "Component: " << report.descriptor.id << '\n'
+                  << "Version: " << report.descriptor.version << '\n'
+                  << "Origin: " << report.descriptor.origin << '\n'
+                  << "Validation: " << validationName(report.validation) << '\n';
 
         for (const auto& capability : report.capabilities) {
-            std::cout << "[capability] " << capability << '\\n';
+            std::cout << "[capability] " << capability << '\n';
         }
         for (const auto& diagnostic : report.diagnostics) {
-            std::cout << "[diagnostic] " << diagnostic << '\\n';
+            std::cout << "[diagnostic] " << diagnostic << '\n';
         }
         return report.validation == nyamist::runtime::ValidationLevel::unavailable ? 1 : 0;
     } catch (const std::exception& error) {
-        std::cerr << label << " report inspection failed: " << error.what() << '\\n';
+        std::cerr << label << " report inspection failed: " << error.what() << '\n';
         return 1;
     }
 }
