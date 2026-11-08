@@ -29,7 +29,7 @@
 
 ## Phase 2 — Runtime integration and monitoring
 - [x] Add read-only DXVK version/session adapter
-- [ ] Add device facts and Vulkan capability adapter
+- [x] Add versioned read-only device facts and Vulkan capability report adapters
 - [ ] Persist versioned session and compatibility profiles
 - [ ] Import PanPlay logs into the normalized adapter report schema
 - [ ] Capture frame-time percentiles, memory, and thermal telemetry where accessible

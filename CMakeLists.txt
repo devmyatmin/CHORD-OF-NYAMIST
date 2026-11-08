@@ -16,6 +16,7 @@ add_library(nyamist_runtime
     src/runtime/component_registry.cpp
     src/runtime/runtime_coordinator.cpp
     src/runtime/panvk_adapter.cpp
+    src/runtime/device_probe_adapter.cpp
     src/runtime/translator_adapters.cpp
 )
 target_include_directories(nyamist_runtime PUBLIC include)
@@ -62,4 +63,8 @@ if(NYAMIST_BUILD_TESTS)
     add_executable(nyamist-translator-tests tests/translator_adapter_tests.cpp)
     target_link_libraries(nyamist-translator-tests PRIVATE nyamist_runtime)
     add_test(NAME nyamist-translator-adapter-tests COMMAND nyamist-translator-tests)
+
+    add_executable(nyamist-device-probe-tests tests/device_probe_adapter_tests.cpp)
+    target_link_libraries(nyamist-device-probe-tests PRIVATE nyamist_runtime)
+    add_test(NAME nyamist-device-probe-adapter-tests COMMAND nyamist-device-probe-tests)
 endif()

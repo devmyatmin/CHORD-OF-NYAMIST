@@ -1,6 +1,7 @@
 #include "nyamist/cache_store.hpp"
 #include "nyamist/fingerprint.hpp"
 #include "nyamist/optimization_advisor.hpp"
+#include "nyamist/runtime/device_probe_adapter.hpp"
 #include "nyamist/runtime/panvk_adapter.hpp"
 #include "nyamist/runtime/translator_adapters.hpp"
 
@@ -20,6 +21,7 @@ void printUsage() {
         << "  nyamist-cli fingerprint <text>\n"
         << "  nyamist-cli demo-cache <directory>\n"
         << "  nyamist-cli inspect-panvk <report.env>\n"
+        << "  nyamist-cli inspect-device <report.env>\n"
         << "  nyamist-cli inspect-dxvk <report.env>\n"
         << "  nyamist-cli inspect-vkd3d <report.env>\n";
 }
@@ -82,6 +84,33 @@ int runDemoCache(const std::string& directory) {
               << cache.keyFor(identity) << '\n';
     std::cout << "This is a cache-core demo, not a translated game shader.\n";
     return 0;
+}
+
+void printMonitorReport(const nyamist::runtime::ComponentReport& report) {
+    std::cout << "Component: " << report.descriptor.id << '\n'
+              << "Origin: " << report.descriptor.origin << '\n'
+              << "Validation: " << validationName(report.validation) << '\n';
+    for (const auto& capability : report.capabilities) {
+        std::cout << "[capability] " << capability << '\n';
+    }
+    for (const auto& diagnostic : report.diagnostics) {
+        std::cout << "[diagnostic] " << diagnostic << '\n';
+    }
+}
+
+int runInspectDevice(const std::string& report_path) {
+    try {
+        const auto snapshot = nyamist::runtime::DeviceProbeReportParser::fromFile(report_path);
+        const auto device = nyamist::runtime::DeviceFactsAdapter(snapshot).inspect();
+        const auto vulkan = nyamist::runtime::VulkanCapabilityAdapter(snapshot).inspect();
+        printMonitorReport(device);
+        std::cout << '\n';
+        printMonitorReport(vulkan);
+        return device.validation == nyamist::runtime::ValidationLevel::unavailable ? 1 : 0;
+    } catch (const std::exception& error) {
+        std::cerr << "Device probe inspection failed: " << error.what() << '\n';
+        return 1;
+    }
 }
 
 int runInspectPanvk(const std::string& report_path) {
@@ -153,6 +182,9 @@ int main(int argc, char** argv) {
     }
     if (command == "inspect-panvk" && argc == 3) {
         return runInspectPanvk(argv[2]);
+    }
+    if (command == "inspect-device" && argc == 3) {
+        return runInspectDevice(argv[2]);
     }
     if (command == "inspect-dxvk" && argc == 3) {
         return runInspectTranslator<nyamist::runtime::DxvkAdapter>(argv[2], "DXVK");

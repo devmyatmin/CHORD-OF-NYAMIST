@@ -115,3 +115,13 @@ The probe is read-only. It does not change the stock driver or require privilege
 6. Telemetry aggregation and validated advisor recommendations.
 
 See [roadmap](docs/roadmap.md), [architecture](docs/architecture.md), and [Termux workflow](docs/termux-workflow.md).
+
+
+## Device and Vulkan evidence
+
+NYAMIST imports versioned, read-only Android device/Vulkan capability reports
+with `nyamist-cli inspect-device <report.env>`. The importer validates
+reported device facts, Vulkan physical-device identity, extension lists, and
+feature booleans without loading or changing a Vulkan driver. The checked-in
+`configs/device-probe.example.env` is synthetic CI data, not target-device
+proof. See [`docs/device-probe-adapter.md`](docs/device-probe-adapter.md).
