@@ -6,6 +6,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace nyamist::runtime {
@@ -38,10 +39,17 @@ bool sameDevice(const DeviceSessionSnapshot& left,
 }
 
 std::optional<std::uint64_t> p95FrameTime(const ABRunRecord& run) {
-    const auto found=run.session.telemetry().fresh_readings.find(
+    const auto& telemetry=run.session.telemetry();
+    const auto found=telemetry.fresh_readings.find(
         TelemetryMetric::frame_time_p95_microseconds);
-    if (found==run.session.telemetry().fresh_readings.end() ||
-        found->second.value<=0) return std::nullopt;
+    if (found==telemetry.fresh_readings.end() ||
+        found->second.metric!=TelemetryMetric::frame_time_p95_microseconds ||
+        found->second.value<=0 || found->second.value>120000000 ||
+        found->second.source.empty() ||
+        found->second.observed_at_unix_ms==0U ||
+        found->second.observed_at_unix_ms>telemetry.aggregated_at_unix_ms ||
+        telemetry.aggregated_at_unix_ms-found->second.observed_at_unix_ms>
+            telemetry.freshness_window_ms) return std::nullopt;
     return static_cast<std::uint64_t>(found->second.value);
 }
 
@@ -79,8 +87,9 @@ void addRunBlockers(const ABRunRecord& run,
         if (elapsed/1000U<policy.minimum_run_duration_seconds)
             blockers.push_back(prefix+": captured session does not cover the required run duration.");
     }
-    if (run.duration_seconds<policy.minimum_run_duration_seconds)
-        blockers.push_back(prefix+": sustained duration is below the policy minimum.");
+    if (run.duration_seconds<policy.minimum_run_duration_seconds ||
+        run.duration_seconds>86400U)
+        blockers.push_back(prefix+": sustained duration is outside the policy bounds.");
     if (!run.render_present_passed)
         blockers.push_back(prefix+": explicit render/Present success is missing.");
     if (run.frame_count==0U || run.present_calls==0U)
