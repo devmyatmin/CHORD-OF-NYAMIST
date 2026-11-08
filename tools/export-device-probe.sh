@@ -30,9 +30,22 @@ release="$(getprop_value ro.build.version.release)"
 abi_list="$(getprop_value ro.product.cpu.abilist)"
 kernel="$(uname -r 2>/dev/null || true)"
 [ -n "$kernel" ] || fail "kernel release could not be read"
-cpus="$(getconf _NPROCESSORS_ONLN 2>/dev/null || printf '0')"
+# Android/Termux may not provide getconf. Prefer it when available, then
+# fall back to /proc/cpuinfo and nproc without requiring extra packages.
+cpus=0
+if command -v getconf >/dev/null 2>&1; then
+  cpus="$(getconf _NPROCESSORS_ONLN 2>/dev/null || printf '0')"
+fi
 case "$cpus" in ''|*[!0-9]*) cpus=0 ;; esac
-[ "$cpus" -gt 0 ] || fail "logical CPU count could not be determined"
+if [ "$cpus" -le 0 ] && [ -r /proc/cpuinfo ]; then
+  cpus="$(awk '/^processor[[:space:]]*:/ { count++ } END { print count+0 }' /proc/cpuinfo)"
+fi
+case "$cpus" in ''|*[!0-9]*) cpus=0 ;; esac
+if [ "$cpus" -le 0 ] && command -v nproc >/dev/null 2>&1; then
+  cpus="$(nproc 2>/dev/null || printf '0')"
+fi
+case "$cpus" in ''|*[!0-9]*) cpus=0 ;; esac
+[ "$cpus" -gt 0 ] || fail "logical CPU count could not be determined (getconf, /proc/cpuinfo, and nproc unavailable)"
 
 total_kb=0
 available_kb=0
