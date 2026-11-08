@@ -21,7 +21,7 @@ The builder is zenithblue-oss/panvk-kbase-android at cf70e02b918e1864cbcd746a7fe
 
 The pinned recipe expects patch level p0175 and Mesa driver identity git-795ca7ff3e, matching the PanVK RC5 identity recorded from the REDMI K80 Ultra tests. The inspected PanPlay driver SHA-256 is 62c2b3f98ca987d5ab50b6f01e2d2c1c5b3ee995fe93666aa5da9415f65c3348. That is a reference hash for comparison, not a promise that a new build will be byte-identical.
 
-The produced NyaPANVK artifact is a standalone Android arm64-v8a shared library with SOURCE.json, BUILD.json, SHA256SUMS.txt, upstream NOTICE.md and LICENSES. The build job performs static ELF/ICD checks only. Vulkan loading, PanProbe, surface presentation and sustained device tests remain separate hardware gates.
+The produced NyaPANVK output includes the standalone Android arm64-v8a shared library and a PanPlay-compatible `NyaPANVK-*.adpkg.zip`. The import archive contains `libvulkan_panfrost.so`, `meta.json`, SOURCE.json, BUILD.json, checksums, the upstream NOTICE.md and LICENSES. PanPlay's Drivers screen accepts this archive through **Import driver (.adpkg.zip)**. The build job performs static ELF/ICD checks only. Vulkan loading, PanProbe, surface presentation and sustained device tests remain separate hardware gates.
 
 ### NyaDXVK and NyaVKD3D
 
@@ -51,6 +51,21 @@ Both scripts place disposable build trees under .nya-build/ and generated artifa
 ## GitHub Actions
 
 The manually dispatched workflow is .github/workflows/component-build.yml. Select panvk, dxvk or all. The PanVK job uses Android NDK r29 and performs static binary validation. The DXVK job verifies WCP integrity and embeds upstream source, patch and toolchain provenance. Pull requests run only lightweight lockfile and shell-syntax checks; they do not launch expensive cross-builds.
+
+## Import and first real-game test in PanPlay
+
+Use PanPlay on the physical REDMI K80 Ultra for this target. A generic Android Studio virtual device does not expose the phone's Immortalis-G925 Mali GPU or its `mali_kbase` kernel interface; it cannot validate this PanVK build. PanPlay runs the Windows game environment on Android through its Wine/FEX path.
+
+1. Open PanPlay and preserve the bundled PanVK RC5 driver as the known-good rollback choice.
+2. Open **Drivers** → **Import driver (.adpkg.zip)** and select the generated `NyaPANVK-*.adpkg.zip`. It installs as an additional app-local driver; it does not replace the bundled driver or Android's stock Vulkan driver.
+3. In Drivers, select the bundled RC5 and use **Probe active driver** first. Record the result. Then select NyaPANVK and probe it. If import, load, or enumeration fails, switch back to bundled RC5. Never copy the .so into `/vendor` or change `/dev/mali0` permissions.
+4. Add the game executable/container in PanPlay. Start with a D3D11 game and choose **DXVK** as its Render API. Keep the bundled DXVK 3.1.1-5 and bundled PanVK RC5 for the first 300-second baseline. Check that the game actually starts, renders to the Android surface, and accepts touch/gamepad/keyboard input as applicable.
+5. After exporting SessionLogs and the matching PerfRecorder ZIP, import them using the commands in `docs/game-validation-runbook.md`. Send both original ZIPs and the generated review JSON for analysis.
+6. Repeat the same scene and settings with only NyaPANVK selected while keeping DXVK unchanged. This isolates the driver change. Only after that should NyaDXVK be tested as a separate variable.
+
+PanPlay installs local DXVK/VKD3D component packages from **Components** → **Add from file** → **Install local .wcp**. The current pinned DXVK builder produces `3.1.1-4-arm64ec`, while the inspected APK contains `3.1.1-5-arm64ec`; treat the NyaDXVK package as a separate candidate and do not replace the bundled baseline without a deliberate comparison. Keep VKD3D/D3D12 tests separate from D3D11, and remember the current device evidence only reaches D3D12 feature level 11_1.
+
+The first game run is a compatibility check, not proof of a production-ready driver. Preserve the current RC5 selection and original exports so every failed run can be rolled back and diagnosed.
 
 ## Release and device gates
 
