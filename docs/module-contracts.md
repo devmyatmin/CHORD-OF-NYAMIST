@@ -2,7 +2,7 @@
 
 ## Common adapter contract
 
-Every integration adapter implements `IComponentProbe` and returns a `ComponentReport` containing:
+Every integration adapter implements IComponentProbe and returns a ComponentReport containing:
 
 - stable component ID;
 - component kind;
@@ -17,17 +17,27 @@ A probe must be read-only and bounded in time. It must not launch a game, mutate
 
 | ID | Kind | External owner | Initial scope |
 |---|---|---|---|
-| `dxvk` | translator | DXVK upstream | D3D11/DXGI version and session report |
-| `vkd3d-proton` | translator | VKD3D-Proton upstream | D3D12 version and feature-level report |
-| `panvk` | Vulkan driver | Mesa / Android PanVK kbase project | ICD identity, API version, GPU and driver report |
-| `system-vulkan` | Vulkan driver | Device vendor | Stock ICD as a safe fallback |
-| `ai-advisor` | advisor | NYAMIST | Recommendation engine identity and policy version |
-| `session-monitor` | monitor | NYAMIST | Session telemetry availability |
+| dxvk | translator | DXVK upstream | D3D11/DXGI version and session report |
+| vkd3d-proton | translator | VKD3D-Proton upstream | D3D12 version and feature-level report |
+| panvk | Vulkan driver | Mesa / Android PanVK kbase project | ICD identity, API version, GPU and driver report |
+| system-vulkan | Vulkan driver | Device vendor | Stock ICD as a safe fallback |
+| ai-advisor | advisor | NYAMIST | Recommendation engine identity and policy version |
+| session-monitor | monitor | NYAMIST | Session telemetry availability |
+
+## PanVK adapter
+
+PanVKAdapter consumes a normalized, read-only key=value report exported from an app-local PanProbe/PanPlay session. Required fields identify the driver, Vulkan API, GPU ID, load status, enumerated device count, and PanProbe pass/fail/skip counters.
+
+Optional fields include architecture/model, build ID, binary SHA-256, gralloc availability, conformance status, and explicit render/present evidence. Unknown optional keys are ignored; duplicate keys and malformed required values are rejected.
+
+ICD load and device enumeration map to discovered, not smoke_tested. A PanProbe pass count by itself does not establish Android surface presentation. smoke_tested requires explicit render/present evidence, non-zero frames, normal process exit, and zero device-lost events. sustained_tested additionally requires an explicit sustained-test pass and at least 300 seconds. See docs/panvk-adapter.md.
+
+The adapter never loads the ICD, selects a Vulkan driver, modifies Android system files or permissions, or manages PanVK/Mesa caches. The stock vendor driver remains untouched.
 
 ## Runtime selection
 
-- D3D11 requests require `dxvk` plus the selected Vulkan driver.
-- D3D12 requests require `vkd3d-proton` plus the selected Vulkan driver.
+- D3D11 requests require dxvk plus the selected Vulkan driver.
+- D3D12 requests require vkd3d-proton plus the selected Vulkan driver.
 - DXVK and VKD3D-Proton are never treated as interchangeable.
 - PanVK is selected only when its app-local ICD identity is positively observed.
 - A missing PanVK report must not silently claim PanVK is active; the selected fallback must be explicit.
