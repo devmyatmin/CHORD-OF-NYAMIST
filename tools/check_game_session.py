@@ -82,7 +82,7 @@ def assess_evidence(evidence: Any, minimum_duration_seconds: int = 300) -> dict[
 
     exit_code = session.get("exit_code")
     crash = session.get("crash")
-    if exit_code == 0 and crash is False:
+    if isinstance(exit_code, int) and not isinstance(exit_code, bool) and exit_code == 0 and crash is False:
         _check(checks, "process_exit", "pass", "Process exit code is 0 and crash flag is false.")
     elif exit_code is None or not isinstance(crash, bool):
         detail = "Clean process-exit evidence is missing."
@@ -150,8 +150,9 @@ def assess_evidence(evidence: Any, minimum_duration_seconds: int = 300) -> dict[
         _check(checks, "device_lost_log_scan", "warning",
                "No device-loss marker was found by PanPlay's log scan; this is not an explicit counter.")
     else:
-        _check(checks, "device_lost_log_scan", "incomplete",
-               "Device-loss log-scan result was not supplied.")
+        detail = "Device-loss log-scan result was not supplied."
+        _check(checks, "device_lost_log_scan", "incomplete", detail)
+        blockers.append(detail)
 
     _check(checks, "vulkan_present", "not_measured",
            "PanPlay does not export explicit successful Present calls and zero Present-failure counters. "
