@@ -32,7 +32,7 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
-      - name: CLI and benchmark smoke tests
+      - name: CLI, cache, and benchmark smoke tests
         run: |
           ./build/nyamist-cli advice
           ./build/nyamist-cli fingerprint "nyamist-ci-smoke-test"
