@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Python importer tests
-        run: python3 -m unittest discover -s tools/tests -v
+        run: PYTHONPATH=tools python3 -m unittest discover -s tools/tests -v
 
       - name: Shell syntax check
         run: bash -n tools/termux-probe.sh tools/termux-build-core.sh
