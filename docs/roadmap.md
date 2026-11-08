@@ -39,6 +39,7 @@
 - [ ] Capture frame-time percentiles, memory, and thermal telemetry where accessible
 - [ ] Keep DXVK shader/pipeline caches under DXVK control
 - [x] Add deterministic A/B regression evaluator: at least 3 sustained 300-second runs per arm, matched workload/device, explicit render/Present and zero-failure evidence, median p95 comparison
+- [x] Add conservative PanPlay game-session review checker with duration/process/performance evidence checks; retain discovered-only rendering status
 
 ## Phase 3 — Experimental D3D12
 - [x] Verify VKD3D-Proton D3D12 feature-level path reaches 11_0 and 11_1
