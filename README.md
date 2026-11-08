@@ -105,6 +105,24 @@ chmod +x tools/termux-probe.sh tools/termux-build-core.sh tools/export-device-pr
 
 The probe is read-only. It does not change the stock driver or require privileged GPU access. The portable core build is not a PanVK driver build.
 
+
+
+## Real-game validation
+
+Use [the REDMI K80 Ultra game-validation runbook](docs/game-validation-runbook.md)
+for the D3D11-first PanPlay test sequence. After exporting the matching
+SessionLogs and PerfRecorder ZIPs, import them with the PanPlay importer and
+assess the normalized sidecar with:
+
+~~~sh
+python3 tools/check_game_session.py build/game-tests/d3d11-session.json \
+  --minimum-duration-seconds 300 \
+  --output build/game-tests/d3d11-review.json
+~~~
+
+REVIEW_READY means performance evidence is suitable for human review. It does
+not imply explicit Vulkan Present validation or production readiness.
+
 ## Safety boundaries
 
 - Keep the stock Android Vulkan driver intact as a rollback path.
