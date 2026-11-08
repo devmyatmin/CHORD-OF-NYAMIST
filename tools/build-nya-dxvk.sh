@@ -35,7 +35,7 @@ mkdir -p "$BUILD_WORK" "$PACKAGE_OUT"
 LLVM_MINGW_NAME="llvm-mingw-$LLVM_MINGW_VER-ucrt-ubuntu-22.04-x86_64"
 LLVM_MINGW_ARCHIVE="$BUILD_WORK/$LLVM_MINGW_NAME.tar.xz"
 LLVM_MINGW_PART="$LLVM_MINGW_ARCHIVE.part"
-if [[ -f "$LLVM_MINGW_ARCHIVE" ]] && ! printf '%s  %s\\n' "$LLVM_MINGW_SHA256" "$LLVM_MINGW_ARCHIVE" | sha256sum --check --status; then
+if [[ -f "$LLVM_MINGW_ARCHIVE" ]] && ! printf '%s  %s\n' "$LLVM_MINGW_SHA256" "$LLVM_MINGW_ARCHIVE" | sha256sum --check --status; then
   echo "Discarding cached llvm-mingw archive with incorrect SHA-256" >&2
   rm -f "$LLVM_MINGW_ARCHIVE"
 fi
@@ -43,13 +43,13 @@ if [[ ! -f "$LLVM_MINGW_ARCHIVE" ]]; then
   LLVM_MINGW_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VER/$LLVM_MINGW_NAME.tar.xz"
   echo "Downloading pinned llvm-mingw $LLVM_MINGW_VER with bounded retries"
   rm -f "$LLVM_MINGW_PART"
-  curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 \\
-    --retry-max-time 900 --connect-timeout 30 --max-time 1800 \\
+  curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 \
+    --retry-max-time 900 --connect-timeout 30 --max-time 1800 \
     --output "$LLVM_MINGW_PART" "$LLVM_MINGW_URL"
-  printf '%s  %s\\n' "$LLVM_MINGW_SHA256" "$LLVM_MINGW_PART" | sha256sum --check -
+  printf '%s  %s\n' "$LLVM_MINGW_SHA256" "$LLVM_MINGW_PART" | sha256sum --check -
   mv "$LLVM_MINGW_PART" "$LLVM_MINGW_ARCHIVE"
 fi
-printf '%s  %s\\n' "$LLVM_MINGW_SHA256" "$LLVM_MINGW_ARCHIVE" | sha256sum --check -
+printf '%s  %s\n' "$LLVM_MINGW_SHA256" "$LLVM_MINGW_ARCHIVE" | sha256sum --check -
 
 WORK="$BUILD_WORK" OUT="$PACKAGE_OUT" JOBS="$JOBS" bash "$BUILDER/scripts/build-dxvk.sh"
 
