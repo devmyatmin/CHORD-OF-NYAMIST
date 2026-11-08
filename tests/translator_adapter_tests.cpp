@@ -105,6 +105,22 @@ void testShortRunCannotClaimSustained() {
           "a run below 300 seconds must not be sustained-tested");
 }
 
+void testPartialRenderMetricsRemainVisibleWithoutPromotion() {
+    using namespace nyamist::runtime;
+    auto source = dxvkReport() +
+        "frame_count=27508\\nduration_seconds=20\\nprocess_exit_code=0\\n";
+    const auto report = DxvkAdapter(parse(source)).inspect();
+    check(report.validation == ValidationLevel::discovered,
+          "partial render data must not promote a translator to smoke-tested");
+    bool has_frames = false;
+    bool has_duration = false;
+    for (const auto& item : report.capabilities) {
+        has_frames = has_frames || item == "render.frames.observed=27508";
+        has_duration = has_duration || item == "render.duration_seconds.observed=20";
+    }
+    check(has_frames && has_duration, "partial frame/time evidence must remain inspectable");
+}
+
 void testPresentFailureRejectsSmokeValidation() {
     using namespace nyamist::runtime;
     auto source = dxvkReport() +
@@ -161,6 +177,7 @@ int main() {
         testCleanRenderPresentPromotesToSmokeTested();
         testCleanFiveMinuteRunPromotesToSustained();
         testShortRunCannotClaimSustained();
+        testPartialRenderMetricsRemainVisibleWithoutPromotion();
         testPresentFailureRejectsSmokeValidation();
         testDeviceLostRejectsSmokeValidation();
         testNonZeroExitRejectsSmokeValidation();
