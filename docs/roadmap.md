@@ -17,7 +17,9 @@
 - [x] Run PanProbe 41-test suite (41/41 reported)
 - [x] Run DXVK D3D11 ARM64EC feature-level test (10_0–11_1 pass)
 - [x] Run D3D11 synthetic Cube rendering test
-- [ ] Add NYAMIST read-only adapters for PanVK ICD and PanProbe evidence
+- [x] Add first read-only PanVK report adapter, CLI inspection, and validation tests
+- [ ] Add automatic importer for raw PanProbe JSON/ZIP exports
+- [ ] Attach D3D11 render/present evidence to the matching PanVK build identity
 - [ ] Run sustained D3D11 rendering test for at least 5 minutes
 - [ ] Verify repeatable game scenes, surface presentation, and visual correctness
 - [ ] Record a complete rollback procedure and preserve stock Vulkan driver
