@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "brand": {
+    "prefix": "Nya",
+    "runtime": "NYAMIST",
+    "meaning": "Downstream build and package label only; upstream component identity and attribution remain intact."
+  },
+  "policy": {
+    "preserveUpstreamDriverAndDllIdentity": true,
+    "preserveUpstreamLicensesAndNotices": true,
+    "doNotVendorBinariesIntoNyamistCore": true,
+    "doNotReplaceAndroidVendorDriver": true,
+    "hardwareValidationRequiredBeforeReleasePromotion": true
+  },
+  "buildTools": {
+    "mesonVersion": "1.4.2",
+    "mesonRequirement": "Mesa pinned source requires Meson >=1.4.0; this exact pin is shared by PanVK, DXVK and VKD3D builds.",
+    "packagingVersion": "24.2",
+    "packagingRequirement": "Mesa's pinned Meson environment requires packaging.version; install this exact version inside the isolated build virtualenv.",
+    "makoVersion": "1.3.5",
+    "markupsafeVersion": "2.1.5",
+    "mesaPythonRequirement": "Mesa's Meson interpreter imports mako; MarkupSafe is its pinned runtime dependency."
+  },
+  "components": {
+    "panvk": {
+      "displayName": "NyaPANVK",
+      "builderRepository": "https://github.com/zenithblue-oss/panvk-kbase-android.git",
+      "builderCommit": "cf70e02b918e1864cbcd746a7fefa57b96c673ce",
+      "mesaRepository": "https://gitlab.freedesktop.org/mesa/mesa.git",
+      "mesaCommit": "5a07217f034b3e50d8c7c7794f97a2df1742613b",
+      "mesaVersion": "26.3.0-devel",
+      "buildProfile": "g615-v11-csf",
+      "buildProfileMeaning": "Universal v6-v14 Android PanVK tree prepared by prepare-rc5-tree.sh; not a G615-only output.",
+      "androidApi": 35,
+      "expectedPatchLevel": "p0175",
+      "expectedMesaGitSha8": "795ca7ff3e",
+      "referenceDeviceArtifactSha256": "62c2b3f98ca987d5ab50b6f01e2d2c1c5b3ee995fe93666aa5da9415f65c3348",
+      "referenceDevice": "REDMI K80 Ultra / Immortalis-G925 MC12 / Android 16"
+    },
+    "dxvk": {
+      "displayName": "NyaDXVK",
+      "builderRepository": "https://github.com/zenithblue-oss/panplay.git",
+      "builderCommit": "469b997a061b9bd404d32b52c9d78c5ee228c903",
+      "sourceRepository": "https://github.com/doitsujin/dxvk.git",
+      "sourceTag": "v3.1.1",
+      "sourceCommit": "b1a1c99ab52b687cf950d62c88bc2fa316b41663",
+      "packageRevisionFromPinnedBuilder": "3.1.1-4-arm64ec",
+      "architectureTargets": [
+        "arm64ec",
+        "i686"
+      ],
+      "patches": [
+        "runtimes/dxvk/clear-before-external-rendering.patch",
+        "runtimes/dxvk/panplay-stats.patch"
+      ],
+      "currentApkObservedPackageRevision": "3.1.1-5-arm64ec",
+      "apkSourceParity": "not-verified: pinned public builder emits 3.1.1-4; do not claim byte-for-byte reproduction of the APK's 3.1.1-5 component."
+    },
+    "vkd3d": {
+      "displayName": "NyaVKD3D",
+      "builderRepository": "https://github.com/zenithblue-oss/panplay.git",
+      "builderCommit": "469b997a061b9bd404d32b52c9d78c5ee228c903",
+      "sourceRepository": "https://github.com/HansKristian-Work/vkd3d-proton.git",
+      "sourceRef": "master-v3.0.1-452-g22307558",
+      "sourceCommit": "2230755878b01993b4b82d0ac0c0624f3ab4d333",
+      "packageVersion": "3.0.1-452-g22307558",
+      "architectureTargets": [
+        "arm64ec",
+        "i686"
+      ]
+    }
+  }
+}

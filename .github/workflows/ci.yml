@@ -17,11 +17,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Python importer tests
+        run: PYTHONPATH=tools python3 -m unittest discover -s tools/tests -v
+
       - name: Shell syntax check
-        run: bash -n tools/termux-probe.sh tools/termux-build-core.sh
+        run: bash -n tools/termux-probe.sh tools/termux-build-core.sh tools/export-device-probe.sh tools/build-nya-panvk.sh tools/build-nya-dxvk.sh
+
+      - name: Validate Nya component source lock
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          lock = json.loads(Path("configs/component-locks.json").read_text())
+          assert lock["schemaVersion"] == 1
+          components = lock["components"]
+          for name, fields in {
+              "panvk": ("builderCommit", "mesaCommit"),
+              "dxvk": ("builderCommit", "sourceCommit"),
+              "vkd3d": ("builderCommit", "sourceCommit"),
+          }.items():
+              for field in fields:
+                  assert len(components[name][field]) == 40, (name, field)
+          assert components["dxvk"]["packageRevisionFromPinnedBuilder"] == "3.1.1-4-arm64ec"
+          assert components["dxvk"]["currentApkObservedPackageRevision"] == "3.1.1-5-arm64ec"
+          print("Nya component source lock: PASS")
+          PY
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON -DNYAMIST_BUILD_BENCHMARKS=ON
 
       - name: Build
         run: cmake --build build --parallel 2
@@ -29,8 +52,12 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
-      - name: CLI smoke test
+      - name: CLI, cache, and benchmark smoke tests
         run: |
           ./build/nyamist-cli advice
           ./build/nyamist-cli fingerprint "nyamist-ci-smoke-test"
           ./build/nyamist-cli demo-cache ./build/demo-cache
+          ./build/nyamist-cli inspect-device configs/device-probe.example.env
+          ./build/nyamist-cli inspect-dxvk configs/dxvk-d3d11-report.template.env
+          ./build/nyamist-cli inspect-vkd3d configs/vkd3d-d3d12-report.template.env
+          ./build/nyamist-cache-bench ./build/cache-benchmark 1 3
