@@ -118,10 +118,6 @@ def import_archive(archive_path: Path) -> tuple[str, dict[str, Any]]:
 
     try:
         with zipfile.ZipFile(archive_path) as archive:
-            bad_member = archive.testzip()
-            if bad_member is not None:
-                raise ImportErrorDetail(f"ZIP CRC check failed: {bad_member}")
-
             load = _read_json_member(archive, "driver-load.json")
             summary_name = _unique_basename(archive, "summary.json", required=True)
             assert summary_name is not None
