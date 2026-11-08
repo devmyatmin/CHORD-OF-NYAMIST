@@ -4,7 +4,7 @@
 
 Target validation device: **REDMI K80 Ultra · MediaTek Dimensity 9400+ · Immortalis-G925 · Android 16 · 12 GB RAM**.
 
-NYAMIST coordinates independently maintained graphics components through read-only adapters, deterministic validation, device profiles, and a rule-based optimization advisor. An on-device AI advisor remains a future module; no model is loaded into the current runtime. NYAMIST does not rebrand or replace PanVK, DXVK, VKD3D-Proton, Wine, FEX/Box64, the Android Vulkan loader, or the vendor kernel driver.
+NYAMIST coordinates independently maintained graphics components through read-only adapters, deterministic validation, device profiles, and a rule-based optimization advisor. An on-device AI advisor remains a future module; no model is loaded into the current runtime. NYAMIST core does not replace upstream component identities, Wine, FEX/Box64, the Android Vulkan loader, or the vendor kernel driver. NyaPANVK, NyaDXVK, and NyaVKD3D are downstream build/package labels only; upstream driver, DLL, source, and license identities remain preserved.
 
 ## Modular runtime
 
@@ -24,6 +24,17 @@ NYAMIST sidecar:
 - **NYAMIST** profiles and validates the runtime; it is not on the per-draw-call path.
 
 See [Modular Runtime Architecture](docs/modular-runtime.md) and [Module Contracts](docs/module-contracts.md).
+
+## Nya component family
+
+Nya is the downstream build and packaging prefix used alongside NYAMIST:
+
+- **NyaPANVK** — app-local Android ARM64 PanVK driver build.
+- **NyaDXVK** — ARM64EC and i686 Direct3D 8/9/10/11 translation package.
+- **NyaVKD3D** — ARM64EC and i686 Direct3D 12 translation package.
+- **NyaBuild** — pinned-source build, packaging, checksum, and provenance pipeline.
+
+The prefix labels our artifacts only. Upstream driver identity, DLL identity, licenses, notices, source commits, and patch history are retained. The component builders are separate from NYAMIST core; no graphics binaries are loaded by the sidecar. See [Nya component build policy and instructions](docs/nya-component-builds.md).
 
 ## Lightweight runtime design
 
