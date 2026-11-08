@@ -7,7 +7,7 @@ PanVkAdapter consumes a normalized key=value report produced from an app-local P
 Use the standard-library importer to convert a ZIP export:
 
 ```sh
-python3 tools/import-panprobe.py panprobe-export.zip -o panvk-report.env
+python3 tools/import_panprobe.py panprobe-export.zip -o panvk-report.env
 ./build/nyamist-cli inspect-panvk panvk-report.env
 ```
 
