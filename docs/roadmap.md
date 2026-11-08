@@ -5,6 +5,7 @@
 - [x] Deterministic cache fingerprint
 - [x] Versioned validated-cache prototype
 - [x] Compact bounded binary cache V2 with V1 read compatibility and corruption/length tests
+- [x] V1-versus-V2 cache microbenchmark harness with file-size and latency reporting
 - [x] Rule-based advisor interface
 - [x] Unit tests and GitHub Actions CI
 - [x] Termux probe and on-device core build scripts
@@ -50,7 +51,7 @@
 - [ ] Keep automatic application disabled until A/B regression evidence exists
 
 ## Phase 5 — Performance engineering and release
-- [ ] Benchmark cache V1 versus V2 read/write latency, disk footprint, and peak RAM on REDMI K80 Ultra
+- [ ] Run the V1/V2 benchmark on REDMI K80 Ultra and record actual write/read latency and disk footprint
 - [ ] Compare cold launch vs warm launch
 - [ ] Measure shader compilation time and repeat-run stutter
 - [ ] Measure CPU/GPU frame time, memory use, and thermal throttling
