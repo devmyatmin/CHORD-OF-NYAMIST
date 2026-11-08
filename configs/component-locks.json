@@ -12,6 +12,10 @@
     "doNotReplaceAndroidVendorDriver": true,
     "hardwareValidationRequiredBeforeReleasePromotion": true
   },
+  "buildTools": {
+    "mesonVersion": "1.4.2",
+    "mesonRequirement": "Mesa pinned source requires Meson >=1.4.0; this exact pin is shared by PanVK, DXVK and VKD3D builds."
+  },
   "components": {
     "panvk": {
       "displayName": "NyaPANVK",
