@@ -6,28 +6,15 @@ NYAMIST is an Android-oriented graphics runtime orchestrator and optimization la
 
 ## Runtime topology
 
-```text
 Windows game
-    |
-    v
-Wine / Proton + FEX / Box64
-    |
-    +---- D3D11 ----> DXVK -----------+
-    |                                |
-    +---- D3D12 ----> VKD3D-Proton --+--> Android Vulkan loader
-                                             |
-                                      selected Vulkan ICD
-                                      (PanVK candidate)
-                                             |
-                                       mali_kbase / CSF
-                                             |
-                                      Immortalis-G925
+  -> Wine / Proton + FEX / Box64
+  -> DXVK for D3D11 or VKD3D-Proton for D3D12
+  -> Android Vulkan loader
+  -> selected Vulkan ICD (PanVK candidate)
+  -> Mali kbase / CSF
+  -> Immortalis-G925
 
-NYAMIST sidecar:
-  Core + Component Registry + Runtime Coordinator
-  + Device/Session Monitor + Validation Gate
-  + AI Advisor + NYAMIST metadata cache
-```
+NYAMIST sidecar: Core, Component Registry, Runtime Coordinator, read-only adapters, Device/Session Monitor, Validation Gate, AI Advisor, and NYAMIST metadata cache.
 
 The translator produces Vulkan work. The Vulkan ICD implements Vulkan. The kernel driver exposes the GPU interface. NYAMIST discovers, profiles, validates, and coordinates these independently installed components; it is not in the per-draw-call path.
 
@@ -42,14 +29,14 @@ The translator produces Vulkan work. The Vulkan ICD implements Vulkan. The kerne
 | AI advisor | Candidate profile recommendations from structured telemetry | Direct driver settings or unvalidated runtime commands |
 | Monitor | Session logs, frame-time summaries, memory/thermal telemetry where accessible | Privileged kernel or SELinux changes |
 
-Adapters report observations. They do not inject code into external components or load arbitrary driver libraries. A later, separately reviewed integration may use documented DXVK/VKD3D interfaces or launcher APIs.
+The current PanVK adapter reads a normalized evidence report through a bounded key=value parser and exposes a CLI inspection command. It does not open or load the ICD. See docs/panvk-adapter.md.
 
 ## Readiness levels
 
-- `unavailable`: component is absent or explicitly unusable.
-- `discovered`: identity/version is found; no rendering validation is implied.
-- `smoke_tested`: a defined device-creation/render/present test passed.
-- `sustained_tested`: a repeatable sustained test passed with logs and no critical rendering, device-loss, or stability failure.
+- unavailable: component is absent or explicitly unusable.
+- discovered: identity/version is found; no rendering validation is implied.
+- smoke_tested: a defined device-creation/render/present test passed.
+- sustained_tested: a repeatable sustained test passed with logs and no critical rendering, device-loss, or stability failure.
 
 The runtime coordinator may permit a controlled smoke test when required components are discovered. It must not label a configuration production-ready until both translator and driver have sustained-test evidence.
 
@@ -60,7 +47,7 @@ As of 2026-11-08, user-run tests on the REDMI K80 Ultra / Immortalis-G925 report
 - PanVK RC5 PanProbe: 41/41 tests passed.
 - D3D11 ARM64EC through DXVK: feature levels 10_0–11_1 passed; 27,508 frames over 20 seconds; normal process exit (code 0).
 - D3D12 ARM64EC through VKD3D-Proton: feature levels 11_0 and 11_1 passed; 12_0–12_2 unsupported; 19,003 frames over 20 seconds; normal process exit (code 0).
-- D3D12 Present calls reported `hr=0x00000000`.
+- D3D12 Present calls reported hr=0x00000000.
 - A synthetic D3D11 Cube test reported about 838 average FPS at 1280x720. This is a microbenchmark, not a game-performance claim.
 
 These results justify a controlled experimental integration target. They do not prove sustained stability, broad game compatibility, correct rendering in every workload, or production readiness. The current 20-second test applications exit normally when their test run completes; this is not evidence of a crash by itself.
@@ -77,16 +64,16 @@ Never duplicate, rewrite, or delete another component's cache.
 ## Safety and rollback
 
 - Keep the stock Android Vulkan driver intact.
-- Do not overwrite `/vendor` libraries or globally replace the Vulkan ICD.
-- Do not chmod `/dev/mali0`, flash a kernel, or weaken SELinux.
+- Do not overwrite /vendor libraries or globally replace the Vulkan ICD.
+- Do not chmod /dev/mali0, flash a kernel, or weaken SELinux.
 - Select app-local driver packages only through their supported launcher mechanism.
 - Every optimization is advisory until it passes deterministic validation and an A/B regression test.
 - If a profile is missing, stale, or rejected, fall back to the known working launcher/runtime defaults.
 
 ## Implementation sequence
 
-1. Establish module contracts and registry (current milestone).
-2. Add read-only adapters for device facts, PanProbe reports, DXVK, VKD3D-Proton, and PanVK ICD metadata.
+1. Establish module contracts and registry (complete).
+2. Add read-only adapters for device facts, PanProbe reports, DXVK, VKD3D-Proton, and PanVK ICD metadata (PanVK report adapter implemented; other adapters pending).
 3. Persist a versioned session/compatibility profile.
 4. Add sustained D3D11 test evidence and keep it as the default target.
 5. Add the D3D12 adapter as experimental, preserving the observed FL11_1 ceiling.
