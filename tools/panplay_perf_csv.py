@@ -8,6 +8,7 @@ from __future__ import annotations
 import csv
 import io
 import math
+from bisect import bisect_right
 from typing import Any
 
 FRAME_HEADER = ["# F", "timestamp_us", "frametime_us"]
@@ -17,6 +18,7 @@ STATS_HEADER = [
     "draw_calls", "submissions", "renderpasses", "barriers",
     "graphics_pipelines", "compiler_busy",
 ]
+MAX_RETAINED_STAT_GAPS = 10
 
 
 class PerfCsvError(ValueError):
@@ -51,6 +53,87 @@ def _nearest_rank(values: list[int], percentile: float) -> float:
     return ordered[index] / 1000.0
 
 
+def _nearest_rank_seconds(values_us: list[int], percentile: float) -> float:
+    ordered = sorted(values_us)
+    index = max(0, math.ceil(percentile * len(ordered)) - 1)
+    return ordered[index] / 1_000_000.0
+
+
+def _statistics_timing(
+    statistics_timestamps_us: list[int],
+    frame_timestamps_us: list[int],
+    frame_times_us: list[int],
+) -> dict[str, Any] | None:
+    """Summarize S-record intervals and their co-timed F-record evidence.
+
+    Frame samples are associated by timestamp only. This is a correlation
+    aid; it does not infer why an S-record interval is long or prove causality.
+    """
+    if len(statistics_timestamps_us) < 2:
+        return None
+
+    intervals = [
+        statistics_timestamps_us[index] - statistics_timestamps_us[index - 1]
+        for index in range(1, len(statistics_timestamps_us))
+    ]
+    gap_counts = {
+        "over_1_second": sum(value > 1_000_000 for value in intervals),
+        "over_2_seconds": sum(value > 2_000_000 for value in intervals),
+        "over_5_seconds": sum(value > 5_000_000 for value in intervals),
+        "over_10_seconds": sum(value > 10_000_000 for value in intervals),
+    }
+
+    largest_gaps: list[dict[str, Any]] = []
+    ranked_indices = sorted(
+        range(len(intervals)),
+        key=lambda index: intervals[index],
+        reverse=True,
+    )[:MAX_RETAINED_STAT_GAPS]
+
+    for index in ranked_indices:
+        start_us = statistics_timestamps_us[index]
+        end_us = statistics_timestamps_us[index + 1]
+        gap_us = intervals[index]
+
+        # Match frame records in (previous S timestamp, next S timestamp].
+        # Both streams are independently validated as monotonic.
+        left = bisect_right(frame_timestamps_us, start_us)
+        right = bisect_right(frame_timestamps_us, end_us)
+        interval_frames = frame_times_us[left:right]
+        frame_sum_us = sum(interval_frames)
+
+        largest_gaps.append({
+            "start_timestamp_us": start_us,
+            "end_timestamp_us": end_us,
+            "gap_seconds": round(gap_us / 1_000_000.0, 6),
+            "frame_records": len(interval_frames),
+            "frametime_sum_seconds": round(frame_sum_us / 1_000_000.0, 6),
+            "frametime_max_ms": (
+                round(max(interval_frames) / 1000.0, 3)
+                if interval_frames else None
+            ),
+            "frametime_sum_minus_gap_ms": (
+                round((frame_sum_us - gap_us) / 1000.0, 3)
+                if interval_frames else None
+            ),
+        })
+
+    return {
+        "interval_count": len(intervals),
+        "interval_median_seconds": round(
+            _nearest_rank_seconds(intervals, 0.50), 6
+        ),
+        "interval_p95_seconds": round(
+            _nearest_rank_seconds(intervals, 0.95), 6
+        ),
+        "interval_max_seconds": round(max(intervals) / 1_000_000.0, 6),
+        "gap_counts": gap_counts,
+        "largest_gaps": largest_gaps,
+        "frame_association": "F records in (previous S timestamp, next S timestamp]",
+        "causality_inferred": False,
+    }
+
+
 def parse_perf_csv(data: bytes) -> dict[str, Any]:
     """Parse the two-schema F/S stream and return bounded aggregate evidence."""
     try:
@@ -71,8 +154,10 @@ def parse_perf_csv(data: bytes) -> dict[str, Any]:
         raise PerfCsvError("unexpected PerfRecorder statistics header")
 
     frame_times_us: list[int] = []
+    frame_timestamps_us: list[int] = []
     frame_first_timestamp: int | None = None
     frame_last_timestamp: int | None = None
+    stats_timestamps_us: list[int] = []
     stats_first_timestamp: int | None = None
     stats_last_timestamp: int | None = None
     stats_count = 0
@@ -104,6 +189,7 @@ def parse_perf_csv(data: bytes) -> dict[str, Any]:
             if frame_first_timestamp is None:
                 frame_first_timestamp = timestamp
             frame_last_timestamp = timestamp
+            frame_timestamps_us.append(timestamp)
             frame_times_us.append(frametime)
         elif marker == "S":
             if len(row) != len(STATS_HEADER):
@@ -114,6 +200,7 @@ def parse_perf_csv(data: bytes) -> dict[str, Any]:
             if stats_first_timestamp is None:
                 stats_first_timestamp = timestamp
             stats_last_timestamp = timestamp
+            stats_timestamps_us.append(timestamp)
             stats_count += 1
             for index, field in enumerate(STATS_HEADER[2:], start=2):
                 parsed = _number(row[index].strip(), field)
@@ -169,5 +256,10 @@ def parse_perf_csv(data: bytes) -> dict[str, Any]:
             result["statistics_timestamp_span_seconds"] = round(
                 (stats_last_timestamp - stats_first_timestamp) / 1_000_000.0, 6
             )
+        timing = _statistics_timing(
+            stats_timestamps_us, frame_timestamps_us, frame_times_us
+        )
+        if timing is not None:
+            result["statistics_timing"] = timing
 
     return result

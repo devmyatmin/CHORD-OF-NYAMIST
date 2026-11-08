@@ -35,6 +35,45 @@ class PanPlayPerfCsvTests(unittest.TestCase):
         self.assertEqual(result["frametime_p99_ms"], 30.0)
         self.assertEqual(result["statistics"]["gpu_load_pct"]["avg"], 70.0)
         self.assertEqual(result["statistics"]["draw_calls"]["max"], 140.0)
+        self.assertEqual(
+            result["statistics_timing"]["frame_association"],
+            "F records in (previous S timestamp, next S timestamp]",
+        )
+        self.assertFalse(result["statistics_timing"]["causality_inferred"])
+
+    def test_reports_statistics_gaps_and_co_timed_frame_records(self):
+        data = (
+            HEADER
+            + "S,1000000,60,100,128,0,0,120,4,2,1,10,0\n"
+            + "F,1100000,400000\n"
+            + "F,1500000,600000\n"
+            + "S,2000000,80,120,128,0,0,140,5,3,1,12,0\n"
+            + "F,2100000,10000\n"
+            + "S,2500000,70,110,128,0,0,130,5,3,1,11,0\n"
+        ).encode()
+        timing = parse_perf_csv(data)["statistics_timing"]
+
+        self.assertEqual(timing["interval_count"], 2)
+        self.assertEqual(timing["interval_median_seconds"], 0.5)
+        self.assertEqual(timing["interval_p95_seconds"], 1.0)
+        self.assertEqual(timing["interval_max_seconds"], 1.0)
+        self.assertEqual(timing["gap_counts"]["over_1_second"], 0)
+
+        largest = timing["largest_gaps"][0]
+        self.assertEqual(largest["start_timestamp_us"], 1000000)
+        self.assertEqual(largest["end_timestamp_us"], 2000000)
+        self.assertEqual(largest["frame_records"], 2)
+        self.assertEqual(largest["frametime_sum_seconds"], 1.0)
+        self.assertEqual(largest["frametime_max_ms"], 600.0)
+        self.assertEqual(largest["frametime_sum_minus_gap_ms"], 0.0)
+
+    def test_omits_statistics_timing_with_only_one_statistics_sample(self):
+        data = (
+            HEADER
+            + "S,1000000,10,20,30,0,0,4,4,2,15,2,0\n"
+        ).encode()
+        result = parse_perf_csv(data)
+        self.assertNotIn("statistics_timing", result)
 
     def test_accepts_statistics_only_export_when_dxvk_frame_stats_are_off(self):
         data = (

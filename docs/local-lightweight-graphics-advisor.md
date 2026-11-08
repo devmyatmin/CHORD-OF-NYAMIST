@@ -99,6 +99,7 @@ At minimum, report:
 - stutter count and the source definition of a stutter;
 - GPU/CPU load, frequency, memory, temperature, and power with missing values preserved;
 - start/end timestamp consistency;
+- PerfRecorder statistics-sample interval distribution and long S-record gaps, paired with co-timed F-record count, summed frame time, and maximum frame time; report this as temporal correlation only, not causality;
 - DXVK/VKD3D version and settings consistency across SessionLogs, PerfRecorder, and runtime logs.
 
 If summary fields disagree with raw samples or logs, mark the evidence inconsistent and block tuning decisions until reconciled.
@@ -120,9 +121,12 @@ The Nov 8 Stranded Deep session provides:
 - 519-second session and 489.130544-second PerfRecorder duration;
 - DXVK D3D11 device creation and 1280x720 swapchain setup in the DXVK log;
 - selected D3D11 feature level 11_0 and maximum supported level 11_1 (now recorded separately by the importer);
-- 41,868 frame samples and significant reported frame-pacing issues.
+- 41,868 frame samples and significant reported frame-pacing issues;
+- 849 S-record statistics samples, with a 0.510-second median sample interval, 0.550-second P95, and 24.481-second maximum interval;
+- six S-record intervals over 1 second, five over 2 seconds, three over 5 seconds, and two over 10 seconds;
+- in the largest S-record gaps, the summed F-record frame times approximately equal the S timestamp interval. This establishes time alignment, not causation. No S-record GPU/compiler samples exist inside those gaps, so GPU/compiler state during the stalls remains unknown.
 
-It does not yet provide authoritative Vulkan Present success/failure counters or a clean process exit code. The PerfRecorder summary reports `dxvk: off` while the SessionLogs and DXVK runtime log identify DXVK 3.1.1. Treat this as an unresolved metadata/provenance conflict. Do not use this capture to authorize tuning until the conflict and raw CSV layout are audited.
+The raw typed CSV layout is now validated by the importer. The importer records bounded statistics-gap summaries and co-timed frame evidence without retaining raw samples or inferring causality. The PerfRecorder summary still reports `dxvk: off` while SessionLogs and the DXVK runtime log identify DXVK 3.1.1; this metadata/provenance conflict remains unresolved. The capture also lacks authoritative Vulkan Present success/failure counters and a clean process exit code. Do not use it to authorize tuning.
 
 ## Non-goals
 
