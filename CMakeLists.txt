@@ -20,6 +20,7 @@ add_library(nyamist_runtime
     src/runtime/session_snapshot.cpp
     src/runtime/pipeline_gate.cpp
     src/runtime/command_advisor.cpp
+    src/runtime/profile_store.cpp
     src/runtime/translator_adapters.cpp
 )
 target_include_directories(nyamist_runtime PUBLIC include)
@@ -82,4 +83,8 @@ if(NYAMIST_BUILD_TESTS)
     add_executable(nyamist-command-advisor-tests tests/command_advisor_tests.cpp)
     target_link_libraries(nyamist-command-advisor-tests PRIVATE nyamist_runtime)
     add_test(NAME nyamist-command-advisor-tests COMMAND nyamist-command-advisor-tests)
+
+    add_executable(nyamist-profile-store-tests tests/profile_store_tests.cpp)
+    target_link_libraries(nyamist-profile-store-tests PRIVATE nyamist_runtime)
+    add_test(NAME nyamist-profile-store-tests COMMAND nyamist-profile-store-tests)
 endif()
