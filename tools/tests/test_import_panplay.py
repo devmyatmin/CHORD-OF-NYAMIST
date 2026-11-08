@@ -171,7 +171,8 @@ class PanPlayImporterTests(unittest.TestCase):
         self.assertIn("translator_version=3.1.1-test\n", report)
         self.assertIn("device_created=true\n", report)
         self.assertIn("swapchain_configured=true\n", report)
-        self.assertIn("d3d11_feature_level=11_0\n", report)
+        self.assertIn("d3d11_selected_feature_level=11_0\n", report)
+        self.assertIn("d3d11_maximum_supported_feature_level=11_1\n", report)
         self.assertIn("render_present_passed=false\n", report)
         self.assertIn("frame_count=36000\n", report)
         self.assertNotIn("present_calls=", report)
@@ -179,6 +180,9 @@ class PanPlayImporterTests(unittest.TestCase):
         self.assertTrue(sidecar["translator"]["device_created_confirmed"])
         self.assertTrue(sidecar["translator"]["swapchain_configured_confirmed"])
         self.assertEqual(sidecar["translator"]["feature_level"], "11_0")
+        self.assertEqual(sidecar["translator"]["selected_feature_level"], "11_0")
+        self.assertEqual(sidecar["translator"]["maximum_feature_level"], "11_1")
+        self.assertEqual(sidecar["translator"]["feature_levels_used"], ["11_0"])
         self.assertEqual(
             sidecar["translator"]["swapchain"],
             {
@@ -206,6 +210,8 @@ class PanPlayImporterTests(unittest.TestCase):
         self.assertFalse(sidecar["translator"]["device_created_confirmed"])
         self.assertFalse(sidecar["translator"]["swapchain_configured_confirmed"])
         self.assertIsNone(sidecar["translator"]["feature_level"])
+        self.assertIsNone(sidecar["translator"]["selected_feature_level"])
+        self.assertIsNone(sidecar["translator"]["maximum_feature_level"])
         self.assertFalse(sidecar["translator"]["render_present_passed"])
 
     def test_detects_vkd3d_from_vkd3d_log_but_does_not_invent_version(self):
