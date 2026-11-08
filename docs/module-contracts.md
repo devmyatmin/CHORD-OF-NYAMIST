@@ -34,6 +34,14 @@ ICD load and device enumeration map to discovered, not smoke_tested. A PanProbe 
 
 The adapter never loads the ICD, selects a Vulkan driver, modifies Android system files or permissions, or manages PanVK/Mesa caches. The stock vendor driver remains untouched.
 
+## DXVK and VKD3D-Proton adapters
+
+DxvkAdapter consumes a normalized D3D11/DXVK report; Vkd3dProtonAdapter consumes a normalized D3D12/VKD3D-Proton report. Both enforce stable component identity and API ownership. Their parser rejects duplicate keys, malformed typed values, and oversized input while ignoring unknown optional keys.
+
+Device creation and reported feature levels remain discovered evidence. Smoke-test promotion requires explicit render/present success, frame/time counts, at least one successful Present call, explicit zero Present-failure status, process exit code 0, and explicitly reported zero device-lost events. Sustained validation additionally requires an explicit pass and at least 300 seconds. Shader-model capability strings are stored separately from D3D feature levels.
+
+See docs/translator-adapters.md for the normalized report schema and CLI commands.
+
 ## Runtime selection
 
 - D3D11 requests require dxvk plus the selected Vulkan driver.
