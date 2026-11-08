@@ -4,7 +4,7 @@
     "default_graphics_api": "d3d11",
     "preferred_vulkan_driver": "panvk",
     "enabled_graphics_apis": ["d3d11"],
-    "allow_experimental_components": false,
+    "allow_experimental_components": true,
     "automatic_system_driver_replacement": false,
     "automatic_component_updates": false
   },
