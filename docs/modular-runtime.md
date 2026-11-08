@@ -74,7 +74,7 @@ Never duplicate, rewrite, or delete another component's cache.
 
 1. Establish module contracts and registry (complete).
 2. Add read-only adapters for device facts and raw PanProbe import (PanVK, DXVK, and VKD3D-Proton normalized-report adapters implemented).
-3. Add a versioned session/compatibility profile importer and persist validated evidence.
+3. Add a versioned session/compatibility profile store and persist validated evidence (store implemented; live collector integration remains pending).
 4. Add sustained D3D11 test evidence and keep it as the default target.
 5. Add the D3D12 adapter as experimental, preserving the observed FL11_1 ceiling.
 6. Add monitor aggregation and deterministic A/B evaluation.
