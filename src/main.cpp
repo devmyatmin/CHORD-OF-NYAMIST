@@ -2,6 +2,7 @@
 #include "nyamist/fingerprint.hpp"
 #include "nyamist/optimization_advisor.hpp"
 #include "nyamist/runtime/panvk_adapter.hpp"
+#include "nyamist/runtime/translator_adapters.hpp"
 
 #include <cstddef>
 #include <iostream>
@@ -18,7 +19,9 @@ void printUsage() {
         << "  nyamist-cli advice\n"
         << "  nyamist-cli fingerprint <text>\n"
         << "  nyamist-cli demo-cache <directory>\n"
-        << "  nyamist-cli inspect-panvk <report.env>\n";
+        << "  nyamist-cli inspect-panvk <report.env>\n"
+        << "  nyamist-cli inspect-dxvk <report.env>\n"
+        << "  nyamist-cli inspect-vkd3d <report.env>\n";
 }
 
 const char* validationName(nyamist::runtime::ValidationLevel level) {
@@ -105,6 +108,30 @@ int runInspectPanvk(const std::string& report_path) {
     }
 }
 
+template <typename Adapter>
+int runInspectTranslator(const std::string& report_path, const char* label) {
+    try {
+        const auto adapter = Adapter::fromReportFile(report_path);
+        const auto report = adapter.inspect();
+
+        std::cout << "Component: " << report.descriptor.id << '\\n'
+                  << "Version: " << report.descriptor.version << '\\n'
+                  << "Origin: " << report.descriptor.origin << '\\n'
+                  << "Validation: " << validationName(report.validation) << '\\n';
+
+        for (const auto& capability : report.capabilities) {
+            std::cout << "[capability] " << capability << '\\n';
+        }
+        for (const auto& diagnostic : report.diagnostics) {
+            std::cout << "[diagnostic] " << diagnostic << '\\n';
+        }
+        return report.validation == nyamist::runtime::ValidationLevel::unavailable ? 1 : 0;
+    } catch (const std::exception& error) {
+        std::cerr << label << " report inspection failed: " << error.what() << '\\n';
+        return 1;
+    }
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -126,6 +153,12 @@ int main(int argc, char** argv) {
     }
     if (command == "inspect-panvk" && argc == 3) {
         return runInspectPanvk(argv[2]);
+    }
+    if (command == "inspect-dxvk" && argc == 3) {
+        return runInspectTranslator<nyamist::runtime::DxvkAdapter>(argv[2], "DXVK");
+    }
+    if (command == "inspect-vkd3d" && argc == 3) {
+        return runInspectTranslator<nyamist::runtime::Vkd3dProtonAdapter>(argv[2], "VKD3D-Proton");
     }
 
     printUsage();
