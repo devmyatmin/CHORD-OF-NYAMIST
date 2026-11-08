@@ -3,4 +3,7 @@
 /.nyamist-cache/
 *.nyc
 *.tmp
+*.log
 .DS_Store
+k80ultra-probe.txt
+nyamist-device-probe-*.env

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "runtime": {
+    "default_graphics_api": "d3d11",
+    "preferred_vulkan_driver": "panvk",
+    "enabled_graphics_apis": ["d3d11"],
+    "allow_experimental_components": true,
+    "automatic_system_driver_replacement": false,
+    "automatic_component_updates": false
+  },
+  "validation": {
+    "minimum_smoke_test_seconds": 20,
+    "sustained_test_target_seconds": 300,
+    "require_render_and_present": true,
+    "require_zero_device_lost_events": true,
+    "require_normal_process_exit": true,
+    "production_requires_sustained_test": true
+  },
+  "optimization": {
+    "advisor_enabled": true,
+    "local_ai_enabled": false,
+    "auto_apply_recommendations": false,
+    "require_deterministic_validation": true,
+    "require_ab_evidence": true
+  },
+  "cache": {
+    "nyamist_metadata_only": true,
+    "manage_dxvk_cache": false,
+    "manage_vkd3d_cache": false,
+    "manage_panvk_cache": false
+  }
+}

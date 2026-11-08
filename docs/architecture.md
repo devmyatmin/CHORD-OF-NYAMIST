@@ -1,63 +1,67 @@
-# Architecture
+# NYAMIST architecture and scope
 
-## Responsibilities
+## Product definition
 
-| Component | Responsibility | Must not do |
+NYAMIST is a device-aware Android graphics-runtime sidecar. The first target is a D3D11 game running through an existing Windows compatibility runtime, DXVK, an Android Vulkan loader, and an app-local PanVK kbase ICD on REDMI K80 Ultra.
+
+NYAMIST is not:
+- a D3D11 implementation or a Vulkan driver;
+- a Wine/FEX/Box64 replacement;
+- a DXVK or PanVK fork/distribution;
+- a native Android port of a Windows game;
+- a per-draw-call graphics interceptor.
+
+## D3D11 execution path
+
+```text
+D3D11 game
+  → Wine / FEX / Box64
+  → DXVK
+  → Android Vulkan loader
+  → PanVK kbase ICD
+  → vendor mali_kbase kernel interface
+  → Immortalis-G925
+```
+
+DXVK translates D3D11/DXGI commands to Vulkan. PanVK implements Vulkan. The kernel driver exposes the device interface. NYAMIST sits alongside the stack and reads component reports, device facts, session evidence, and performance telemetry.
+
+## NYAMIST-owned modules
+
+| Module | Responsibility | Boundary |
 |---|---|---|
-| Wine / FEX / Box64 | Windows API and CPU-architecture compatibility | Pretend to be a D3D11 GPU driver |
-| DXVK | Translate D3D11/DXGI operations to Vulkan | Depend on NYAMIST for correctness |
-| Android Vulkan loader | Select and load the intended Vulkan ICD | Silently replace the stock driver |
-| PanVK kbase | Implement Vulkan on the vendor Mali kbase kernel interface | Replace the kernel driver |
-| NYAMIST core | Collect profiles, produce advisory plans, cache validated metadata | Replace D3D11, Vulkan, DXVK, or GPU rendering |
-| Future local AI advisor | Analyze telemetry and suggest offline policy changes | Emit unchecked runtime commands or block every frame |
+| Core/cache | Configuration, fingerprints, NYAMIST metadata | Never owns upstream shader/pipeline caches |
+| Component registry | Component identity and readiness state | Read-only discovery |
+| PanVK adapter | Driver identity, Vulkan capabilities, PanProbe evidence | Does not load or select an ICD |
+| DXVK adapter | D3D11 translator/session report validation | Does not patch or configure DXVK |
+| Device probe | Android and Vulkan capability facts | No privileged device access |
+| Session snapshot | Typed telemetry, freshness and source validation | Control-plane data, not a driver ABI |
+| Pipeline gate | Deterministic readiness decisions | Does not launch games or change settings |
+| Profile store | Versioned device/session/compatibility evidence | NYAMIST data only |
+| A/B evaluator | Repeated workload comparison | Reports evidence; never applies settings |
+| Advisor | Bounded optimization proposals | Automatic application remains disabled |
 
-## DX11 direct-hardware execution path
+Readiness levels are deliberately strict:
+- **unavailable** — required component or capability is absent.
+- **discovered** — identity/version/device enumeration is observed.
+- **smoke_tested** — explicit render/Present success and clean exit are demonstrated.
+- **sustained_tested** — a repeatable test of at least 300 seconds passes with no critical failure.
 
-`D3D11 game → Wine/FEX/Box64 → DXVK → Android Vulkan loader → PanVK kbase → vendor mali_kbase (/dev/mali0) → Immortalis-G925`
+PanProbe passing or a DXVK feature-level report alone cannot promote a configuration to smoke-tested.
 
-PanVK is a Vulkan implementation. It is not a Direct3D 11 driver. DXVK remains the D3D11-to-Vulkan translation layer. PanVK's kbase backend submits Vulkan work through the phone's existing vendor kernel driver. NYAMIST is a sidecar policy/profile/cache component, not a GPU command-stream replacement.
+## Target-device evidence and limits
 
-The upstream Android PanVK kbase project lists Immortalis-G925 in its supported 5th-generation CSF GPU matrix. A separate G925 tablet test is useful evidence, but the exact REDMI K80 Ultra firmware and kbase interface must still be tested on-device.
+The recorded REDMI K80 Ultra evidence (2026-11-08) includes PanVK RC5 loading and PanProbe 41/41, plus DXVK D3D11 feature-level results through 11_1 and a synthetic Cube test. These are device/runtime smoke-test observations, not evidence that a commercial game runs correctly for an extended session.
 
-## Android and Termux boundary
+Current PanPlay exports provide useful session and frame-time data but do not expose all authoritative Vulkan Present success/failure and device-loss counters required by NYAMIST's promotion rules. Imported game sessions therefore remain discovery/review evidence.
 
-Termux is used for source management, portable core builds, and read-only device probing. Android application sandboxing may prevent a Termux shell from opening or enumerating `/dev/mali0`; that does not by itself mean the GPU is unsupported. Validate the ICD through its intended Android app/launcher loader path.
+## Ownership and safety
 
-Do not chmod the Mali device node, flash a kernel, or overwrite vendor Vulkan libraries. Keep the stock Vulkan driver available as a rollback path.
+- Android's stock Vulkan driver remains intact as a rollback path.
+- Select an experimental driver only through the supported app-local launcher mechanism.
+- Never overwrite `/vendor`, chmod `/dev/mali0`, flash a kernel, or weaken SELinux.
+- DXVK, PanVK/Mesa, VKD3D-Proton and vendor driver caches remain under their respective owners.
+- A missing, stale, or rejected NYAMIST profile falls back to unmodified runtime defaults.
 
-## Cache boundaries
+## Deferred scope
 
-DXVK already manages shader/pipeline cache behavior. NYAMIST must not shadow or corrupt those files.
-
-The initial NYAMIST cache stores only NYAMIST-owned data:
-- validated device/game compatibility observations;
-- optimization recommendations and their evidence;
-- future translator-specific metadata, once a stable integration API exists.
-
-Cache identity is versioned by source fingerprint, source API, target API, GPU architecture, Vulkan API version, driver version, and NYAMIST policy version. A driver or policy change therefore causes a cache miss rather than unsafe reuse.
-
-The current fingerprint uses FNV-1a 64-bit for deterministic cache naming. It is not cryptographic and must never be used for signatures, trust, or executable integrity.
-
-## AI boundary
-
-A future `IOptimizationAdvisor` implementation may run a small local model. It should operate on compact structured features, not raw frame data. Its output is a proposal. A deterministic validator must check every proposal against probed Vulkan capabilities and regression tests before it can be cached or enabled.
-
-The shipping frame path should remain deterministic:
-1. load a validated profile/cache entry;
-2. use the backend's documented settings;
-3. fall back safely if the profile is missing or stale;
-4. record telemetry for later analysis.
-
-## Device probing
-
-Collect actual runtime data:
-- Android API level and ABI;
-- Vulkan instance/device API version;
-- device name and vendor/device identifiers;
-- enabled and available device extensions;
-- relevant feature bits;
-- driver name and driver version;
-- kbase interface visibility and launcher ICD path;
-- game executable architecture and D3D feature requirements.
-
-Do not infer these values from the SoC or GPU marketing name alone.
+D3D12/VKD3D-Proton is retained only as experimental read-only code and is not part of the current acceptance target. Local AI inference is not implemented and is deferred. Neither should delay D3D11 real-game validation.
