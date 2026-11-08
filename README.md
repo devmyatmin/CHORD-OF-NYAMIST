@@ -30,7 +30,7 @@ See [Modular Runtime Architecture](docs/modular-runtime.md) and [Module Contract
 - Portable C++20 core, deterministic fingerprinting, and validated metadata cache.
 - Rule-based optimization advisor interface.
 - Component probe registry and runtime readiness coordinator.
-- Read-only PanVK report adapter with CLI inspection and evidence-gated validation levels.
+- Read-only PanVK, DXVK, and VKD3D-Proton report adapters with CLI inspection and evidence-gated validation levels.
 - Read-only Termux device/runtime probe and on-device core build script.
 - Unit tests and GitHub Actions CI.
 
@@ -49,9 +49,11 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ./build/nyamist-cli inspect-panvk configs/panvk-rc5-redmi-k80-ultra.example.env
+./build/nyamist-cli inspect-dxvk configs/dxvk-d3d11-report.template.env
+./build/nyamist-cli inspect-vkd3d configs/vkd3d-d3d12-report.template.env
 ```
 
-The PanVK command reads a normalized evidence file only; it does not load or activate the driver. The checked-in RC5 example remains at the discovered level until a matching render/present log is supplied.
+All three inspection commands read normalized evidence files only; they do not load or activate drivers or translators. The checked-in templates remain at the discovered level until matching render/present counters are explicitly captured.
 
 ### Termux
 
@@ -77,7 +79,7 @@ The probe is read-only. It does not change the stock driver or require privilege
 ## Development order
 
 1. Module contracts and runtime coordinator.
-2. Read-only adapters for PanVK, DXVK, VKD3D-Proton, and device facts.
+2. Read-only PanVK, DXVK, and VKD3D-Proton adapters; device-facts adapter next.
 3. Versioned session profiles and validation evidence.
 4. Sustained D3D11 stability tests.
 5. Experimental D3D12 support.
