@@ -136,3 +136,42 @@ The raw typed CSV layout is now validated by the importer. The importer records 
 - Calling an LLM from a Vulkan draw, queue-submit, or present call.
 - Automatically editing upstream configuration or caches.
 - Claiming NPU, PanVK compute, or Vulkan acceleration before target-device execution is measured.
+
+## PanPlay system telemetry and cross-stream correlation
+
+The importer also parses the optional `<performance-id>-sys.csv` stream. It
+validates the fixed epoch-based schema and monotonic sample timestamps, reports
+per-metric sample coverage and bounded min/median/p95/max aggregates, and keeps
+raw system rows only in memory during import. Blank `sys_cpu_pct`, GPU
+frequency, and GPU utilization columns remain unavailable; they are not
+converted to zero.
+
+For frame-stall windows, the importer provisionally maps
+`performance.startMs + F.timestamp_us` to system `epoch_ms`, and summarizes
+the system samples overlapping up to ten longest frames above 100 ms. This
+mapping is explicitly marked provisional because the exported schema does not
+document a shared epoch/monotonic clock origin. Coverage and nearest-sample
+offsets are recorded; no causal diagnosis is inferred. Do not use these
+correlations to authorize tuning until the timestamp mapping is independently
+verified against the exporter implementation or a shared clock anchor.
+
+Nov 8 system capture facts:
+- 520 samples, median interval 1.008 seconds, maximum 1.047 seconds;
+- game CPU median 26.1%, maximum 41.1%; game CPU cores median 2.1, maximum 3.3;
+- game RSS median 2,930.7 MiB, peak 3,515.8 MiB; available RAM minimum 2,043 MiB;
+- battery temperature median 40.3 C, maximum 42.1 C; this is not a SoC junction
+  temperature and cannot establish thermal throttling;
+- battery power median 5,388.3 mW, maximum 8,457.2 mW;
+- maximum CPU frequency median 1,900 MHz, maximum 2,800 MHz;
+- system-wide CPU percentage and GPU frequency/utilization have no valid
+  samples and must remain unknown.
+
+In this capture, the PerfRecorder wall envelope is 525.081 seconds while its
+reported frame duration is 489.130544 seconds. The system CSV spans from
+1.007 seconds to 524.583 seconds after `performance.startMs`. The frame
+timestamp stream begins at 7.143973 seconds and spans 489.113138 seconds.
+These envelopes are compatible with the system samples covering the frame
+stream under the provisional startMs anchor, but the 35.950456-second
+wall-versus-frame-duration difference must remain visible as capture-window
+coverage, not silently normalized away.
+
