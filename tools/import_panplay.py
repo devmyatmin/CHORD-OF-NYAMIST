@@ -20,7 +20,7 @@ from typing import Any
 
 MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
 MAX_TOTAL_UNCOMPRESSED = 128 * 1024 * 1024
-MAX_MEMBER_BYTES = 8 * 1024 * 1024
+MAX_MEMBER_BYTES = 32 * 1024 * 1024
 MAX_JSON_BYTES = 2 * 1024 * 1024
 MAX_MEMBERS = 4096
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
@@ -49,8 +49,10 @@ def _safe_archive(archive_path: Path) -> zipfile.ZipFile:
             if not name or "\x00" in name or "\\" in name:
                 archive.close()
                 raise ImportErrorDetail("ZIP contains an invalid member path")
-            path = PurePosixPath(name)
-            if path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
+            normalized_name = name[:-1] if info.is_dir() and name.endswith("/") else name
+            path = PurePosixPath(normalized_name)
+            if (path.is_absolute() or path.as_posix() != normalized_name or
+                    any(part in ("", ".", "..") for part in path.parts)):
                 archive.close()
                 raise ImportErrorDetail(f"ZIP contains an unsafe member path: {name}")
             if name in seen:
@@ -147,7 +149,8 @@ def _verify_session_manifest(archive: zipfile.ZipFile, manifest: dict[str, Any])
         item = _object(record, "manifest files entry")
         name = _nonempty_string(item, "path", "manifest file path")
         path = PurePosixPath(name)
-        if path.is_absolute() or "\\" in name or any(part in ("", ".", "..") for part in path.parts):
+        if (path.is_absolute() or "\\" in name or path.as_posix() != name or
+                any(part in ("", ".", "..") for part in path.parts)):
             raise ImportErrorDetail(f"manifest contains an unsafe file path: {name}")
         size = _integer(item, "size")
         digest = _nonempty_string(item, "sha256")
@@ -315,7 +318,7 @@ def import_archives(
     manifest, session, file_names, extra = _load_session_archive(session_archive_path)
 
     game = _nonempty_string(session, "game")
-    start_ms = _integer(session, "startMs")
+    start_ms = _integer(session, "startMs", minimum=1)
     duration_seconds = _integer(session, "durationSec")
     exit_code = session.get("exit")
     if exit_code is not None and (isinstance(exit_code, bool) or not isinstance(exit_code, int)):
@@ -323,6 +326,12 @@ def import_archives(
     device_lost = session.get("deviceLost")
     if not isinstance(device_lost, bool):
         raise ImportErrorDetail("session deviceLost must be a boolean")
+    session_file_names = session.get("files")
+    if not isinstance(session_file_names, list) or any(
+        not isinstance(item, str) or not item or "\n" in item or "\r" in item
+        for item in session_file_names
+    ):
+        raise ImportErrorDetail("session files must be an array of file names")
 
     performance = _load_performance_archive(performance_archive_path) if performance_archive_path else None
     if performance is not None:
@@ -330,8 +339,10 @@ def import_archives(
         session_perf_id = session.get("perfId")
         if not isinstance(session_perf_id, str) or session_perf_id != perf_id:
             raise ImportErrorDetail("performance ZIP id does not match session.json perfId")
-        _integer(performance, "startMs")
-        _integer(performance, "endMs")
+        performance_start = _integer(performance, "startMs", minimum=1)
+        performance_end = _integer(performance, "endMs", minimum=1)
+        if performance_end < performance_start:
+            raise ImportErrorDetail("performance endMs must not precede startMs")
         _required_dxvk_stats = performance.get("dxvkStats")
         if not isinstance(_required_dxvk_stats, bool):
             raise ImportErrorDetail("performance dxvkStats must be a boolean")
@@ -359,7 +370,8 @@ def import_archives(
         driver = {}
 
     translator = _detect_translator(file_names, session)
-    report = _report_env(translator, session_archive_path.name, session, performance) if translator else None
+    source_label = session_archive_path.name.replace("\\n", "_").replace("\\r", "_")
+    report = _report_env(translator, source_label, session, performance) if translator else None
 
     performance_summary: dict[str, Any] | None = None
     if performance is not None:
@@ -433,7 +445,7 @@ def import_archives(
         "performance": performance_summary,
         "logs": {
             "files": extra["file_inventory"],
-            "session_file_names": session.get("files", []),
+            "session_file_names": session_file_names,
             "device_lost_is_log_scan_only": True,
         },
         "validation": {
