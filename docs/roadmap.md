@@ -32,7 +32,7 @@
 - [x] Add versioned read-only device facts and Vulkan capability report adapters
 - [x] Add immutable in-memory schema-v1 DeviceSessionSnapshot and freshness-gated telemetry aggregation
 - [x] Add deterministic Pipeline Gate for session freshness, Vulkan enumeration, and runtime prerequisites
-- [ ] Persist versioned session and compatibility profiles
+- [x] Persist versioned device sessions and compatibility profiles with bounded schema-v1 storage, content addressing, and corruption rejection
 - [ ] Import PanPlay logs into the normalized adapter report schema
 - [x] Add typed telemetry aggregation for CPU/GPU utilization, available memory, GPU/battery temperature, and p95 frame time (collector integration pending)
 - [ ] Capture frame-time percentiles, memory, and thermal telemetry where accessible
