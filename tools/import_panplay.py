@@ -446,7 +446,15 @@ def import_archives(
         driver = {}
 
     translator = _detect_translator(file_names, session)
-    source_label = re.sub(r"[\\r\\n]+", "_", session_archive_path.name)
+    if not translator or translator[:2] != ("dxvk", "d3d11"):
+        extra["dxvk_log_evidence"] = {
+            "source_log": None,
+            "device_created_confirmed": False,
+            "feature_level": None,
+            "swapchain_configured_confirmed": False,
+            "swapchain": {},
+        }
+    source_label = re.sub(r"[\r\n]+", "_", session_archive_path.name)
     report = _report_env(
         translator, source_label, session, performance, extra["dxvk_log_evidence"]
     ) if translator else None
@@ -514,6 +522,7 @@ def import_archives(
             "id": translator[0] if translator else None,
             "api": translator[1] if translator else None,
             "version": translator[2] if translator else None,
+            "source_log": extra["dxvk_log_evidence"]["source_log"],
             "device_created_confirmed": extra["dxvk_log_evidence"]["device_created_confirmed"],
             "device_creation_evidence": (
                 "DXVK D3D11InternalCreateDevice selected feature-level log"
