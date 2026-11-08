@@ -51,7 +51,7 @@ jobs:
         run: bash -n tools/build-nya-panvk.sh tools/build-nya-dxvk.sh
 
   build-panvk:
-    if: github.event_name == 'workflow_dispatch' && (inputs.component == 'all' || inputs.component == 'panvk')
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.component == 'all' || inputs.component == 'panvk'))
     needs: validate-pipeline
     runs-on: ubuntu-24.04
     timeout-minutes: 180
@@ -83,7 +83,7 @@ jobs:
           retention-days: 14
 
   build-dxvk:
-    if: github.event_name == 'workflow_dispatch' && (inputs.component == 'all' || inputs.component == 'dxvk')
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.component == 'all' || inputs.component == 'dxvk'))
     needs: validate-pipeline
     runs-on: ubuntu-24.04
     timeout-minutes: 120
