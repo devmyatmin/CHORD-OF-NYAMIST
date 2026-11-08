@@ -155,6 +155,7 @@ def parse_perf_csv(data: bytes) -> dict[str, Any]:
     frame_times_us: list[int] = []
     frame_timestamps_us: list[int] = []
     frame_first_timestamp: int | None = None
+    frame_first_frametime: int | None = None
     frame_last_timestamp: int | None = None
     stats_timestamps_us: list[int] = []
     stats_first_timestamp: int | None = None
@@ -187,6 +188,7 @@ def parse_perf_csv(data: bytes) -> dict[str, Any]:
                 raise PerfCsvError("frame timestamps are not monotonic")
             if frame_first_timestamp is None:
                 frame_first_timestamp = timestamp
+                frame_first_frametime = frametime
             frame_last_timestamp = timestamp
             frame_timestamps_us.append(timestamp)
             frame_times_us.append(frametime)
@@ -217,6 +219,20 @@ def parse_perf_csv(data: bytes) -> dict[str, Any]:
         "statistics_records": stats_count,
         "frame_timestamp_start_us": frame_first_timestamp,
         "frame_timestamp_end_us": frame_last_timestamp,
+        "frame_interval_start_timestamp_us": (
+            frame_first_timestamp - frame_first_frametime
+            if frame_first_timestamp is not None and frame_first_frametime is not None
+            else None
+        ),
+        "frame_interval_end_timestamp_us": frame_last_timestamp,
+        "frame_timestamp_semantics": "interval_end" if frame_times_us else None,
+        "first_frame_interval_start_vs_first_statistics_delta_us": (
+            frame_first_timestamp - frame_first_frametime - stats_first_timestamp
+            if frame_first_timestamp is not None
+            and frame_first_frametime is not None
+            and stats_first_timestamp is not None
+            else None
+        ),
         "statistics_timestamp_start_us": stats_first_timestamp,
         "statistics_timestamp_end_us": stats_last_timestamp,
     }
@@ -249,6 +265,8 @@ def parse_perf_csv(data: bytes) -> dict[str, Any]:
         result["largest_frame_stalls"] = [
             {
                 "frame_timestamp_us": timestamp,
+                "interval_start_timestamp_us": timestamp - frametime,
+                "interval_end_timestamp_us": timestamp,
                 "frametime_ms": round(frametime / 1000.0, 3),
             }
             for timestamp, frametime in stalls

@@ -146,14 +146,22 @@ raw system rows only in memory during import. Blank `sys_cpu_pct`, GPU
 frequency, and GPU utilization columns remain unavailable; they are not
 converted to zero.
 
-For frame-stall windows, the importer provisionally maps
-`performance.startMs + F.timestamp_us` to system `epoch_ms`, and summarizes
-the system samples overlapping up to ten longest frames above 100 ms. This
-mapping is explicitly marked provisional because the exported schema does not
-document a shared epoch/monotonic clock origin. Coverage and nearest-sample
-offsets are recorded; no causal diagnosis is inferred. Do not use these
-correlations to authorize tuning until the timestamp mapping is independently
-verified against the exporter implementation or a shared clock anchor.
+For frame-stall windows, `F.timestamp_us` is treated as the interval-end
+timestamp: the frame interval is
+`[timestamp_us - frametime_us, timestamp_us]`. The Nov 8 capture supports
+this convention with two independent internal checks: the first F record
+(7.180018s, 36.044ms) implies an interval start of 7.143974s, only 1 microsecond
+after the first S timestamp (7.143973s); and the largest frame intervals end
+at the S timestamps that bound the matching long S gaps. The importer records
+the first-frame/S-stream cross-check and applies interval-end semantics when
+selecting system samples.
+
+The epoch mapping from `performance.startMs` to system `epoch_ms` remains
+provisional because the export does not explicitly document a shared
+epoch/monotonic clock origin. Coverage and nearest-sample offsets are recorded;
+no causal diagnosis is inferred. Do not use these correlations to authorize
+tuning until the epoch anchor is independently verified against the exporter
+implementation or a shared clock anchor.
 
 Nov 8 system capture facts:
 - 520 samples, median interval 1.008 seconds, maximum 1.047 seconds;

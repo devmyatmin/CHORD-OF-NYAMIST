@@ -67,6 +67,21 @@ class PanPlayPerfCsvTests(unittest.TestCase):
         self.assertEqual(largest["frametime_max_ms"], 600.0)
         self.assertEqual(largest["frametime_sum_minus_gap_ms"], 0.0)
 
+    def test_frame_timestamp_is_interval_end_and_crosschecks_first_statistics_sample(self):
+        data = (
+            HEADER
+            + "S,7143973,0,31,48,0,0,4,4,2,15,2,0\n"
+            + "F,7180018,36044\n"
+        ).encode()
+        result = parse_perf_csv(data)
+
+        self.assertEqual(result["frame_timestamp_semantics"], "interval_end")
+        self.assertEqual(result["frame_interval_start_timestamp_us"], 7143974)
+        self.assertEqual(result["frame_interval_end_timestamp_us"], 7180018)
+        self.assertEqual(
+            result["first_frame_interval_start_vs_first_statistics_delta_us"], 1
+        )
+
     def test_omits_statistics_timing_with_only_one_statistics_sample(self):
         data = (
             HEADER

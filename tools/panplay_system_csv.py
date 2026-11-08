@@ -8,6 +8,7 @@ from __future__ import annotations
 import csv
 import io
 import math
+from bisect import bisect_left, bisect_right
 from statistics import median
 from typing import Any
 
@@ -154,7 +155,10 @@ def correlate_frame_stalls(
     session_end_offset = session_offset + session_duration_seconds
 
     timing: dict[str, Any] = {
-        "alignment_basis": "performance.startMs + frame.timestamp_us",
+        "alignment_basis": (
+            "performance.startMs + [frame.timestamp_us - frametime_us, "
+            "frame.timestamp_us] (interval-end timestamp semantics)"
+        ),
         "alignment_status": "provisional",
         "causality_inferred": False,
         "performance_wall_span_seconds": round(wall_span, 6),
@@ -177,6 +181,9 @@ def correlate_frame_stalls(
         "frame_stream_covered_by_system": None,
         "frame_timestamp_start_offset_seconds": None,
         "frame_timestamp_end_offset_seconds": None,
+        "frame_interval_start_offset_seconds": None,
+        "frame_interval_end_offset_seconds": None,
+        "frame_timestamp_semantics": frame_stream.get("frame_timestamp_semantics"),
         "frame_timestamp_span_seconds": None,
         "frame_time_sum_seconds": None,
         "largest_frame_stalls": [],
@@ -201,9 +208,17 @@ def correlate_frame_stalls(
     if first_us is not None and last_us is not None:
         first_offset = first_us / 1_000_000.0
         last_offset = last_us / 1_000_000.0
+        interval_start_us = frame_stream.get(
+            "frame_interval_start_timestamp_us", first_us
+        )
+        interval_start_offset = interval_start_us / 1_000_000.0
         timing["frame_timestamp_start_offset_seconds"] = round(first_offset, 6)
         timing["frame_timestamp_end_offset_seconds"] = round(last_offset, 6)
-        first_epoch = performance_start_ms + first_us / 1000.0
+        timing["frame_interval_start_offset_seconds"] = round(
+            interval_start_offset, 6
+        )
+        timing["frame_interval_end_offset_seconds"] = round(last_offset, 6)
+        first_epoch = performance_start_ms + interval_start_us / 1000.0
         last_epoch = performance_start_ms + last_us / 1000.0
         timing["frame_stream_covered_by_system"] = (
             system_summary["timestamp_start_ms"] <= first_epoch
@@ -216,10 +231,16 @@ def correlate_frame_stalls(
     for stall in stalls[:MAX_RETAINED_STALLS]:
         timestamp_us = int(stall["frame_timestamp_us"])
         frametime_ms = float(stall["frametime_ms"])
-        start_epoch = performance_start_ms + timestamp_us / 1000.0
-        end_epoch = start_epoch + frametime_ms
-        first_index = max(0, __import__("bisect").bisect_left(epochs, start_epoch))
-        last_index = __import__("bisect").bisect_right(epochs, end_epoch)
+        interval_start_us = int(
+            stall.get(
+                "interval_start_timestamp_us",
+                timestamp_us - round(frametime_ms * 1000.0),
+            )
+        )
+        start_epoch = performance_start_ms + interval_start_us / 1000.0
+        end_epoch = performance_start_ms + timestamp_us / 1000.0
+        first_index = bisect_left(epochs, start_epoch)
+        last_index = bisect_right(epochs, end_epoch)
         selected = system_samples[first_index:last_index]
 
         metrics: dict[str, Any] = {}
@@ -230,8 +251,8 @@ def correlate_frame_stalls(
             ]
             metrics[field] = _metric_summary(values) if values else {"samples": 0}
 
-        before_index = __import__("bisect").bisect_left(epochs, start_epoch) - 1
-        after_index = __import__("bisect").bisect_right(epochs, end_epoch)
+        before_index = first_index - 1
+        after_index = last_index
         before_delta = (
             round(start_epoch - epochs[before_index], 3)
             if before_index >= 0 else None
@@ -242,7 +263,14 @@ def correlate_frame_stalls(
         )
         windows.append({
             "frame_timestamp_us": timestamp_us,
+            "frame_timestamp_semantics": "interval_end",
             "frame_relative_seconds": round(timestamp_us / 1_000_000.0, 6),
+            "frame_interval_start_relative_seconds": round(
+                interval_start_us / 1_000_000.0, 6
+            ),
+            "frame_interval_end_relative_seconds": round(
+                timestamp_us / 1_000_000.0, 6
+            ),
             "frametime_ms": round(frametime_ms, 3),
             "provisional_epoch_start_ms": round(start_epoch, 3),
             "provisional_epoch_end_ms": round(end_epoch, 3),
