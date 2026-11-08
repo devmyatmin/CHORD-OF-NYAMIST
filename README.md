@@ -38,7 +38,7 @@ The binary representation reduces cache payload size, but device-side throughput
 ## Current implementation
 
 - Portable C++20 core, deterministic fingerprinting, and validated binary metadata cache with V1 read compatibility.
-- V1-versus-V2 cache microbenchmark for file size, write latency, and warm-read latency.
+- Optional V1-versus-V2 cache microbenchmark for file size, write latency, and warm-read latency; excluded from default CMake builds and explicitly enabled by the Termux developer build and CI.
 - Rule-based optimization advisor interface.
 - Component probe registry and runtime readiness coordinator.
 - Read-only PanVK, DXVK, and VKD3D-Proton report adapters with CLI inspection and evidence-gated validation levels.
