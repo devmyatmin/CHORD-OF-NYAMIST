@@ -4,6 +4,7 @@
 - [x] C++20 project skeleton
 - [x] Deterministic cache fingerprint
 - [x] Versioned validated-cache prototype
+- [x] Compact bounded binary cache V2 with V1 read compatibility and corruption/length tests
 - [x] Rule-based advisor interface
 - [x] Unit tests and GitHub Actions CI
 - [x] Termux probe and on-device core build scripts
@@ -19,7 +20,7 @@
 - [x] Run D3D11 synthetic Cube rendering test
 - [x] Add read-only PanVK report adapter, CLI inspection, and evidence-gated validation tests
 - [x] Add read-only DXVK and VKD3D-Proton adapters, CLI inspection, and report-schema tests
-- [ ] Add automatic importer for raw PanProbe JSON/ZIP exports
+- [x] Add automatic importer for raw PanProbe JSON/ZIP exports
 - [ ] Attach D3D11 render/present evidence to the matching PanVK build identity
 - [ ] Run sustained D3D11 rendering test for at least 5 minutes
 - [ ] Verify repeatable game scenes, surface presentation, and visual correctness
@@ -29,7 +30,7 @@
 - [x] Add read-only DXVK version/session adapter
 - [ ] Add device facts and Vulkan capability adapter
 - [ ] Persist versioned session and compatibility profiles
-- [ ] Import raw PanProbe JSON/ZIP and PanPlay logs into the normalized adapter report schema
+- [ ] Import PanPlay logs into the normalized adapter report schema
 - [ ] Capture frame-time percentiles, memory, and thermal telemetry where accessible
 - [ ] Keep DXVK shader/pipeline caches under DXVK control
 - [ ] Add deterministic A/B evaluation and regression reporting
@@ -49,6 +50,7 @@
 - [ ] Keep automatic application disabled until A/B regression evidence exists
 
 ## Phase 5 — Performance engineering and release
+- [ ] Benchmark cache V1 versus V2 read/write latency, disk footprint, and peak RAM on REDMI K80 Ultra
 - [ ] Compare cold launch vs warm launch
 - [ ] Measure shader compilation time and repeat-run stutter
 - [ ] Measure CPU/GPU frame time, memory use, and thermal throttling
