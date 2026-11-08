@@ -38,6 +38,7 @@ jobs:
           lock = json.loads(Path("configs/component-locks.json").read_text())
           assert lock["schemaVersion"] == 1
           assert lock["buildTools"]["mesonVersion"] == "1.4.2"
+          assert lock["buildTools"]["packagingVersion"] == "24.2"
           c = lock["components"]
           for key in ("builderCommit", "mesaCommit"):
               assert len(c["panvk"][key]) == 40
@@ -51,6 +52,12 @@ jobs:
           PY
       - name: Shell syntax
         run: bash -n tools/build-nya-panvk.sh tools/build-nya-dxvk.sh tools/use-pinned-meson.sh
+
+      - name: Verify pinned Meson and Python packaging bootstrap
+        run: |
+          ROOT="$GITHUB_WORKSPACE"
+          source tools/use-pinned-meson.sh
+          python3 -c 'from packaging.version import Version; print(f"Python packaging: {Version(\"24.2\")} (pinned)")'
 
   build-panvk:
     if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.component == 'all' || inputs.component == 'panvk'))

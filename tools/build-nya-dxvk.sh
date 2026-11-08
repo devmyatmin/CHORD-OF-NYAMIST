@@ -56,10 +56,20 @@ WORK="$BUILD_WORK" OUT="$PACKAGE_OUT" JOBS="$JOBS" bash "$BUILDER/scripts/build-
 DXVK_WCP="$PACKAGE_OUT/dxvk-$DXVK_VERSION.wcp"
 VKD3D_WCP="$PACKAGE_OUT/vkd3d-$VKD3D_VERSION.wcp"
 [[ -s "$DXVK_WCP" && -s "$VKD3D_WCP" ]] || { echo "Expected DXVK/VKD3D WCP outputs are missing" >&2; exit 1; }
-zstd -t "$DXVK_WCP"
-zstd -t "$VKD3D_WCP"
-zstd -dc "$DXVK_WCP" | tar -tf - | grep -q 'profile.json'
-zstd -dc "$VKD3D_WCP" | tar -tf - | grep -q 'profile.json'
+validate_wcp_archive() {
+  local package="$1"
+  local listing="$2"
+  zstd -t "$package"
+  # Write the complete tar listing before searching it. `grep -q` directly in a
+  # pipe can exit early and make tar report SIGPIPE under `set -o pipefail`.
+  zstd -dc "$package" | tar -tf - > "$listing"
+  if ! grep -Fq 'profile.json' "$listing"; then
+    echo "WCP archive is missing profile.json: $package" >&2
+    return 1
+  fi
+}
+validate_wcp_archive "$DXVK_WCP" "$WORK/dxvk-wcp-entries.txt"
+validate_wcp_archive "$VKD3D_WCP" "$WORK/vkd3d-wcp-entries.txt"
 
 DXVK_NAME="NyaDXVK-$DXVK_VERSION.wcp"
 VKD3D_NAME="NyaVKD3D-$VKD3D_VERSION-arm64ec-i686.wcp"

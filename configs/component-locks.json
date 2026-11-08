@@ -14,7 +14,9 @@
   },
   "buildTools": {
     "mesonVersion": "1.4.2",
-    "mesonRequirement": "Mesa pinned source requires Meson >=1.4.0; this exact pin is shared by PanVK, DXVK and VKD3D builds."
+    "mesonRequirement": "Mesa pinned source requires Meson >=1.4.0; this exact pin is shared by PanVK, DXVK and VKD3D builds.",
+    "packagingVersion": "24.2",
+    "packagingRequirement": "Mesa's pinned Meson environment requires packaging.version; install this exact version inside the isolated build virtualenv."
   },
   "components": {
     "panvk": {
@@ -40,7 +42,10 @@
       "sourceTag": "v3.1.1",
       "sourceCommit": "b1a1c99ab52b687cf950d62c88bc2fa316b41663",
       "packageRevisionFromPinnedBuilder": "3.1.1-4-arm64ec",
-      "architectureTargets": ["arm64ec", "i686"],
+      "architectureTargets": [
+        "arm64ec",
+        "i686"
+      ],
       "patches": [
         "runtimes/dxvk/clear-before-external-rendering.patch",
         "runtimes/dxvk/panplay-stats.patch"
@@ -56,7 +61,10 @@
       "sourceRef": "master-v3.0.1-452-g22307558",
       "sourceCommit": "2230755878b01993b4b82d0ac0c0624f3ab4d333",
       "packageVersion": "3.0.1-452-g22307558",
-      "architectureTargets": ["arm64ec", "i686"]
+      "architectureTargets": [
+        "arm64ec",
+        "i686"
+      ]
     }
   }
 }
