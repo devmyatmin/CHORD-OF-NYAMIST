@@ -1,6 +1,7 @@
 #include "nyamist/cache_store.hpp"
 #include "nyamist/fingerprint.hpp"
 #include "nyamist/optimization_advisor.hpp"
+#include "nyamist/runtime/panvk_adapter.hpp"
 
 #include <cstddef>
 #include <iostream>
@@ -12,11 +13,23 @@ namespace {
 
 void printUsage() {
     std::cout
-        << "NYAMIST-LAYER prototype\n"
+        << "NYAMIST Graphics Runtime\n"
         << "Usage:\n"
         << "  nyamist-cli advice\n"
         << "  nyamist-cli fingerprint <text>\n"
-        << "  nyamist-cli demo-cache <directory>\n";
+        << "  nyamist-cli demo-cache <directory>\n"
+        << "  nyamist-cli inspect-panvk <report.env>\n";
+}
+
+const char* validationName(nyamist::runtime::ValidationLevel level) {
+    using nyamist::runtime::ValidationLevel;
+    switch (level) {
+    case ValidationLevel::unavailable: return "unavailable";
+    case ValidationLevel::discovered: return "discovered";
+    case ValidationLevel::smoke_tested: return "smoke_tested";
+    case ValidationLevel::sustained_tested: return "sustained_tested";
+    }
+    return "unknown";
 }
 
 int runAdvice() {
@@ -68,6 +81,30 @@ int runDemoCache(const std::string& directory) {
     return 0;
 }
 
+int runInspectPanvk(const std::string& report_path) {
+    try {
+        const auto adapter =
+            nyamist::runtime::PanVkAdapter::fromReportFile(report_path);
+        const auto report = adapter.inspect();
+
+        std::cout << "Component: " << report.descriptor.id << '\n'
+                  << "Driver: " << report.descriptor.version << '\n'
+                  << "Origin: " << report.descriptor.origin << '\n'
+                  << "Validation: " << validationName(report.validation) << '\n';
+
+        for (const auto& capability : report.capabilities) {
+            std::cout << "[capability] " << capability << '\n';
+        }
+        for (const auto& diagnostic : report.diagnostics) {
+            std::cout << "[diagnostic] " << diagnostic << '\n';
+        }
+        return report.validation == nyamist::runtime::ValidationLevel::unavailable ? 1 : 0;
+    } catch (const std::exception& error) {
+        std::cerr << "PanVK report inspection failed: " << error.what() << '\n';
+        return 1;
+    }
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -86,6 +123,9 @@ int main(int argc, char** argv) {
     }
     if (command == "demo-cache" && argc >= 3) {
         return runDemoCache(argv[2]);
+    }
+    if (command == "inspect-panvk" && argc == 3) {
+        return runInspectPanvk(argv[2]);
     }
 
     printUsage();
