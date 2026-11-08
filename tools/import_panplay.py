@@ -64,7 +64,7 @@ def _safe_archive(archive_path: Path) -> zipfile.ZipFile:
                 raise ImportErrorDetail("encrypted ZIP members are not supported")
             if info.file_size < 0 or info.file_size > MAX_MEMBER_BYTES:
                 archive.close()
-                raise ImportErrorDetail(f"ZIP member exceeds the 8 MiB limit: {name}")
+                raise ImportErrorDetail(f"ZIP member exceeds the 32 MiB limit: {name}")
             total_size += info.file_size
             if total_size > MAX_TOTAL_UNCOMPRESSED:
                 archive.close()
