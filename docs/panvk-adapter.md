@@ -22,7 +22,7 @@ Optional metadata includes architecture, model, build_id, sha256, gralloc_hwmodu
 
 - unavailable: load failed or no device was enumerated.
 - discovered: PanVK identity/load/device enumeration is reported. PanProbe pass counts alone do not imply surface rendering.
-- smoke_tested: explicit render/present evidence, non-zero frame count, process exit code 0, and zero device-lost events.
+- smoke_tested: explicit render/present evidence, non-zero frame count, process exit code 0, and an explicitly reported zero device-lost counter. A missing counter is unknown, not zero.
 - sustained_tested: smoke-test conditions plus an explicit sustained-test pass and at least 300 seconds of evidence.
 
 The sustained flag is an evidence assertion supplied by the report producer; NYAMIST does not cryptographically attest the originating test. Keep the raw PanProbe/PanPlay archive and logs alongside each normalized report.
