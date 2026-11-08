@@ -19,6 +19,8 @@ STATS_HEADER = [
     "graphics_pipelines", "compiler_busy",
 ]
 MAX_RETAINED_STAT_GAPS = 10
+MAX_RETAINED_FRAME_STALLS = 10
+FRAME_STALL_THRESHOLD_US = 100_000
 
 
 class PerfCsvError(ValueError):
@@ -94,9 +96,6 @@ def _statistics_timing(
         start_us = statistics_timestamps_us[index]
         end_us = statistics_timestamps_us[index + 1]
         gap_us = intervals[index]
-
-        # Match frame records in (previous S timestamp, next S timestamp].
-        # Both streams are independently validated as monotonic.
         left = bisect_right(frame_timestamps_us, start_us)
         right = bisect_right(frame_timestamps_us, end_us)
         interval_frames = frame_times_us[left:right]
@@ -238,12 +237,26 @@ def parse_perf_csv(data: bytes) -> dict[str, Any]:
             result["frame_timestamp_span_seconds"] = round(
                 (frame_last_timestamp - frame_first_timestamp) / 1_000_000.0, 6
             )
+        stalls = sorted(
+            (
+                (timestamp, frametime)
+                for timestamp, frametime in zip(frame_timestamps_us, frame_times_us)
+                if frametime > FRAME_STALL_THRESHOLD_US
+            ),
+            key=lambda item: item[1],
+            reverse=True,
+        )[:MAX_RETAINED_FRAME_STALLS]
+        result["largest_frame_stalls"] = [
+            {
+                "frame_timestamp_us": timestamp,
+                "frametime_ms": round(frametime / 1000.0, 3),
+            }
+            for timestamp, frametime in stalls
+        ]
 
     if stats_count:
         aggregates: dict[str, dict[str, float | int]] = {}
         for field, values in stats_values.items():
-            # Omit all-zero columns: some PanPlay telemetry fields use zero as
-            # an unavailable sentinel, so exporting them would imply a false reading.
             if values and any(value != 0.0 for value in values):
                 aggregates[field] = {
                     "samples": len(values),

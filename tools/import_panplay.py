@@ -19,6 +19,7 @@ from pathlib import PurePosixPath, Path
 from typing import Any
 
 from panplay_perf_csv import PerfCsvError, parse_perf_csv
+from panplay_system_csv import SystemCsvError, correlate_frame_stalls, parse_system_csv
 
 MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
 MAX_TOTAL_UNCOMPRESSED = 128 * 1024 * 1024
@@ -345,6 +346,22 @@ def _load_performance_archive(path: Path) -> dict[str, Any]:
                 raise ImportErrorDetail(f"invalid PerfRecorder CSV: {exc}") from exc
         else:
             summary["_csv_stream"] = None
+
+        system_name = f"{session_id}-sys.csv"
+        if system_name in {info.filename for info in files}:
+            try:
+                system_summary, system_samples = parse_system_csv(
+                    _read_member(archive, system_name)
+                )
+            except SystemCsvError as exc:
+                raise ImportErrorDetail(f"invalid PanPlay system CSV: {exc}") from exc
+            summary["_system_csv"] = system_summary
+            # Transient samples are used only for bounded correlation and are
+            # never copied into the normalized evidence sidecar.
+            summary["_system_samples"] = system_samples
+        else:
+            summary["_system_csv"] = None
+            summary["_system_samples"] = []
         return summary
     finally:
         archive.close()
@@ -493,6 +510,24 @@ def import_archives(
                     f"PerfRecorder CSV frame count ({actual_frames}) does not match summary ({expected_frames})"
                 )
 
+    system_correlation = None
+    if performance is not None and isinstance(performance.get("_system_csv"), dict):
+        system_correlation = correlate_frame_stalls(
+            performance_start_ms=performance_start,
+            performance_end_ms=performance_end,
+            performance_duration_seconds=(
+                float(performance["durationSec"])
+                if isinstance(performance.get("durationSec"), (int, float))
+                and not isinstance(performance.get("durationSec"), bool)
+                else None
+            ),
+            session_start_ms=start_ms,
+            session_duration_seconds=duration_seconds,
+            frame_stream=performance.get("_csv_stream"),
+            system_summary=performance["_system_csv"],
+            system_samples=performance.get("_system_samples", []),
+        )
+
     device = manifest.get("device")
     android = manifest.get("android")
     driver = manifest.get("driver")
@@ -539,6 +574,10 @@ def import_archives(
         performance_summary["dxvk_stats"] = performance["dxvkStats"]
         if isinstance(performance.get("_csv_stream"), dict):
             performance_summary["csv_stream"] = performance["_csv_stream"]
+        if isinstance(performance.get("_system_csv"), dict):
+            performance_summary["system_csv"] = performance["_system_csv"]
+        if isinstance(system_correlation, dict):
+            performance_summary["system_correlation"] = system_correlation
 
     manifest_info = session.get("manifestInfo")
     if not isinstance(manifest_info, dict):
