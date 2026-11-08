@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(nyamist_graphics_runtime VERSION 0.2.0 LANGUAGES CXX)
 
 option(NYAMIST_BUILD_TESTS "Build NYAMIST unit tests" ON)
-option(NYAMIST_BUILD_BENCHMARKS "Build NYAMIST microbenchmarks" ON)
+option(NYAMIST_BUILD_BENCHMARKS "Build NYAMIST developer microbenchmarks" OFF)
 
 add_library(nyamist_core
     src/cache_store.cpp
