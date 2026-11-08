@@ -33,7 +33,7 @@ MESA_PIN="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["mesa
 [[ "$MESA_PIN" == "5a07217f034b3e50d8c7c7794f97a2df1742613b" ]] || { echo "Unexpected Mesa source pin: $MESA_PIN" >&2; exit 1; }
 
 # Strict universal v6-v14 patch stack. Any patch drift, offset or fuzz aborts.
-"$BUILDER/scripts/prepare-rc5-tree.sh" --mesa "$MESA_DIR"
+sh "$BUILDER/scripts/prepare-rc5-tree.sh" --mesa "$MESA_DIR"
 PATCH_LEVEL="$(cat "$MESA_DIR/.panvk-patchlevel")"
 [[ "$PATCH_LEVEL" == "p0175" ]] || { echo "Expected PanVK patch level p0175, got $PATCH_LEVEL" >&2; exit 1; }
 
