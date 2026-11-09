@@ -1,54 +1,70 @@
-# NYAMIST G925 R1.6 — Android Rendering / Frame Timing Test
+# NYAMIST G925 R1.7 — Graphics Pipeline & Triangle Draw Validation
 
-This Android application supplies a real SurfaceView/ANativeWindow and
-validates the stock Android Vulkan presentation path on the target phone.
+This Android application validates graphics-pipeline creation, shader-module
+creation, a three-vertex draw call, and swapchain presentation through the
+stock Android Vulkan loader on the target device.
 
-## What the test does
+## Rendering path
 
-1. Receives the Activity's SurfaceView surface and obtains its native window.
-2. Loads the public Android Vulkan loader through dlopen("libvulkan.so").
-3. Creates the Android Vulkan surface and selects a G925 graphics+present queue.
-4. Creates a FIFO swapchain and acquires one swapchain image.
-5. Creates an image view, a one-color-attachment render pass and a framebuffer.
-6. Records a render-pass loadOp = CLEAR with the deterministic RGBA color
-   0.035, 0.14, 0.32, 1.0. This is a real image write by the GPU render pass;
-   it does not require or claim a shader or graphics pipeline.
-7. Submits the command buffer waiting on the acquire semaphore at
-   COLOR_ATTACHMENT_OUTPUT, signals a separate present semaphore, and calls
-   vkQueuePresentKHR waiting on that semaphore.
-8. Waits for queue idle, records one CPU wall-clock timing sample, cleans up
-   all Vulkan objects, and emits schema-v2 JSON.
+1. Receives the Activity SurfaceView and obtains an ANativeWindow.
+2. Loads the public Android Vulkan loader with dlopen("libvulkan.so") and
+   resolves Vulkan entry points through vkGetInstanceProcAddr and
+   vkGetDeviceProcAddr.
+3. Creates the Android surface, identifies the Immortalis-G925 device, and
+   selects a graphics+present queue.
+4. Creates a FIFO swapchain with COLOR_ATTACHMENT usage.
+5. Creates an image view, one-color-attachment render pass, and framebuffer.
+6. Compiles the checked-in GLSL vertex and fragment shaders to Vulkan 1.0
+   SPIR-V during the native build; embeds the resulting words in a generated
+   C++ header without loading a separate runtime shader file.
+7. Creates vertex/fragment shader modules, an empty pipeline layout, and a
+   graphics pipeline compatible with the render pass and swapchain format.
+8. Records a render-pass clear, binds the graphics pipeline, and records
+   vkCmdDraw(3, 1, 0, 0) using gl_VertexIndex. No vertex buffer, descriptors,
+   textures, or external shader assets are required.
+9. Submits the command buffer, presents the rendered swapchain image, waits
+   for queue idle, records CPU-observed timings, and cleans up Vulkan objects.
 
-## Timing interpretation
+## Shader build requirements
 
-The report uses std::chrono::steady_clock to measure CPU-observed durations
-for image acquisition, the vkQueueSubmit call, the vkQueuePresentKHR call,
-the queue-idle wait, and the total acquire-to-idle interval. These are CPU
-wall-clock durations, not GPU execution timestamps and not FPS. GPU timestamp
-queries are explicitly marked not_queried; R1.6 collects one frame sample.
+The CMake build requires the host-side glslangValidator executable and Python
+3. GitHub Actions installs Ubuntu's glslang-tools package before Gradle invokes
+the Android native build. The runtime APK only uses the generated SPIR-V
+arrays; it does not invoke a shader compiler on the phone.
+
+The source shaders are:
+- app/src/main/shaders/triangle.vert
+- app/src/main/shaders/triangle.frag
+
+## Timing and GPU timestamp capability
+
+R1.7 retains the R1.6 CPU wall-clock timings. It also records whether the
+selected graphics queue and physical-device limits expose timestamp support.
+A capability indication is not a GPU timestamp measurement. GPU timestamp
+query-pool execution and multi-frame performance sampling are separate follow-up
+work and must not be inferred from this milestone.
 
 ## Build and run
 
-The r1.6-android-rendering.yml GitHub Actions workflow builds an arm64-v8a
-debug APK and publishes the nyamist-g925-r1.6-debug-apk artifact.
+The r1.7-android-shader-pipeline.yml workflow builds an arm64-v8a debug APK
+and uploads nyamist-g925-r1.7-debug-apk.
 
-1. Download app-debug.apk from the successful R1.6 Android workflow run.
-2. Install and open NYAMIST G925 R1.6 Surface Test.
+1. Download app-debug.apk from the successful R1.7 Android workflow run.
+2. Install and open NYAMIST G925 R1.7 Triangle Draw Test.
 3. Keep the app foregrounded until its JSON report appears.
 4. Tap Copy JSON report and paste the complete report into the project chat.
-5. The app also writes nyamist-g925-r1.6-surface-swapchain.json under its
-   app-specific external files directory and prints the path and SHA-256.
+5. The report is also written under the app-specific external files directory.
 
-## R1.6 acceptance boundary
+## Acceptance boundary
 
-A hardware pass requires G925 identification, Android surface and swapchain
-success, successful image acquisition, image-view/render-pass/framebuffer
-creation, render-pass begin/end recording, successful queue submission and
-presentation, queue idle, frame_content_written = true, one valid CPU timing
-sample, and complete cleanup.
+A hardware pass requires G925 identification, shader-module and pipeline-layout
+creation, graphics-pipeline creation, render-pass begin/end, recorded pipeline
+bind and three-vertex draw, successful queue submission and presentation,
+queue idle, and complete cleanup.
 
-R1.6 does not execute a shader, draw geometry, query GPU timestamps, establish
-sustained FPS, test thermal behavior, or prove game compatibility. Hosted CI
-proves APK compilation/package creation only; the phone's JSON report is the
-hardware evidence. No proprietary libraries, root, device-node access, SELinux
-changes, kernel changes, or vendor partition writes are used.
+Hosted CI proves shader compilation and Android APK packaging only. It cannot
+prove that the phone's GPU accepted or executed the pipeline and draw. Actual
+REDMI K80 Ultra report evidence is mandatory for hardware acceptance.
+
+No root, device-node access, SELinux changes, kernel changes, vendor partition
+writes, driver replacement, or proprietary libraries are used.
