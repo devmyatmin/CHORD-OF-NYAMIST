@@ -91,7 +91,7 @@ void testJsonEscaping() {
     nyamist::discovery::AndroidSurfaceSwapchainValidationReport report;
     report.failure_reason = "surface \"lost\"\\closed";
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("surface \\"lost\\"\\\\closed") != std::string::npos,
+    check(json.find(R"(surface \"lost\"\\closed)") != std::string::npos,
           "JSON string fields must be escaped");
 }
 
