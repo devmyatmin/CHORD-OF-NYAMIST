@@ -143,34 +143,34 @@ int runValidateQueueSubmission(int argc, char** argv) {
         std::ofstream output(output_path, std::ios::binary | std::ios::trunc);
         if (!output) {
             std::cerr << "Unable to create queue-submission report: "
-                      << output_path << '\\n';
+                      << output_path << '\n';
             return 1;
         }
         output << json;
         if (!output.good()) {
             std::cerr << "Failed while writing queue-submission report: "
-                      << output_path << '\\n';
+                      << output_path << '\n';
             return 1;
         }
         std::cout << "NYAMIST R1.3 queue-submission report: "
-                  << output_path << '\\n'
-                  << "Validation status: " << report.status << '\\n'
+                  << output_path << '\n'
+                  << "Validation status: " << report.status << '\n'
                   << "Physical device: "
                   << (report.device_name.empty() ? "not identified" : report.device_name)
-                  << '\\n'
+                  << '\n'
                   << "Command buffer recorded: "
-                  << (report.command_buffer_recorded ? "yes" : "no") << '\\n'
-                  << "Queue submit: " << report.queue_submit_status << '\\n'
+                  << (report.command_buffer_recorded ? "yes" : "no") << '\n'
+                  << "Queue submit: " << report.queue_submit_status << '\n'
                   << "Fence signaled: "
-                  << (report.fence_signaled ? "yes" : "no") << '\\n'
+                  << (report.fence_signaled ? "yes" : "no") << '\n'
                   << "Resource cleanup: "
-                  << report.command_resource_cleanup_status << '\\n';
+                  << report.command_resource_cleanup_status << '\n';
         if (!report.command_failure_reason.empty()) {
             std::cout << "Command failure reason: "
-                      << report.command_failure_reason << '\\n';
+                      << report.command_failure_reason << '\n';
         }
         if (!report.failure_reason.empty()) {
-            std::cout << "Failure reason: " << report.failure_reason << '\\n';
+            std::cout << "Failure reason: " << report.failure_reason << '\n';
         }
     }
     return report.status == "success" ? 0 : 1;
