@@ -6,7 +6,7 @@
 namespace nyamist::discovery {
 
 struct AndroidSurfaceSwapchainValidationReport {
-    std::uint32_t schema_version{1U};
+    std::uint32_t schema_version{2U};
     std::string status{"unavailable"};
     std::string platform{"android"};
     std::string loader_library;
@@ -48,6 +48,9 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::string command_pool_create_status{"not_attempted"};
     std::string command_buffer_allocate_status{"not_attempted"};
     std::string command_record_status{"not_attempted"};
+    std::string image_view_create_status{"not_attempted"};
+    std::string render_pass_create_status{"not_attempted"};
+    std::string framebuffer_create_status{"not_attempted"};
     bool image_layout_transition_recorded{};
     std::string queue_submit_status{"not_attempted"};
     bool image_acquired{};
@@ -56,12 +59,27 @@ struct AndroidSurfaceSwapchainValidationReport {
     bool image_presented{};
     std::string queue_idle_status{"not_attempted"};
     bool frame_content_written{};
+    bool render_pass_begin_recorded{};
+    bool render_pass_end_recorded{};
+    std::string frame_clear_color_rgba{"0.035,0.14,0.32,1.0"};
+    std::string frame_timing_source;
+    std::uint64_t acquire_cpu_us{};
+    std::uint64_t queue_submit_cpu_us{};
+    std::uint64_t present_call_cpu_us{};
+    std::uint64_t queue_idle_wait_cpu_us{};
+    std::uint64_t frame_total_cpu_us{};
+    std::uint32_t frame_timing_sample_count{};
+    bool frame_timing_valid{};
+    std::string gpu_timestamp_status{"not_queried"};
 
     std::string cleanup_status{"not_attempted"};
     std::string semaphore_destroy_status{"not_required"};
     std::string present_semaphore_destroy_status{"not_required"};
     std::string command_buffer_free_status{"not_required"};
     std::string command_pool_destroy_status{"not_required"};
+    std::string image_view_destroy_status{"not_required"};
+    std::string render_pass_destroy_status{"not_required"};
+    std::string framebuffer_destroy_status{"not_required"};
     std::string swapchain_destroy_status{"not_required"};
     std::string device_destroy_status{"not_required"};
     std::string surface_destroy_status{"not_required"};
