@@ -430,8 +430,10 @@ void collectCore13Features(
 
 void collectFeatureInventory(
     VulkanDispatch& dispatch, VkPhysicalDevice physical_device,
-    const VkPhysicalDeviceProperties& properties, VulkanDeviceObservation& device) {
-    const std::uint32_t api_version = properties.apiVersion;
+    const VkPhysicalDeviceProperties& properties,
+    std::uint32_t instance_api_version, VulkanDeviceObservation& device) {
+    const std::uint32_t api_version =
+        std::min(properties.apiVersion, instance_api_version);
     if (api_version < VK_API_VERSION_1_1) {
         VkPhysicalDeviceFeatures features{};
         dispatch.get_physical_device_features(physical_device, &features);
@@ -934,14 +936,17 @@ void queryVulkan(DiscoveryReport& report) {
             device.extension_query_status = "success";
         }
 
-        collectFeatureInventory(dispatch, physical_device, properties, device);
+        collectFeatureInventory(
+            dispatch, physical_device, properties, application_info.apiVersion, device);
         collectLimitInventory(properties.limits, device);
 
 #if defined(VK_KHR_driver_properties)
         const bool supports_driver_properties =
-            properties.apiVersion >= VK_API_VERSION_1_2 ||
-            std::find(device.extensions.begin(), device.extensions.end(),
-                      "VK_KHR_driver_properties") != device.extensions.end();
+            (properties.apiVersion >= VK_API_VERSION_1_2 &&
+             application_info.apiVersion >= VK_API_VERSION_1_2) ||
+            (application_info.apiVersion >= VK_API_VERSION_1_1 &&
+             std::find(device.extensions.begin(), device.extensions.end(),
+                       "VK_KHR_driver_properties") != device.extensions.end());
         if (dispatch.get_physical_device_properties2 != nullptr &&
             supports_driver_properties) {
             VkPhysicalDeviceDriverProperties driver_properties{};
