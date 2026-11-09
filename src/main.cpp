@@ -28,6 +28,7 @@ void printUsage() {
         << "  nyamist-cli discover [--output <report.json>]\n"
         << "  nyamist-cli validate-device [--output <report.json>]\n"
         << "  nyamist-cli validate-submit [--output <report.json>]\n"
+        << "  nyamist-cli validate-transfer [--output <report.json>]\n"
         << "  nyamist-cli inspect-panvk <report.env>\n"
         << "  nyamist-cli inspect-device <report.env>\n"
         << "  nyamist-cli inspect-dxvk <report.env>\n"

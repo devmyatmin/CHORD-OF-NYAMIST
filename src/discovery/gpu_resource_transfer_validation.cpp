@@ -1,5 +1,6 @@
 #include "nyamist/discovery/gpu_resource_transfer_validation.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <iomanip>
