@@ -53,5 +53,6 @@ surface.
 
 This milestone does not render pixels or execute shaders. It records only an
 image layout transition to `PRESENT_SRC_KHR` and submits that transition before
-presentation. It does not write frame content; `frame_content_written` remains false. Rendering, presentation
-timing, FPS, thermal behavior, and game compatibility remain out of scope.
+presentation. It does not write frame content; `frame_content_written` remains false.
+Rendering, presentation timing, FPS, thermal behavior, and game compatibility
+remain out of scope.
