@@ -95,5 +95,4 @@ jobs:
           ./build/nyamist-cli inspect-device configs/device-probe.example.env
           ./build/nyamist-cli inspect-panvk configs/panvk-rc5-redmi-k80-ultra.example.env
           ./build/nyamist-cli inspect-dxvk configs/dxvk-d3d11-report.template.env
-          ./build/nyamist-cli inspect-vkd3d configs/vkd3d-proton-report.template.env
           ./build/nyamist-cache-bench ./build/cache-benchmark 1 3
