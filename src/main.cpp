@@ -1,4 +1,5 @@
 #include "nyamist/cache_store.hpp"
+#include "nyamist/discovery/hardware_discovery.hpp"
 #include "nyamist/fingerprint.hpp"
 #include "nyamist/optimization_advisor.hpp"
 #include "nyamist/runtime/device_probe_adapter.hpp"
@@ -6,6 +7,7 @@
 #include "nyamist/runtime/translator_adapters.hpp"
 
 #include <cstddef>
+#include <fstream>
 #include <iostream>
 #include <span>
 #include <string>
@@ -20,6 +22,7 @@ void printUsage() {
         << "  nyamist-cli advice\n"
         << "  nyamist-cli fingerprint <text>\n"
         << "  nyamist-cli demo-cache <directory>\n"
+        << "  nyamist-cli discover [--output <report.json>]\n"
         << "  nyamist-cli inspect-panvk <report.env>\n"
         << "  nyamist-cli inspect-device <report.env>\n"
         << "  nyamist-cli inspect-dxvk <report.env>\n"
@@ -35,6 +38,40 @@ const char* validationName(nyamist::runtime::ValidationLevel level) {
     case ValidationLevel::sustained_tested: return "sustained_tested";
     }
     return "unknown";
+}
+
+int runDiscover(int argc, char** argv) {
+    std::string output_path;
+    if (argc == 4 && std::string(argv[2]) == "--output") {
+        output_path = argv[3];
+    } else if (argc != 2) {
+        printUsage();
+        return 2;
+    }
+
+    const auto report = nyamist::discovery::collectHardwareDiscoveryReport();
+    const std::string json = nyamist::discovery::toJson(report);
+    if (output_path.empty()) {
+        std::cout << json;
+        return std::cout.good() ? 0 : 1;
+    }
+
+    std::ofstream output(output_path, std::ios::binary | std::ios::trunc);
+    if (!output) {
+        std::cerr << "Unable to create discovery report: " << output_path << '\n';
+        return 1;
+    }
+    output << json;
+    if (!output.good()) {
+        std::cerr << "Failed while writing discovery report: " << output_path << '\n';
+        return 1;
+    }
+    std::cout << "NYAMIST hardware discovery report: " << output_path << '\n'
+              << "Vulkan enumeration status: " << report.vulkan_status << '\n';
+    if (!report.vulkan_failure_reason.empty()) {
+        std::cout << "Vulkan note: " << report.vulkan_failure_reason << '\n';
+    }
+    return 0;
 }
 
 int runAdvice() {
@@ -179,6 +216,9 @@ int main(int argc, char** argv) {
     }
     if (command == "demo-cache" && argc >= 3) {
         return runDemoCache(argv[2]);
+    }
+    if (command == "discover") {
+        return runDiscover(argc, argv);
     }
     if (command == "inspect-panvk" && argc == 3) {
         return runInspectPanvk(argv[2]);

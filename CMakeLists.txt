@@ -3,6 +3,7 @@ project(nyamist_graphics_runtime VERSION 0.2.0 LANGUAGES CXX)
 
 option(NYAMIST_BUILD_TESTS "Build NYAMIST unit tests" ON)
 option(NYAMIST_BUILD_BENCHMARKS "Build NYAMIST developer microbenchmarks" OFF)
+option(NYAMIST_ENABLE_VULKAN_DISCOVERY "Compile live Vulkan physical-device discovery when the SDK/loader is available" ON)
 
 add_library(nyamist_core
     src/cache_store.cpp
@@ -11,6 +12,34 @@ add_library(nyamist_core
 )
 target_include_directories(nyamist_core PUBLIC include)
 target_compile_features(nyamist_core PUBLIC cxx_std_20)
+
+add_library(nyamist_discovery
+    src/discovery/hardware_discovery.cpp
+)
+target_include_directories(nyamist_discovery PUBLIC include)
+target_compile_features(nyamist_discovery PUBLIC cxx_std_20)
+
+if(NYAMIST_ENABLE_VULKAN_DISCOVERY)
+    if(ANDROID)
+        find_path(NYAMIST_VULKAN_INCLUDE_DIR vulkan/vulkan.h)
+        find_library(NYAMIST_VULKAN_LIBRARY vulkan)
+        if(NYAMIST_VULKAN_INCLUDE_DIR AND NYAMIST_VULKAN_LIBRARY)
+            target_include_directories(nyamist_discovery PRIVATE ${NYAMIST_VULKAN_INCLUDE_DIR})
+            target_link_libraries(nyamist_discovery PRIVATE ${NYAMIST_VULKAN_LIBRARY})
+            target_compile_definitions(nyamist_discovery PRIVATE NYAMIST_HAS_VULKAN=1)
+        else()
+            message(WARNING "Android Vulkan headers/loader not found; discovery will report Vulkan unavailable")
+        endif()
+    else()
+        find_package(Vulkan QUIET)
+        if(Vulkan_FOUND)
+            target_link_libraries(nyamist_discovery PRIVATE Vulkan::Vulkan)
+            target_compile_definitions(nyamist_discovery PRIVATE NYAMIST_HAS_VULKAN=1)
+        else()
+            message(WARNING "Vulkan SDK not found; discovery will report Vulkan unavailable")
+        endif()
+    endif()
+endif()
 
 add_library(nyamist_runtime
     src/runtime/component_registry.cpp
@@ -29,7 +58,7 @@ target_compile_features(nyamist_runtime PUBLIC cxx_std_20)
 target_link_libraries(nyamist_runtime PUBLIC nyamist_core)
 
 add_executable(nyamist-cli src/main.cpp)
-target_link_libraries(nyamist-cli PRIVATE nyamist_core nyamist_runtime)
+target_link_libraries(nyamist-cli PRIVATE nyamist_core nyamist_runtime nyamist_discovery)
 
 if(NYAMIST_BUILD_BENCHMARKS)
     add_executable(nyamist-cache-bench tools/cache_benchmark.cpp)
@@ -42,7 +71,7 @@ if(NYAMIST_BUILD_BENCHMARKS)
     endif()
 endif()
 
-foreach(target nyamist_core nyamist_runtime)
+foreach(target nyamist_core nyamist_discovery nyamist_runtime)
     if(MSVC)
         target_compile_options(${target} PRIVATE /W4 /permissive-)
     else()
@@ -56,6 +85,10 @@ if(NYAMIST_BUILD_TESTS)
     add_executable(nyamist-tests tests/test_main.cpp)
     target_link_libraries(nyamist-tests PRIVATE nyamist_core)
     add_test(NAME nyamist-unit-tests COMMAND nyamist-tests)
+
+    add_executable(nyamist-discovery-tests tests/hardware_discovery_tests.cpp)
+    target_link_libraries(nyamist-discovery-tests PRIVATE nyamist_discovery)
+    add_test(NAME nyamist-hardware-discovery-tests COMMAND nyamist-discovery-tests)
 
     add_executable(nyamist-runtime-tests tests/runtime_tests.cpp)
     target_link_libraries(nyamist-runtime-tests PRIVATE nyamist_runtime)

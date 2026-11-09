@@ -17,6 +17,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Install Vulkan headers and loader development package
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvulkan-dev
+
       - name: Python importer tests
         run: PYTHONPATH=tools python3 -m unittest discover -s tools/tests -v
 
@@ -24,7 +29,7 @@ jobs:
         run: bash -n tools/termux-probe.sh tools/termux-build-core.sh tools/export-device-probe.sh
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON -DNYAMIST_BUILD_BENCHMARKS=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON -DNYAMIST_BUILD_BENCHMARKS=ON -DNYAMIST_ENABLE_VULKAN_DISCOVERY=ON
 
       - name: Build
         run: cmake --build build --parallel 2
@@ -37,6 +42,8 @@ jobs:
           ./build/nyamist-cli advice
           ./build/nyamist-cli fingerprint "nyamist-ci-smoke-test"
           ./build/nyamist-cli demo-cache ./build/demo-cache
+          ./build/nyamist-cli discover --output ./build/nyamist-discovery-ci.json
+          python3 -m json.tool ./build/nyamist-discovery-ci.json > /dev/null
           ./build/nyamist-cli inspect-device configs/device-probe.example.env
           ./build/nyamist-cli inspect-panvk configs/panvk-rc5-redmi-k80-ultra.example.env
           ./build/nyamist-cli inspect-dxvk configs/dxvk-d3d11-report.template.env

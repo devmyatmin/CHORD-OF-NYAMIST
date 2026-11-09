@@ -1,39 +1,36 @@
-# NYAMIST architecture and scope
+# CHORD OF NYAMIST — NYAMIST G925 architecture and scope
 
 ## Product definition
 
-NYAMIST is a device-aware Android graphics-runtime sidecar. The first target is a D3D11 game running through an existing Windows compatibility runtime, DXVK, an Android Vulkan loader, and an app-local PanVK kbase ICD on REDMI K80 Ultra.
+The active R1 line is an original, G925-focused native graphics engineering project for Immortalis-G925 MC12 on MediaTek MT6991. The first implementation milestone is read-only hardware/Vulkan discovery inside the existing C++20 runtime.
 
-NYAMIST is not:
-- a D3D11 implementation or a Vulkan driver;
-- a Wine/FEX/Box64 replacement;
-- a DXVK or PanVK fork/distribution;
-- a native Android port of a Windows game;
-- a per-draw-call graphics interceptor.
+NYAMIST also contains a graphics-runtime sidecar: device profiles, telemetry import, evidence validation, session analysis, and deterministic recommendations. These control-plane tools are separate from the driver and must not sit in the per-draw-call or Present hot path.
 
-## D3D11 execution path
+NYAMIST is not yet a complete Vulkan implementation or a released ICD. The stock MediaTek/ARM Vulkan driver remains the working baseline and rollback path.
 
-```text
-D3D11 game
-  → Wine / FEX / Box64
-  → DXVK
-  → Android Vulkan loader
-  → PanVK kbase ICD
-  → vendor mali_kbase kernel interface
-  → Immortalis-G925
-```
+## Intended graphics execution path
 
-DXVK translates D3D11/DXGI commands to Vulkan. PanVK implements Vulkan. The kernel driver exposes the device interface. NYAMIST sits alongside the stack and reads component reports, device facts, session evidence, and performance telemetry.
+    D3D11 game
+      → Wine / Box64 or FEX
+      → DXVK
+      → Android Vulkan loader
+      → stock vendor Vulkan driver (R1 baseline)
+      → vendor mali_kbase kernel interface
+      → Immortalis-G925 MC12
+
+A future NYAMIST-owned Vulkan ICD may replace the app-local driver selection only after it is independently implemented, built, and device-validated. That future path is not implemented by the R1.0 discovery tool.
 
 ## NYAMIST-owned modules
 
 | Module | Responsibility | Boundary |
 |---|---|---|
+| Hardware discovery | Android identity, OS/ABI/kernel facts, Vulkan physical-device queries, JSON evidence | Read-only; no driver selection or device-node access |
 | Core/cache | Configuration, fingerprints, NYAMIST metadata | Never owns upstream shader/pipeline caches |
 | Component registry | Component identity and readiness state | Read-only discovery |
-| PanVK adapter | Driver identity, Vulkan capabilities, PanProbe evidence | Does not load or select an ICD |
+| Vulkan capability importer | Validate imported device/driver reports | Does not load or select an ICD |
+| Legacy PanVK adapter | Parse archived PanVK report/evidence for historical comparison | Research archive only; not an active dependency |
 | DXVK adapter | D3D11 translator/session report validation | Does not patch or configure DXVK |
-| Device probe | Android and Vulkan capability facts | No privileged device access |
+| Device probe adapter | Validate imported Android device facts | Does not infer missing hardware facts |
 | Session snapshot | Typed telemetry, freshness and source validation | Control-plane data, not a driver ABI |
 | Pipeline gate | Deterministic readiness decisions | Does not launch games or change settings |
 | Profile store | Versioned device/session/compatibility evidence | NYAMIST data only |
@@ -41,27 +38,28 @@ DXVK translates D3D11/DXGI commands to Vulkan. PanVK implements Vulkan. The kern
 | Advisor | Deterministic bounded proposals; optional local-model analysis after capture | Model is advisory; deterministic policy remains authoritative |
 
 Readiness levels are deliberately strict:
-- **unavailable** — required component or capability is absent.
-- **discovered** — identity/version/device enumeration is observed.
-- **smoke_tested** — explicit render/Present success and clean exit are demonstrated.
-- **sustained_tested** — a repeatable test of at least 300 seconds passes with no critical failure.
 
-PanProbe passing or a DXVK feature-level report alone cannot promote a configuration to smoke-tested.
+- unavailable — required component or capability is absent.
+- discovered — identity/version/device enumeration is observed.
+- smoke_tested — explicit render/Present success and clean exit are demonstrated.
+- sustained_tested — a repeatable test of at least 300 seconds passes with no critical failure.
+
+Vulkan physical-device enumeration, surface creation, queue submission, render/Present, sustained game execution, and production readiness are separate validation states.
 
 ## Target-device evidence and limits
 
-The recorded REDMI K80 Ultra evidence (2026-11-08) includes PanVK RC5 loading and PanProbe 41/41, plus DXVK D3D11 feature-level results through 11_1 and a synthetic Cube test. These are device/runtime smoke-test observations, not evidence that a commercial game runs correctly for an extended session.
+The recorded REDMI K80 Ultra evidence includes a stock vendor Vulkan device record and a separate legacy PanVK RC5 research experiment. Their reported device IDs differ and remain separately identified pending provenance reconciliation. Historical PanProbe results are not validation of a NYAMIST-owned driver.
 
-Current PanPlay exports provide useful session and frame-time data but do not expose all authoritative Vulkan Present success/failure and device-loss counters required by NYAMIST's promotion rules. Imported game sessions therefore remain discovery/review evidence.
+The previous Stranded Deep/DXVK session is retained as historical performance evidence only. It does not demonstrate a clean, production-ready NYAMIST driver path.
 
 ## Ownership and safety
 
 - Android's stock Vulkan driver remains intact as a rollback path.
-- Select an experimental driver only through the supported app-local launcher mechanism.
-- Never overwrite `/vendor`, chmod `/dev/mali0`, flash a kernel, or weaken SELinux.
-- DXVK, PanVK/Mesa, VKD3D-Proton and vendor driver caches remain under their respective owners.
+- Select any experimental driver only through a supported app-local launcher mechanism.
+- Never overwrite /vendor, change permissions on /dev/mali0, flash a kernel, or weaken SELinux.
+- DXVK, Mesa/PanVK historical artifacts, VKD3D-Proton and vendor driver caches remain under their respective owners.
 - A missing, stale, or rejected NYAMIST profile falls back to unmodified runtime defaults.
 
 ## Deferred scope
 
-D3D12/VKD3D-Proton is retained only as experimental read-only code and is not part of the current acceptance target. Local AI inference is not implemented and is deferred. Neither should delay D3D11 real-game validation.
+A complete NYAMIST-owned Vulkan ICD, WCP/ZIP distribution adapters, D3D12/VKD3D-Proton, and automatic tuning are separate gated milestones. None is implied by the R1.0 discovery executable.

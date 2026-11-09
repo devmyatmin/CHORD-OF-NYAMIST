@@ -11,24 +11,27 @@ Every adapter is read-only and returns a structured component report containing:
 
 A probe must be bounded and must not launch games, load/select a driver, mutate system configuration, or alter external component files.
 
-## Current D3D11 stack
+## Active G925 R1 architecture
 
 | Component ID | Owner | NYAMIST responsibility |
 |---|---|---|
+| hardware-discovery | NYAMIST | Read Android platform identity and query physical Vulkan devices through the public loader |
+| system-vulkan | Device vendor | Stock graphics driver baseline and fallback |
+| nyamist-g925-icd | NYAMIST (future milestone) | Original driver implementation; not yet available or claimed |
 | dxvk | DXVK upstream | Inspect D3D11/DXGI version, capabilities and imported session evidence |
-| panvk | Mesa / Android PanVK kbase project | Inspect ICD identity, Vulkan device, capabilities and PanProbe report |
-| system-vulkan | Device vendor | Record stock driver as fallback |
 | device-facts | NYAMIST adapter | Validate Android model, API, ABI, kernel and hardware facts |
 | session-monitor | NYAMIST | Validate timestamps, sources, telemetry ranges and freshness |
+| legacy-panvk-importer | Historical evidence | Parse archived PanVK reports only; not an active driver dependency |
 
 ## Evidence rules
 
-- PanVK identity/load/device enumeration is **discovered**, not proof of surface rendering.
-- PanProbe pass counts are recorded but do not prove all Vulkan features or game compatibility.
+- Vulkan physical-device enumeration is discovered, not proof of surface rendering.
+- Legacy PanProbe pass counts do not validate the NYAMIST implementation.
 - DXVK feature-level availability is capability evidence, not render evidence.
-- Smoke-test promotion requires an explicit successful render/Present result, non-zero frames, normal process exit, and an explicitly reported zero device-loss count.
+- Smoke-test promotion requires explicit successful render/Present evidence, non-zero frames, normal process exit, and an explicitly reported zero device-loss count.
 - Sustained-test promotion additionally requires an explicit sustained-test pass and at least 300 seconds.
 - Missing counters are unknown, never treated as zero.
+- A hardware heap size is not free VRAM or a guaranteed per-process allocation.
 
 ## Session and telemetry contract
 
@@ -42,7 +45,7 @@ PipelineGate consumes a RuntimePlan and immutable DeviceSessionSnapshot. It bloc
 
 NYAMIST persists only its own versioned device/session/compatibility evidence and validated recommendations. Cache identity includes the relevant device, Vulkan driver, translator, workload and policy versions. FNV-1a is an identifier, not cryptographic authentication.
 
-DXVK owns its shader/pipeline cache. PanVK/Mesa owns its driver cache. NYAMIST does not inspect, rewrite, delete, or duplicate those caches.
+DXVK owns its shader/pipeline cache. Vendor Vulkan drivers own their driver caches. NYAMIST does not inspect, rewrite, delete, or duplicate those caches.
 
 ## Advisor contract
 
@@ -50,4 +53,4 @@ The current advisor is deterministic policy code, not a local AI model. It emits
 
 ## Deferred interfaces
 
-A read-only VKD3D-Proton adapter remains in the codebase for future experiments, but D3D12 is not part of the current runtime acceptance target.
+A read-only VKD3D-Proton adapter remains in the codebase for future experiments, but D3D12 is not part of the R1 acceptance target. A NYAMIST-owned Vulkan ICD is a separate unimplemented milestone.
