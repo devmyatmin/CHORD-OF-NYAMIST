@@ -49,7 +49,8 @@ jobs:
 
       - name: Verify runtime Vulkan dispatch has no direct loader dependency
         run: |
-          if readelf -d build-dynamic/nyamist-cli | grep -Eq 'Shared library: \\[libvulkan\\.so(\\.[0-9]+)?\\]'; then
+          if readelf -d build-dynamic/nyamist-cli | grep -Fq 'Shared library: [libvulkan.so]' || \
+             readelf -d build-dynamic/nyamist-cli | grep -Fq 'Shared library: [libvulkan.so.1]'; then
             echo "Unexpected direct Vulkan loader dependency in DT_NEEDED"
             exit 1
           fi
