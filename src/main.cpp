@@ -143,28 +143,28 @@ int runValidateSubmit(int argc, char** argv) {
         std::ofstream output(output_path, std::ios::binary | std::ios::trunc);
         if (!output) {
             std::cerr << "Unable to create command-submission report: "
-                      << output_path << '\\n';
+                      << output_path << \n;
             return 1;
         }
         output << json;
         if (!output.good()) {
             std::cerr << "Failed while writing command-submission report: "
-                      << output_path << '\\n';
+                      << output_path << \n;
             return 1;
         }
         std::cout << "NYAMIST R1.3 command-submission report: "
-                  << output_path << '\\n'
-                  << "Validation status: " << report.status << '\\n'
+                  << output_path << \n
+                  << "Validation status: " << report.status << \n
                   << "Physical device: "
                   << (report.device_name.empty() ? "not identified" : report.device_name)
-                  << '\\n'
-                  << "Queue submission: " << report.queue_submit_status << '\\n'
-                  << "Fence wait: " << report.fence_wait_status << '\\n'
-                  << "Fence signaled: " << (report.fence_signaled ? "yes" : "no") << '\\n'
-                  << "Device lost: " << (report.device_lost ? "yes" : "no") << '\\n'
-                  << "Cleanup: " << report.cleanup_status << '\\n';
+                  << \n
+                  << "Queue submission: " << report.queue_submit_status << \n
+                  << "Fence wait: " << report.fence_wait_status << \n
+                  << "Fence signaled: " << (report.fence_signaled ? "yes" : "no") << \n
+                  << "Device lost: " << (report.device_lost ? "yes" : "no") << \n
+                  << "Cleanup: " << report.cleanup_status << \n;
         if (!report.failure_reason.empty()) {
-            std::cout << "Failure reason: " << report.failure_reason << '\\n';
+            std::cout << "Failure reason: " << report.failure_reason << \n;
         }
     }
     return report.status == "success" ? 0 : 1;
