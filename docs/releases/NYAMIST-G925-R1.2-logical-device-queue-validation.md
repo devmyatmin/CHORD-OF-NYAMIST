@@ -3,7 +3,7 @@
 **Project:** CHORD OF NYAMIST  
 **Target:** Immortalis-G925 MC12 / MediaTek MT6991 / REDMI K80 Ultra  
 **Baseline:** Unmodified stock MediaTek/ARM Vulkan loader and driver  
-**Status:** Implementation and host-CI validation in progress; target-device run required
+**Status:** Target-device validated on REDMI K80 Ultra / Android 16 / stock G925 Vulkan driver (2026-11-09)
 
 ## Purpose
 
@@ -67,3 +67,23 @@ Hosted CI builds and tests both the standard Vulkan linkage and the forced runti
 After the target-device R1.2 report confirms device creation, queue retrieval, and cleanup on the stock G925 driver, a separate R1.3 milestone may test command-pool creation, command-buffer recording, queue submission, fence completion, and device-loss handling. Surface/swapchain rendering and DXVK remain separate later gates.
 
 **CHORD OF NYAMIST — Every Signal Has a Story.**
+
+
+## Confirmed target-device result — 2026-11-09
+
+The reference REDMI K80 Ultra / MT6991 / Mali-G925-Immortalis MC12 was tested from Termux using the forced runtime-dispatch build.
+
+- Clang 21.1.8 build: passed.
+- CTest: 12/12 passed.
+- Loader: `libvulkan.so`, API `1.4.0`.
+- Physical device: Mali-G925-Immortalis MC12; vendor `0x13b5`; device `0xd8300010`; API `1.3.278`.
+- Graphics queue family 0; queue count 2; raw queue flags 23.
+- `vkCreateDevice`: `VK_SUCCESS`.
+- `vkGetDeviceQueue` queue index 0: non-null queue handle.
+- `vkDestroyDevice` and cleanup: success.
+- CLI exit code: 0.
+- Evidence JSON SHA-256: `73c54f47a392bcca414b97fb5c5701de122474e2fc949f4fce8db91cf0c32fd0`.
+
+Detailed evidence is recorded in [R1.2 REDMI K80 Ultra device evidence](../evidence/NYAMIST-G925-R1.2-redmi-k80-ultra-2026-11-09.md).
+
+R1.2 is closed for its defined logical-device, graphics-queue retrieval, and cleanup scope. This is not evidence of command submission, rendering, presentation, DXVK/game execution, sustained stability, or FPS improvement.
