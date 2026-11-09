@@ -1,5 +1,7 @@
 #include "nyamist/discovery/android_surface_swapchain_validation.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <iomanip>
 #include <sstream>
 #include <string_view>
@@ -66,13 +68,45 @@ void doubleField(std::ostringstream& out, const char* name, double value,
     out << '\n';
 }
 
+void array64Field(std::ostringstream& out, const char* name,
+                  const std::vector<std::uint64_t>& values) {
+    out << "  \"" << name << "\": [";
+    for (std::size_t index = 0; index < values.size(); ++index) {
+        if (index != 0U) out << ", ";
+        out << values[index];
+    }
+    out << "],\n";
+}
+
+void summary64Fields(std::ostringstream& out, const char* prefix,
+                     const std::vector<std::uint64_t>& values,
+                     const char* unit_suffix) {
+    if (values.empty()) return;
+    std::vector<std::uint64_t> sorted = values;
+    std::sort(sorted.begin(), sorted.end());
+    const std::size_t middle = sorted.size() / 2U;
+    const std::uint64_t median = (sorted.size() % 2U) != 0U
+        ? sorted[middle]
+        : static_cast<std::uint64_t>(
+              (static_cast<long double>(sorted[middle - 1U]) +
+               static_cast<long double>(sorted[middle])) / 2.0L);
+    const std::size_t p95_index =
+        std::min(sorted.size() - 1U,
+                 static_cast<std::size_t>(std::ceil(0.95 * sorted.size())) - 1U);
+    const std::string base(prefix);
+    number64Field(out, (base + "_min" + unit_suffix).c_str(), sorted.front());
+    number64Field(out, (base + "_median" + unit_suffix).c_str(), median);
+    number64Field(out, (base + "_p95" + unit_suffix).c_str(), sorted[p95_index]);
+    number64Field(out, (base + "_max" + unit_suffix).c_str(), sorted.back());
+}
+
 } // namespace
 
 std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     std::ostringstream out;
     out << "{\n";
     numberField(out, "schema_version", report.schema_version);
-    stringField(out, "project", "CHORD OF NYAMIST / NYAMIST G925 R1.7");
+    stringField(out, "project", "CHORD OF NYAMIST / NYAMIST G925 R1.8");
     stringField(out, "status", report.status);
     stringField(out, "platform", report.platform);
     stringField(out, "loader_library", report.loader_library);
@@ -139,7 +173,24 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     number64Field(out, "frame_total_cpu_us", report.frame_total_cpu_us);
     numberField(out, "frame_timing_sample_count", report.frame_timing_sample_count);
     boolField(out, "frame_timing_valid", report.frame_timing_valid);
+    numberField(out, "frame_target_count", report.frame_target_count);
+    numberField(out, "frame_completed_count", report.frame_completed_count);
+    numberField(out, "warmup_frame_count", report.warmup_frame_count);
+    array64Field(out, "acquire_cpu_us_samples", report.acquire_cpu_us_samples);
+    array64Field(out, "queue_submit_cpu_us_samples", report.queue_submit_cpu_us_samples);
+    array64Field(out, "present_call_cpu_us_samples", report.present_call_cpu_us_samples);
+    array64Field(out, "queue_idle_wait_cpu_us_samples", report.queue_idle_wait_cpu_us_samples);
+    array64Field(out, "frame_total_cpu_us_samples", report.frame_total_cpu_us_samples);
+    summary64Fields(out, "cpu_frame_total", report.frame_total_cpu_us_samples, "_us");
     stringField(out, "gpu_timestamp_status", report.gpu_timestamp_status);
+    stringField(out, "gpu_timestamp_query_pool_create_status",
+                report.gpu_timestamp_query_pool_create_status);
+    stringField(out, "gpu_timestamp_query_status", report.gpu_timestamp_query_status);
+    stringField(out, "gpu_timestamp_query_pool_destroy_status",
+                report.gpu_timestamp_query_pool_destroy_status);
+    numberField(out, "gpu_timestamp_sample_count", report.gpu_timestamp_sample_count);
+    array64Field(out, "gpu_frame_time_ns_samples", report.gpu_frame_time_ns_samples);
+    summary64Fields(out, "gpu_frame_time", report.gpu_frame_time_ns_samples, "_ns");
     numberField(out, "queue_timestamp_valid_bits", report.queue_timestamp_valid_bits);
     boolField(out, "timestamp_compute_and_graphics_supported",
               report.timestamp_compute_and_graphics_supported);
