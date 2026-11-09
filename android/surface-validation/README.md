@@ -1,53 +1,54 @@
-# NYAMIST G925 R1.5 — Android Surface / Swapchain Test
+# NYAMIST G925 R1.6 — Android Rendering / Frame Timing Test
 
-This is a small Android application used to obtain a real `SurfaceView` and
-pass its native window to Vulkan through JNI. A Termux command-line process
-does not own an Android `Surface`, so a CLI-only probe cannot validate
-`VK_KHR_android_surface` or a presentation swapchain.
+This Android application supplies a real SurfaceView/ANativeWindow and
+validates the stock Android Vulkan presentation path on the target phone.
 
 ## What the test does
 
-1. Receives the Activity's `SurfaceView` surface.
-2. Acquires an `ANativeWindow` with `ANativeWindow_fromSurface`.
-3. Loads the public Android Vulkan loader at runtime.
-4. Enables `VK_KHR_surface` and `VK_KHR_android_surface`.
-5. Creates an Android Vulkan surface and selects a physical device with
-   `VK_KHR_swapchain` and a graphics+present queue family.
-6. Queries surface capabilities, formats and present modes.
-7. Creates a FIFO swapchain and enumerates its images.
-8. Acquires one image, records an `UNDEFINED → PRESENT_SRC_KHR` layout
-   transition, submits it waiting on the acquire semaphore and signals a
-   separate presentation semaphore.
-9. Calls `vkQueuePresentKHR` waiting on the submitted presentation semaphore.
-10. Waits for the queue, destroys command/synchronization/swapchain objects,
-    releases the native window, and emits schema-v1 JSON.
+1. Receives the Activity's SurfaceView surface and obtains its native window.
+2. Loads the public Android Vulkan loader through dlopen("libvulkan.so").
+3. Creates the Android Vulkan surface and selects a G925 graphics+present queue.
+4. Creates a FIFO swapchain and acquires one swapchain image.
+5. Creates an image view, a one-color-attachment render pass and a framebuffer.
+6. Records a render-pass loadOp = CLEAR with the deterministic RGBA color
+   0.035, 0.14, 0.32, 1.0. This is a real image write by the GPU render pass;
+   it does not require or claim a shader or graphics pipeline.
+7. Submits the command buffer waiting on the acquire semaphore at
+   COLOR_ATTACHMENT_OUTPUT, signals a separate present semaphore, and calls
+   vkQueuePresentKHR waiting on that semaphore.
+8. Waits for queue idle, records one CPU wall-clock timing sample, cleans up
+   all Vulkan objects, and emits schema-v2 JSON.
 
-No proprietary libraries are bundled. No root, device-node access, SELinux
-changes, kernel changes, or vendor partition writes are performed.
+## Timing interpretation
 
-## Build
+The report uses std::chrono::steady_clock to measure CPU-observed durations
+for image acquisition, the vkQueueSubmit call, the vkQueuePresentKHR call,
+the queue-idle wait, and the total acquire-to-idle interval. These are CPU
+wall-clock durations, not GPU execution timestamps and not FPS. GPU timestamp
+queries are explicitly marked not_queried; R1.6 collects one frame sample.
 
-The GitHub Actions workflow builds an arm64-v8a debug APK and publishes it as
-the `nyamist-g925-r1.5-debug-apk` artifact.
+## Build and run
 
-## Run on REDMI K80 Ultra
+The r1.6-android-rendering.yml GitHub Actions workflow builds an arm64-v8a
+debug APK and publishes the nyamist-g925-r1.6-debug-apk artifact.
 
-1. Download `app-debug.apk` from the successful R1.5 Android workflow artifact.
-2. Install and open **NYAMIST G925 R1.5 Surface Test**.
-3. Keep the app foregrounded until the JSON report appears.
-4. Tap **Copy JSON report** and paste the report into the project conversation.
-5. The app also writes `nyamist-g925-r1.5-surface-swapchain.json` under its
-   app-specific external files directory and prints the path and SHA-256 in logcat.
+1. Download app-debug.apk from the successful R1.6 Android workflow run.
+2. Install and open NYAMIST G925 R1.6 Surface Test.
+3. Keep the app foregrounded until its JSON report appears.
+4. Tap Copy JSON report and paste the complete report into the project chat.
+5. The app also writes nyamist-g925-r1.6-surface-swapchain.json under its
+   app-specific external files directory and prints the path and SHA-256.
 
-A valid R1.5 hardware pass requires `status: success`, the G925 target match,
-both Android surface extensions, a graphics+present queue, successful surface
-and swapchain creation, an acquired image, a recorded present-layout transition,
-a successful queue submit, a signaled presentation semaphore consumed by
-`vkQueuePresentKHR`, one presented image, queue idle, and successful cleanup.
+## R1.6 acceptance boundary
 
-## Scope boundary
+A hardware pass requires G925 identification, Android surface and swapchain
+success, successful image acquisition, image-view/render-pass/framebuffer
+creation, render-pass begin/end recording, successful queue submission and
+presentation, queue idle, frame_content_written = true, one valid CPU timing
+sample, and complete cleanup.
 
-R1.5 validates Android surface creation and the swapchain acquire/present
-handshake. It does **not** write pixels to the acquired image, run shaders,
-render a scene, measure frame time/FPS, or establish game compatibility.
-`frame_content_written` is deliberately false. Those are later milestones.
+R1.6 does not execute a shader, draw geometry, query GPU timestamps, establish
+sustained FPS, test thermal behavior, or prove game compatibility. Hosted CI
+proves APK compilation/package creation only; the phone's JSON report is the
+hardware evidence. No proprietary libraries, root, device-node access, SELinux
+changes, kernel changes, or vendor partition writes are used.
