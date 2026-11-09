@@ -553,6 +553,148 @@ bool renderAndPresentFrame(
     return true;
 }
 
+
+bool runFrameSequence(
+        VulkanDispatch& vk,
+        AndroidSurfaceSwapchainValidationReport& report,
+        VkDevice device,
+        VkQueue queue,
+        std::uint32_t queue_family,
+        VkSwapchainKHR swapchain,
+        const std::vector<VkImage>& images,
+        VkFormat format,
+        VkExtent2D extent,
+        VkSemaphore& acquire_semaphore,
+        VkSemaphore& present_semaphore,
+        VkQueryPool& timestamp_query_pool,
+        VkCommandPool& command_pool,
+        VkCommandBuffer& command_buffer,
+        VkImageView& image_view,
+        VkRenderPass& render_pass,
+        VkFramebuffer& framebuffer,
+        VkShaderModule& vertex_shader,
+        VkShaderModule& fragment_shader,
+        VkPipelineLayout& pipeline_layout,
+        VkPipeline& graphics_pipeline) {
+    if (images.empty()) {
+        fail(report, "The swapchain returned no images for the frame sequence");
+        return false;
+    }
+
+    VkSemaphoreCreateInfo semaphore_info{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+    VkResult result = vk.create_semaphore(
+        device, &semaphore_info, nullptr, &acquire_semaphore);
+    report.semaphore_create_status = result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "Acquire semaphore creation failed: " + resultName(result));
+        return false;
+    }
+    result = vk.create_semaphore(
+        device, &semaphore_info, nullptr, &present_semaphore);
+    report.present_semaphore_create_status =
+        result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "Present semaphore creation failed: " + resultName(result));
+        return false;
+    }
+
+    const bool timestamp_supported =
+        report.queue_timestamp_valid_bits > 0U &&
+        report.timestamp_compute_and_graphics_supported &&
+        vk.create_query_pool != nullptr && vk.destroy_query_pool != nullptr &&
+        vk.cmd_reset_query_pool != nullptr && vk.cmd_write_timestamp != nullptr &&
+        vk.get_query_pool_results != nullptr;
+    if (!timestamp_supported) {
+        report.gpu_timestamp_status = "unsupported";
+        report.gpu_timestamp_query_pool_create_status = "not_supported";
+        report.gpu_timestamp_query_status = "not_supported";
+        fail(report, "R1.8 requires timestamp queries, but the selected queue or Vulkan entry points do not support them");
+        return false;
+    }
+
+    VkQueryPoolCreateInfo query_info{VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
+    query_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+    query_info.queryCount = report.frame_target_count * 2U;
+    result = vk.create_query_pool(device, &query_info, nullptr, &timestamp_query_pool);
+    report.gpu_timestamp_query_pool_create_status =
+        result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        report.gpu_timestamp_status = "query_pool_creation_failed";
+        fail(report, "vkCreateQueryPool(timestamp) failed: " + resultName(result));
+        return false;
+    }
+    report.gpu_timestamp_query_status = "pending";
+
+    const std::uint32_t total_frames =
+        report.frame_target_count + report.warmup_frame_count;
+    for (std::uint32_t frame_index = 0U; frame_index < total_frames; ++frame_index) {
+        const auto frame_start = std::chrono::steady_clock::now();
+        std::uint32_t image_index = 0U;
+        const auto acquire_start = std::chrono::steady_clock::now();
+        result = vk.acquire_next_image(
+            device, swapchain, 1000000000ULL,
+            acquire_semaphore, VK_NULL_HANDLE, &image_index);
+        const auto acquire_end = std::chrono::steady_clock::now();
+        report.acquire_cpu_us = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                acquire_end - acquire_start).count());
+        report.image_acquire_status = isUsable(result) ? "success" : "failed";
+        if (!isUsable(result)) {
+            fail(report, "vkAcquireNextImageKHR failed during frame " +
+                         std::to_string(frame_index) + ": " + resultName(result));
+            return false;
+        }
+        if (image_index >= images.size()) {
+            report.image_acquire_status = "failed";
+            fail(report, "vkAcquireNextImageKHR returned an out-of-range image index");
+            return false;
+        }
+        report.image_acquired = true;
+        report.acquired_image_index = image_index;
+
+        const bool collect_sample = frame_index >= report.warmup_frame_count;
+        const std::uint32_t sample_index =
+            collect_sample ? frame_index - report.warmup_frame_count : 0U;
+        const bool frame_ok = renderAndPresentFrame(
+            vk, report, device, queue, queue_family, swapchain,
+            images[image_index], format, extent, image_index,
+            acquire_semaphore, present_semaphore,
+            command_pool, command_buffer, image_view, render_pass, framebuffer,
+            vertex_shader, fragment_shader, pipeline_layout, graphics_pipeline,
+            collect_sample ? timestamp_query_pool : VK_NULL_HANDLE,
+            sample_index * 2U, collect_sample, frame_start);
+        if (!frame_ok) return false;
+        ++report.frame_completed_count;
+
+        // A framebuffer is tied to the particular swapchain image acquired above.
+        if (framebuffer != VK_NULL_HANDLE) {
+            vk.destroy_framebuffer(device, framebuffer, nullptr);
+            framebuffer = VK_NULL_HANDLE;
+            report.framebuffer_destroy_status = "success";
+        }
+        if (image_view != VK_NULL_HANDLE) {
+            vk.destroy_image_view(device, image_view, nullptr);
+            image_view = VK_NULL_HANDLE;
+            report.image_view_destroy_status = "success";
+        }
+    }
+
+    report.frame_timing_valid =
+        report.frame_timing_sample_count == report.frame_target_count;
+    if (!report.frame_timing_valid) {
+        fail(report, "The multi-frame CPU timing sample count did not reach the target");
+        return false;
+    }
+    if (report.gpu_timestamp_sample_count != report.frame_target_count) {
+        report.gpu_timestamp_query_status = "incomplete";
+        fail(report, "The GPU timestamp query sample count did not reach the target");
+        return false;
+    }
+    report.gpu_timestamp_query_status = "success";
+    report.gpu_timestamp_status = "success";
+    return true;
+}
+
 AndroidSurfaceSwapchainValidationReport runValidation(
         JNIEnv* env, jobject java_surface, jint requested_width, jint requested_height) {
     AndroidSurfaceSwapchainValidationReport report;
