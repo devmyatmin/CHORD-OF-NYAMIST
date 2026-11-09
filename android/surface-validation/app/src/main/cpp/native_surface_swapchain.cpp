@@ -9,6 +9,7 @@
 #include <vulkan/vulkan.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <dlfcn.h>
@@ -44,6 +45,14 @@ struct VulkanDispatch {
     PFN_vkGetDeviceQueue get_device_queue{};
     PFN_vkCreateSwapchainKHR create_swapchain{};
     PFN_vkDestroySwapchainKHR destroy_swapchain{};
+    PFN_vkCreateImageView create_image_view{};
+    PFN_vkDestroyImageView destroy_image_view{};
+    PFN_vkCreateRenderPass create_render_pass{};
+    PFN_vkDestroyRenderPass destroy_render_pass{};
+    PFN_vkCreateFramebuffer create_framebuffer{};
+    PFN_vkDestroyFramebuffer destroy_framebuffer{};
+    PFN_vkCmdBeginRenderPass cmd_begin_render_pass{};
+    PFN_vkCmdEndRenderPass cmd_end_render_pass{};
     PFN_vkGetSwapchainImagesKHR get_swapchain_images{};
     PFN_vkCreateSemaphore create_semaphore{};
     PFN_vkDestroySemaphore destroy_semaphore{};
@@ -120,6 +129,225 @@ std::string colorSpaceName(VkColorSpaceKHR color_space) {
            std::to_string(static_cast<int>(color_space)) + ")";
 }
 
+
+bool renderAndPresentFrame(
+        VulkanDispatch& vk,
+        AndroidSurfaceSwapchainValidationReport& report,
+        VkDevice device,
+        VkQueue queue,
+        std::uint32_t queue_family,
+        VkSwapchainKHR swapchain,
+        VkImage image,
+        VkFormat format,
+        VkExtent2D extent,
+        std::uint32_t image_index,
+        VkSemaphore acquire_semaphore,
+        VkSemaphore present_semaphore,
+        VkCommandPool& command_pool,
+        VkCommandBuffer& command_buffer,
+        VkImageView& image_view,
+        VkRenderPass& render_pass,
+        VkFramebuffer& framebuffer,
+        std::chrono::steady_clock::time_point frame_start) {
+    VkImageViewCreateInfo image_view_info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    image_view_info.image = image;
+    image_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    image_view_info.format = format;
+    image_view_info.components = {
+        VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
+        VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY
+    };
+    image_view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    image_view_info.subresourceRange.baseMipLevel = 0U;
+    image_view_info.subresourceRange.levelCount = 1U;
+    image_view_info.subresourceRange.baseArrayLayer = 0U;
+    image_view_info.subresourceRange.layerCount = 1U;
+
+    VkResult result = vk.create_image_view(device, &image_view_info, nullptr, &image_view);
+    report.image_view_create_status = result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "vkCreateImageView failed: " + resultName(result));
+        return false;
+    }
+
+    VkAttachmentDescription color_attachment{};
+    color_attachment.format = format;
+    color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference color_reference{};
+    color_reference.attachment = 0U;
+    color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1U;
+    subpass.pColorAttachments = &color_reference;
+
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0U;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0U;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    VkRenderPassCreateInfo render_pass_info{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+    render_pass_info.attachmentCount = 1U;
+    render_pass_info.pAttachments = &color_attachment;
+    render_pass_info.subpassCount = 1U;
+    render_pass_info.pSubpasses = &subpass;
+    render_pass_info.dependencyCount = 1U;
+    render_pass_info.pDependencies = &dependency;
+    result = vk.create_render_pass(device, &render_pass_info, nullptr, &render_pass);
+    report.render_pass_create_status = result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "vkCreateRenderPass failed: " + resultName(result));
+        return false;
+    }
+
+    VkFramebufferCreateInfo framebuffer_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+    framebuffer_info.renderPass = render_pass;
+    framebuffer_info.attachmentCount = 1U;
+    framebuffer_info.pAttachments = &image_view;
+    framebuffer_info.width = extent.width;
+    framebuffer_info.height = extent.height;
+    framebuffer_info.layers = 1U;
+    result = vk.create_framebuffer(device, &framebuffer_info, nullptr, &framebuffer);
+    report.framebuffer_create_status = result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "vkCreateFramebuffer failed: " + resultName(result));
+        return false;
+    }
+
+    VkCommandPoolCreateInfo pool_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+    pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+    pool_info.queueFamilyIndex = queue_family;
+    result = vk.create_command_pool(device, &pool_info, nullptr, &command_pool);
+    report.command_pool_create_status = result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "vkCreateCommandPool failed: " + resultName(result));
+        return false;
+    }
+
+    VkCommandBufferAllocateInfo allocate_info{
+        VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    allocate_info.commandPool = command_pool;
+    allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocate_info.commandBufferCount = 1U;
+    result = vk.allocate_command_buffers(device, &allocate_info, &command_buffer);
+    report.command_buffer_allocate_status = result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "vkAllocateCommandBuffers failed: " + resultName(result));
+        return false;
+    }
+
+    VkCommandBufferBeginInfo begin_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    result = vk.begin_command_buffer(command_buffer, &begin_info);
+    if (result != VK_SUCCESS) {
+        report.command_record_status = "failed";
+        fail(report, "vkBeginCommandBuffer failed: " + resultName(result));
+        return false;
+    }
+
+    VkClearValue clear_value{};
+    clear_value.color.float32[0] = 0.035F;
+    clear_value.color.float32[1] = 0.14F;
+    clear_value.color.float32[2] = 0.32F;
+    clear_value.color.float32[3] = 1.0F;
+
+    VkRenderPassBeginInfo render_begin{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+    render_begin.renderPass = render_pass;
+    render_begin.framebuffer = framebuffer;
+    render_begin.renderArea.offset = {0, 0};
+    render_begin.renderArea.extent = extent;
+    render_begin.clearValueCount = 1U;
+    render_begin.pClearValues = &clear_value;
+
+    // A render-pass CLEAR operation writes a deterministic color to the acquired
+    // swapchain image. No graphics pipeline or shader is claimed in R1.6.
+    vk.cmd_begin_render_pass(command_buffer, &render_begin, VK_SUBPASS_CONTENTS_INLINE);
+    report.render_pass_begin_recorded = true;
+    vk.cmd_end_render_pass(command_buffer);
+    report.render_pass_end_recorded = true;
+    report.image_layout_transition_recorded = true;
+
+    result = vk.end_command_buffer(command_buffer);
+    report.command_record_status = result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "vkEndCommandBuffer failed: " + resultName(result));
+        return false;
+    }
+
+    const VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkSubmitInfo submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    submit_info.waitSemaphoreCount = 1U;
+    submit_info.pWaitSemaphores = &acquire_semaphore;
+    submit_info.pWaitDstStageMask = &wait_stage;
+    submit_info.commandBufferCount = 1U;
+    submit_info.pCommandBuffers = &command_buffer;
+    submit_info.signalSemaphoreCount = 1U;
+    submit_info.pSignalSemaphores = &present_semaphore;
+    const auto submit_start = std::chrono::steady_clock::now();
+    result = vk.queue_submit(queue, 1U, &submit_info, VK_NULL_HANDLE);
+    const auto submit_end = std::chrono::steady_clock::now();
+    report.queue_submit_cpu_us = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            submit_end - submit_start).count());
+    report.queue_submit_status = result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "vkQueueSubmit for render-pass clear failed: " + resultName(result));
+        return false;
+    }
+
+    VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+    present_info.waitSemaphoreCount = 1U;
+    present_info.pWaitSemaphores = &present_semaphore;
+    present_info.swapchainCount = 1U;
+    present_info.pSwapchains = &swapchain;
+    present_info.pImageIndices = &image_index;
+    const auto present_start = std::chrono::steady_clock::now();
+    result = vk.queue_present(queue, &present_info);
+    const auto present_end = std::chrono::steady_clock::now();
+    report.present_call_cpu_us = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            present_end - present_start).count());
+    report.image_present_status = isUsable(result) ? "success" : "failed";
+    report.image_presented = isUsable(result);
+    if (!isUsable(result)) {
+        fail(report, "vkQueuePresentKHR failed: " + resultName(result));
+        return false;
+    }
+
+    const auto idle_start = std::chrono::steady_clock::now();
+    result = vk.queue_wait_idle(queue);
+    const auto idle_end = std::chrono::steady_clock::now();
+    report.queue_idle_wait_cpu_us = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            idle_end - idle_start).count());
+    report.queue_idle_status = result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "vkQueueWaitIdle failed after rendering/presentation: " + resultName(result));
+        return false;
+    }
+
+    report.frame_content_written = true;
+    report.frame_timing_source = "std::chrono::steady_clock";
+    report.frame_timing_sample_count = 1U;
+    report.frame_total_cpu_us = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            idle_end - frame_start).count());
+    report.frame_timing_valid = true;
+    report.gpu_timestamp_status = "not_queried";
+    return true;
+}
+
 AndroidSurfaceSwapchainValidationReport runValidation(
         JNIEnv* env, jobject java_surface, jint requested_width, jint requested_height) {
     AndroidSurfaceSwapchainValidationReport report;
@@ -130,6 +358,9 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     VkDevice device = VK_NULL_HANDLE;
     VkQueue queue = VK_NULL_HANDLE;
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+    VkImageView image_view = VK_NULL_HANDLE;
+    VkRenderPass render_pass = VK_NULL_HANDLE;
+    VkFramebuffer framebuffer = VK_NULL_HANDLE;
     VkSemaphore acquire_semaphore = VK_NULL_HANDLE;
     VkSemaphore present_semaphore = VK_NULL_HANDLE;
     VkCommandPool command_pool = VK_NULL_HANDLE;
@@ -364,6 +595,14 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             LOAD_DEVICE(get_device_queue, "vkGetDeviceQueue");
             LOAD_DEVICE(create_swapchain, "vkCreateSwapchainKHR");
             LOAD_DEVICE(destroy_swapchain, "vkDestroySwapchainKHR");
+            LOAD_DEVICE(create_image_view, "vkCreateImageView");
+            LOAD_DEVICE(destroy_image_view, "vkDestroyImageView");
+            LOAD_DEVICE(create_render_pass, "vkCreateRenderPass");
+            LOAD_DEVICE(destroy_render_pass, "vkDestroyRenderPass");
+            LOAD_DEVICE(create_framebuffer, "vkCreateFramebuffer");
+            LOAD_DEVICE(destroy_framebuffer, "vkDestroyFramebuffer");
+            LOAD_DEVICE(cmd_begin_render_pass, "vkCmdBeginRenderPass");
+            LOAD_DEVICE(cmd_end_render_pass, "vkCmdEndRenderPass");
             LOAD_DEVICE(get_swapchain_images, "vkGetSwapchainImagesKHR");
             LOAD_DEVICE(create_semaphore, "vkCreateSemaphore");
             LOAD_DEVICE(destroy_semaphore, "vkDestroySemaphore");
@@ -382,6 +621,10 @@ AndroidSurfaceSwapchainValidationReport runValidation(
 #undef LOAD_DEVICE
             if (vk.get_device_queue == nullptr || vk.create_swapchain == nullptr ||
                 vk.destroy_swapchain == nullptr || vk.get_swapchain_images == nullptr ||
+                vk.create_image_view == nullptr || vk.destroy_image_view == nullptr ||
+                vk.create_render_pass == nullptr || vk.destroy_render_pass == nullptr ||
+                vk.create_framebuffer == nullptr || vk.destroy_framebuffer == nullptr ||
+                vk.cmd_begin_render_pass == nullptr || vk.cmd_end_render_pass == nullptr ||
                 vk.create_semaphore == nullptr || vk.destroy_semaphore == nullptr ||
                 vk.acquire_next_image == nullptr || vk.queue_present == nullptr ||
                 vk.queue_wait_idle == nullptr || vk.create_command_pool == nullptr ||
@@ -450,17 +693,12 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                             formatName(selected_format.format) + " / " + colorSpaceName(selected_format.colorSpace);
                         report.selected_present_mode = "FIFO";
 
-                        VkImageUsageFlags image_usage = 0U;
+                        VkImageUsageFlags image_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
                         if ((capabilities.supportedUsageFlags &
                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) != 0U) {
-                            image_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
                             report.selected_image_usage = "COLOR_ATTACHMENT";
-                        } else if ((capabilities.supportedUsageFlags &
-                                    VK_IMAGE_USAGE_TRANSFER_DST_BIT) != 0U) {
-                            image_usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-                            report.selected_image_usage = "TRANSFER_DST";
                         } else {
-                            fail(report, "Surface supports neither COLOR_ATTACHMENT nor TRANSFER_DST usage");
+                            fail(report, "R1.6 requires swapchain COLOR_ATTACHMENT usage for render-pass clear");
                         }
 
                         if (report.failure_reason.empty()) {
@@ -544,9 +782,15 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                         fail(report, "vkCreateSemaphore failed: " + resultName(result));
                                     } else {
                                         std::uint32_t image_index = 0U;
+                                        const auto frame_start = std::chrono::steady_clock::now();
+                                        const auto acquire_start = std::chrono::steady_clock::now();
                                         result = vk.acquire_next_image(
                                             device, swapchain, 1000000000ULL,
                                             acquire_semaphore, VK_NULL_HANDLE, &image_index);
+                                        const auto acquire_end = std::chrono::steady_clock::now();
+                                        report.acquire_cpu_us = static_cast<std::uint64_t>(
+                                            std::chrono::duration_cast<std::chrono::microseconds>(
+                                                acquire_end - acquire_start).count());
                                         report.image_acquire_status =
                                             isUsable(result) ? "success" : "failed";
                                         if (!isUsable(result)) {
@@ -565,8 +809,20 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                             if (result != VK_SUCCESS) {
                                                 fail(report, "Present semaphore creation failed: " + resultName(result));
                                             } else {
-                                                VkCommandPoolCreateInfo pool_info{
-                                                    VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+                                                if (report.selected_image_usage != "COLOR_ATTACHMENT") {
+                                                    fail(report, "Selected swapchain usage is not COLOR_ATTACHMENT");
+                                                } else {
+                                                    const bool frame_ok = renderAndPresentFrame(
+                                                        vk, report, device, queue, selected_queue_family,
+                                                        swapchain, images[image_index], selected_format.format,
+                                                        extent, image_index, acquire_semaphore, present_semaphore,
+                                                        command_pool, command_buffer, image_view, render_pass,
+                                                        framebuffer, frame_start);
+                                                    if (!frame_ok && report.failure_reason.empty()) {
+                                                        fail(report, "R1.6 render-and-present frame did not complete");
+                                                    }
+                                                }
+                                            }
                                                 pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
                                                 pool_info.queueFamilyIndex = selected_queue_family;
                                                 result = vk.create_command_pool(
@@ -698,6 +954,33 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         const VkResult idle_result = vk.device_wait_idle(device);
         if (idle_result != VK_SUCCESS) cleanup_ok = false;
     }
+    if (framebuffer != VK_NULL_HANDLE) {
+        if (vk.destroy_framebuffer != nullptr) {
+            vk.destroy_framebuffer(device, framebuffer, nullptr);
+            report.framebuffer_destroy_status = "success";
+        } else {
+            report.framebuffer_destroy_status = "failed";
+            cleanup_ok = false;
+        }
+    }
+    if (render_pass != VK_NULL_HANDLE) {
+        if (vk.destroy_render_pass != nullptr) {
+            vk.destroy_render_pass(device, render_pass, nullptr);
+            report.render_pass_destroy_status = "success";
+        } else {
+            report.render_pass_destroy_status = "failed";
+            cleanup_ok = false;
+        }
+    }
+    if (image_view != VK_NULL_HANDLE) {
+        if (vk.destroy_image_view != nullptr) {
+            vk.destroy_image_view(device, image_view, nullptr);
+            report.image_view_destroy_status = "success";
+        } else {
+            report.image_view_destroy_status = "failed";
+            cleanup_ok = false;
+        }
+    }
     if (command_buffer != VK_NULL_HANDLE && command_pool != VK_NULL_HANDLE) {
         if (vk.free_command_buffers != nullptr) {
             vk.free_command_buffers(device, command_pool, 1U, &command_buffer);
@@ -807,7 +1090,15 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         report.semaphore_destroy_status == "success" &&
         report.present_semaphore_destroy_status == "success" &&
         report.command_buffer_free_status == "success" &&
-        report.command_pool_destroy_status == "success";
+        report.command_pool_destroy_status == "success" &&
+        report.image_view_create_status == "success" &&
+        report.render_pass_create_status == "success" &&
+        report.framebuffer_create_status == "success" &&
+        report.render_pass_begin_recorded && report.render_pass_end_recorded &&
+        report.frame_content_written && report.frame_timing_valid &&
+        report.image_view_destroy_status == "success" &&
+        report.render_pass_destroy_status == "success" &&
+        report.framebuffer_destroy_status == "success";
     if (complete && report.failure_reason.empty()) report.status = "success";
     else if (report.status != "failed") report.status = "failed";
     return report;
