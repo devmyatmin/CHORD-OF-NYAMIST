@@ -177,7 +177,11 @@ std::string toJson(const GpuResourceTransferValidationReport& report) {
     quoted(out, report.command_buffer_status);
     out << ",\n    \"recording_status\": ";
     quoted(out, report.command_recording_status);
-    out << ",\n    \"submit_status\": ";
+    out << ",\n    \"host_to_transfer_barrier_recorded\": "
+        << (report.host_to_transfer_barrier_recorded ? "true" : "false")
+        << ",\n    \"transfer_to_host_barrier_recorded\": "
+        << (report.transfer_to_host_barrier_recorded ? "true" : "false")
+        << ",\n    \"submit_status\": ";
     quoted(out, report.queue_submit_status);
     out << ",\n    \"submit_result\": ";
     if (report.queue_submit_result.empty()) out << "null"; else quoted(out, report.queue_submit_result);
@@ -471,6 +475,8 @@ GpuResourceTransferValidationReport collectGpuResourceTransferValidationReport()
         get_device_proc_addr(device, "vkUnmapMemory"));
     auto cmd_copy_buffer = reinterpret_cast<PFN_vkCmdCopyBuffer>(
         get_device_proc_addr(device, "vkCmdCopyBuffer"));
+    auto cmd_pipeline_barrier = reinterpret_cast<PFN_vkCmdPipelineBarrier>(
+        get_device_proc_addr(device, "vkCmdPipelineBarrier"));
     auto queue_submit = reinterpret_cast<PFN_vkQueueSubmit>(
         get_device_proc_addr(device, "vkQueueSubmit"));
     auto create_fence = reinterpret_cast<PFN_vkCreateFence>(
@@ -508,7 +514,7 @@ GpuResourceTransferValidationReport collectGpuResourceTransferValidationReport()
         allocate_memory != nullptr && free_memory != nullptr &&
         bind_buffer_memory != nullptr && map_memory != nullptr &&
         unmap_memory != nullptr && cmd_copy_buffer != nullptr &&
-        queue_submit != nullptr && create_fence != nullptr &&
+        cmd_pipeline_barrier != nullptr && queue_submit != nullptr && create_fence != nullptr &&
         destroy_fence != nullptr && wait_for_fences != nullptr &&
         get_fence_status != nullptr && device_wait_idle != nullptr &&
         destroy_device != nullptr;
@@ -701,11 +707,40 @@ GpuResourceTransferValidationReport collectGpuResourceTransferValidationReport()
             begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
             result = begin_command_buffer(command_buffer, &begin_info);
             if (result == VK_SUCCESS) {
+                VkBufferMemoryBarrier host_to_transfer{};
+                host_to_transfer.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+                host_to_transfer.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+                host_to_transfer.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                host_to_transfer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                host_to_transfer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                host_to_transfer.buffer = source_buffer;
+                host_to_transfer.offset = 0U;
+                host_to_transfer.size = static_cast<VkDeviceSize>(report.transfer_size_bytes);
+                cmd_pipeline_barrier(command_buffer,
+                    VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    0U, 0U, nullptr, 1U, &host_to_transfer, 0U, nullptr);
+                report.host_to_transfer_barrier_recorded = true;
+
                 VkBufferCopy copy{};
                 copy.srcOffset = 0U;
                 copy.dstOffset = 0U;
                 copy.size = static_cast<VkDeviceSize>(report.transfer_size_bytes);
                 cmd_copy_buffer(command_buffer, source_buffer, destination_buffer, 1U, &copy);
+
+                VkBufferMemoryBarrier transfer_to_host{};
+                transfer_to_host.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+                transfer_to_host.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                transfer_to_host.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+                transfer_to_host.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                transfer_to_host.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                transfer_to_host.buffer = destination_buffer;
+                transfer_to_host.offset = 0U;
+                transfer_to_host.size = static_cast<VkDeviceSize>(report.transfer_size_bytes);
+                cmd_pipeline_barrier(command_buffer,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT,
+                    0U, 0U, nullptr, 1U, &transfer_to_host, 0U, nullptr);
+                report.transfer_to_host_barrier_recorded = true;
+
                 result = end_command_buffer(command_buffer);
             }
             report.command_recording_status = result == VK_SUCCESS ? "success" : "failed";
@@ -870,6 +905,8 @@ GpuResourceTransferValidationReport collectGpuResourceTransferValidationReport()
         report.command_pool_status == "success" &&
         report.command_buffer_status == "success" &&
         report.command_recording_status == "success" &&
+        report.host_to_transfer_barrier_recorded &&
+        report.transfer_to_host_barrier_recorded &&
         report.queue_submit_status == "success" &&
         report.fence_create_status == "success" &&
         report.fence_wait_status == "success" &&

@@ -37,6 +37,8 @@ void testJsonContract() {
     report.command_pool_status = "success";
     report.command_buffer_status = "success";
     report.command_recording_status = "success";
+    report.host_to_transfer_barrier_recorded = true;
+    report.transfer_to_host_barrier_recorded = true;
     report.queue_submit_status = "success";
     report.queue_submit_result = "VK_SUCCESS";
     report.queue_submission_succeeded = true;

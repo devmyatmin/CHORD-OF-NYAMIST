@@ -48,6 +48,8 @@ struct GpuResourceTransferValidationReport {
     std::string command_pool_status{"not_attempted"};
     std::string command_buffer_status{"not_attempted"};
     std::string command_recording_status{"not_attempted"};
+    bool host_to_transfer_barrier_recorded{};
+    bool transfer_to_host_barrier_recorded{};
     std::string queue_submit_status{"not_attempted"};
     std::string queue_submit_result;
     bool queue_submission_succeeded{};

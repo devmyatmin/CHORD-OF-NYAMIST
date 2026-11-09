@@ -16,10 +16,11 @@ R1.3 proved queue submission and fence completion for an empty command buffer. R
 4. Find compatible HOST_VISIBLE | HOST_COHERENT memory types, preferring DEVICE_LOCAL when available.
 5. Allocate and bind memory for both buffers.
 6. Map the source allocation and write a deterministic byte pattern.
-7. Record vkCmdCopyBuffer and submit it with a fence.
-8. Wait for the fence and query its status.
-9. Map the destination allocation and compare every byte with the source pattern.
-10. Destroy the fence, command buffer, pool, buffers, memory, device, and instance.
+7. Record a HOST_WRITE to TRANSFER_READ buffer barrier for the source.
+8. Record vkCmdCopyBuffer followed by a TRANSFER_WRITE to HOST_READ buffer barrier for the destination.
+9. Submit the command buffer with a fence and wait for completion.
+10. Map the destination allocation and compare every byte with the source pattern.
+11. Destroy the fence, command buffer, pool, buffers, memory, device, and instance.
 
 No Vulkan device extensions, optional core features, root access, device-node access, SELinux changes, vendor-partition writes, or driver replacement are used.
 

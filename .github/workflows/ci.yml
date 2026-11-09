@@ -140,6 +140,8 @@ jobs:
               assert report["memory"]["destination_allocate_status"] == "success"
               assert report["memory"]["source_bind_status"] == "success"
               assert report["memory"]["destination_bind_status"] == "success"
+              assert report["command"]["host_to_transfer_barrier_recorded"] is True
+              assert report["command"]["transfer_to_host_barrier_recorded"] is True
               assert report["command"]["submitted"] is True
               assert report["command"]["fence_signaled"] is True
               assert report["readback"]["bytes_copied"] == 4096
