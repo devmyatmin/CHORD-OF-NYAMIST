@@ -40,7 +40,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         root.setPadding(pad, pad, pad, pad);
 
         TextView title = new TextView(this);
-        title.setText("CHORD OF NYAMIST — G925 R1.6");
+        title.setText("CHORD OF NYAMIST — G925 R1.7");
         title.setTextSize(20.0f);
         root.addView(title, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -83,7 +83,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
         if (validatedCurrentSurface || width <= 0 || height <= 0) return;
         validatedCurrentSurface = true;
-        statusView.setText("Running Vulkan render-pass clear / present timing validation...");
+        statusView.setText("Running Vulkan shader pipeline / triangle draw validation...");
         final Surface surface = holder.getSurface();
         final int surfaceWidth = width;
         final int surfaceHeight = height;
@@ -102,10 +102,10 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                 latestReport = result;
                 reportView.setText(result);
                 statusView.setText(result.contains("\"status\": \"success\"")
-                        ? "R1.6 Vulkan rendering / frame timing: SUCCESS"
-                        : "R1.6 validation did not pass; inspect JSON report");
+                        ? "R1.7 graphics pipeline / triangle draw: SUCCESS"
+                        : "R1.7 validation did not pass; inspect JSON report");
             });
-        }, "nyamist-r1.6-validation").start();
+        }, "nyamist-r1.7-validation").start();
     }
 
     @Override
@@ -118,15 +118,15 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         try {
             File directory = getExternalFilesDir(null);
             if (directory == null) directory = getFilesDir();
-            File output = new File(directory, "nyamist-g925-r1.6-surface-swapchain.json");
+            File output = new File(directory, "nyamist-g925-r1.7-surface-swapchain.json");
             try (FileOutputStream stream = new FileOutputStream(output, false)) {
                 stream.write(json.getBytes(StandardCharsets.UTF_8));
             }
             String digest = sha256(json);
-            android.util.Log.i("NYAMIST_R1_5", "Report: " + output.getAbsolutePath());
-            android.util.Log.i("NYAMIST_R1_5", "SHA-256: " + digest);
+            android.util.Log.i("NYAMIST_R1_7", "Report: " + output.getAbsolutePath());
+            android.util.Log.i("NYAMIST_R1_7", "SHA-256: " + digest);
         } catch (Exception error) {
-            android.util.Log.e("NYAMIST_R1_5", "Could not save report", error);
+            android.util.Log.e("NYAMIST_R1_7", "Could not save report", error);
         }
     }
 
@@ -137,7 +137,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         }
         ClipboardManager clipboard =
                 (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R1.6 JSON", latestReport));
+        clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R1.7 JSON", latestReport));
         statusView.setText("JSON report copied to clipboard.");
     }
 
