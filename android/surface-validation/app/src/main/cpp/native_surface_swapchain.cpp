@@ -551,6 +551,9 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                             isUsable(result) ? "success" : "failed";
                                         if (!isUsable(result)) {
                                             fail(report, "vkAcquireNextImageKHR failed: " + resultName(result));
+                                        } else if (image_index >= images.size()) {
+                                            report.image_acquire_status = "failed";
+                                            fail(report, "vkAcquireNextImageKHR returned an image index outside the enumerated swapchain image range");
                                         } else {
                                             report.image_acquired = true;
                                             report.acquired_image_index = image_index;
