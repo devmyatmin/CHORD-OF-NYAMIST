@@ -2,7 +2,7 @@
 
 ## Product definition
 
-The active R1 line is an original, G925-focused native graphics engineering project for Immortalis-G925 MC12 on MediaTek MT6991. The first implementation milestone is read-only hardware/Vulkan discovery inside the existing C++20 runtime.
+The active R1 line is an original, G925-focused native graphics engineering project for Immortalis-G925 MC12 on MediaTek MT6991. The first implementation milestones are read-only hardware/Vulkan discovery and a version-aware Vulkan core capability inventory inside the existing C++20 runtime.
 
 NYAMIST also contains a graphics-runtime sidecar: device profiles, telemetry import, evidence validation, session analysis, and deterministic recommendations. These control-plane tools are separate from the driver and must not sit in the per-draw-call or Present hot path.
 
@@ -18,7 +18,7 @@ NYAMIST is not yet a complete Vulkan implementation or a released ICD. The stock
       → vendor mali_kbase kernel interface
       → Immortalis-G925 MC12
 
-A future NYAMIST-owned Vulkan ICD may replace the app-local driver selection only after it is independently implemented, built, and device-validated. That future path is not implemented by the R1.0 discovery tool.
+A future NYAMIST-owned Vulkan ICD may replace the app-local driver selection only after it is independently implemented, built, and device-validated. The R1.0 discovery path and R1.1 capability inventory do not implement that future path.
 
 ## NYAMIST-owned modules
 
@@ -44,7 +44,7 @@ Readiness levels are deliberately strict:
 - smoke_tested — explicit render/Present success and clean exit are demonstrated.
 - sustained_tested — a repeatable test of at least 300 seconds passes with no critical failure.
 
-Vulkan physical-device enumeration, surface creation, queue submission, render/Present, sustained game execution, and production readiness are separate validation states.
+Vulkan physical-device enumeration, core feature/limit inventory, logical-device creation, queue submission, surface creation, render/Present, sustained game execution, and production readiness are separate validation states.
 
 ## Target-device evidence and limits
 
