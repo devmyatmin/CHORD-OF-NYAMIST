@@ -62,14 +62,7 @@ bool isG925Name(const std::string& name) {
 
 } // namespace
 
-std::string toJson(const LogicalDeviceValidationReport& report) {
-    std::ostringstream out;
-    out << "{\n"
-        << "  \"schema_version\": " << report.schema_version << ",\n"
-        << "  \"project\": \"CHORD OF NYAMIST / NYAMIST G925 R1.2\",\n"
-        << "  \"status\": ";
-    writeQuoted(out, report.status);
-    out << ",\n  \"vulkan_QueueSubmissionValidationReport collectQueueSubmissionValidationReport() {
+QueueSubmissionValidationReport collectQueueSubmissionValidationReport() {
     QueueSubmissionValidationReport report;
 #if !defined(NYAMIST_HAS_VULKAN)
     report.status = "unavailable";
@@ -396,6 +389,8 @@ std::string toJson(const LogicalDeviceValidationReport& report) {
         get_device_proc_addr(device, "vkQueueSubmit"));
     auto wait_for_fences = reinterpret_cast<PFN_vkWaitForFences>(
         get_device_proc_addr(device, "vkWaitForFences"));
+    auto queue_wait_idle = reinterpret_cast<PFN_vkQueueWaitIdle>(
+        get_device_proc_addr(device, "vkQueueWaitIdle"));
 
     VkCommandPool command_pool = VK_NULL_HANDLE;
     VkCommandBuffer command_buffer = VK_NULL_HANDLE;
@@ -406,14 +401,16 @@ std::string toJson(const LogicalDeviceValidationReport& report) {
         allocate_command_buffers != nullptr && begin_command_buffer != nullptr &&
         end_command_buffer != nullptr && create_fence != nullptr &&
         destroy_fence != nullptr && queue_submit != nullptr &&
-        wait_for_fences != nullptr;
+        wait_for_fences != nullptr && queue_wait_idle != nullptr;
 
     if (!report.queue_handle_non_null) {
         report.command_pool_status = "not_attempted";
-        report.command_failure_reason = "A valid graphics queue is required before command submission";
+        report.command_failure_reason =
+            "A valid graphics queue is required before command submission";
     } else if (!command_entrypoints_available) {
         report.command_pool_status = "failed";
-        report.command_failure_reason = "One or more Vulkan command-submission entry points are unavailable";
+        report.command_failure_reason =
+            "One or more Vulkan command-submission entry points are unavailable";
     } else {
         VkCommandPoolCreateInfo pool_info{};
         pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -421,8 +418,10 @@ std::string toJson(const LogicalDeviceValidationReport& report) {
         pool_info.queueFamilyIndex = family->index;
 
         result = create_command_pool(device, &pool_info, nullptr, &command_pool);
-        report.command_pool_created = result == VK_SUCCESS && command_pool != VK_NULL_HANDLE;
-        report.command_pool_status = report.command_pool_created ? "success" : "failed";
+        report.command_pool_created =
+            result == VK_SUCCESS && command_pool != VK_NULL_HANDLE;
+        report.command_pool_status =
+            report.command_pool_created ? "success" : "failed";
         if (!report.command_pool_created) {
             report.command_failure_reason = "vkCreateCommandPool returned VkResult(" +
                 std::to_string(static_cast<int>(result)) + ")";
@@ -442,7 +441,8 @@ std::string toJson(const LogicalDeviceValidationReport& report) {
         report.command_buffer_allocation_status =
             report.command_buffer_allocated ? "success" : "failed";
         if (!report.command_buffer_allocated && report.command_failure_reason.empty()) {
-            report.command_failure_reason = "vkAllocateCommandBuffers returned VkResult(" +
+            report.command_failure_reason =
+                "vkAllocateCommandBuffers returned VkResult(" +
                 std::to_string(static_cast<int>(result)) + ")";
         }
     }
@@ -471,7 +471,8 @@ std::string toJson(const LogicalDeviceValidationReport& report) {
         fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         result = create_fence(device, &fence_info, nullptr, &fence);
         report.fence_created = result == VK_SUCCESS && fence != VK_NULL_HANDLE;
-        report.fence_creation_status = report.fence_created ? "success" : "failed";
+        report.fence_creation_status =
+            report.fence_created ? "success" : "failed";
         if (!report.fence_created && report.command_failure_reason.empty()) {
             report.command_failure_reason = "vkCreateFence returned VkResult(" +
                 std::to_string(static_cast<int>(result)) + ")";
@@ -486,21 +487,34 @@ std::string toJson(const LogicalDeviceValidationReport& report) {
 
         result = queue_submit(queue, 1U, &submit_info, fence);
         report.queue_submit_accepted = result == VK_SUCCESS;
-        report.queue_submit_status = report.queue_submit_accepted ? "success" : "failed";
+        report.queue_submit_status =
+            report.queue_submit_accepted ? "success" : "failed";
         if (!report.queue_submit_accepted && report.command_failure_reason.empty()) {
             report.command_failure_reason = "vkQueueSubmit returned VkResult(" +
                 std::to_string(static_cast<int>(result)) + ")";
         }
     }
 
+    bool queue_is_idle = !report.queue_submit_accepted;
     if (report.queue_submit_accepted) {
         constexpr std::uint64_t fence_timeout_ns = 5'000'000'000ULL;
         result = wait_for_fences(device, 1U, &fence, VK_TRUE, fence_timeout_ns);
         report.fence_signaled = result == VK_SUCCESS;
-        report.fence_wait_status = report.fence_signaled ? "success" : "failed";
-        if (!report.fence_signaled && report.command_failure_reason.empty()) {
-            report.command_failure_reason = "vkWaitForFences returned VkResult(" +
-                std::to_string(static_cast<int>(result)) + ")";
+        report.fence_wait_status =
+            report.fence_signaled ? "success" : "failed";
+        queue_is_idle = report.fence_signaled;
+        if (!report.fence_signaled) {
+            if (report.command_failure_reason.empty()) {
+                report.command_failure_reason = "vkWaitForFences returned VkResult(" +
+                    std::to_string(static_cast<int>(result)) + ")";
+            }
+            const VkResult idle_result = queue_wait_idle(queue);
+            queue_is_idle = idle_result == VK_SUCCESS ||
+                            idle_result == VK_ERROR_DEVICE_LOST;
+            if (!queue_is_idle && report.command_failure_reason.empty()) {
+                report.command_failure_reason =
+                    "Queue remained non-idle after failed fence wait";
+            }
         }
     }
 
@@ -515,7 +529,7 @@ std::string toJson(const LogicalDeviceValidationReport& report) {
 
     bool pool_cleanup_ok = true;
     if (command_pool != VK_NULL_HANDLE) {
-        if (destroy_command_pool != nullptr) {
+        if (queue_is_idle && destroy_command_pool != nullptr) {
             destroy_command_pool(device, command_pool, nullptr);
         } else {
             pool_cleanup_ok = false;
@@ -527,7 +541,8 @@ std::string toJson(const LogicalDeviceValidationReport& report) {
     report.command_resource_cleanup_status =
         report.command_resources_destroyed ? "success" : "failed";
     if (!report.command_resources_destroyed && report.command_failure_reason.empty()) {
-        report.command_failure_reason = "Command-pool/fence cleanup could not be confirmed";
+        report.command_failure_reason =
+            "Command-pool/fence cleanup could not be confirmed";
     }
 
     if (destroy_device != nullptr) {
