@@ -20,14 +20,14 @@
 | Android | Android 16 · API 36 |
 | ABI | arm64-v8a |
 | Kernel interface | Existing vendor Mali kbase / CSF path |
-| Driver direction | Mesa PanVK Android userspace Vulkan ICD |
+| Driver direction | Original NYAMIST G925 Native Graphics Core (independent implementation; research/build phase) |
 | Distribution target | Winlator-compatible WCP catalog/package where supported; ZIP driver-manager route where required |
 
 ## Project introduction
 
 **NYAMIST Immortalis-G925 MC12 Direct Hardware** is the first focused hardware-engineering release line under CHORD OF NYAMIST.
 
-The goal is to develop, validate, and package a device-specific Android Vulkan userspace driver path for the **Immortalis-G925 MC12**. It is intended to let compatible Android game-runtime environments use the GPU through the phone's existing Mali kernel interface, while keeping the stock vendor driver available as a reversible fallback.
+The goal is to design and implement an original, device-specific Android graphics stack for the **Immortalis-G925 MC12**. The active direction is the **NYAMIST G925 Native Graphics Core**: NYAMIST-owned userspace components, hardware discovery, Vulkan integration, configuration, telemetry, validation, and runtime packaging. The stock MediaTek/ARM driver remains the known-good baseline and reversible fallback while the independent implementation is developed. No custom NYAMIST Vulkan ICD is claimed to exist until source code is built and device-tested.
 
 This is a **single-GPU project**, not a universal driver collection. V1 targets the Immortalis-G925 MC12 on MediaTek MT6991. Adreno, Turnip, unrelated Mali generations, and generic multi-device claims are outside this release target.
 
@@ -48,7 +48,7 @@ DXVK (D3D11 -> Vulkan)
 Android Vulkan loader / app-local ICD selection
         |
         v
-NYAMIST G925 PanVK userspace driver
+NYAMIST G925 Native Graphics Core
         |
         v
 Existing vendor mali_kbase kernel interface (/dev/mali0)
@@ -114,7 +114,7 @@ Device-side evidence recorded on **2026-11-08**:
 - Kernel: **6.6.118-android15**.
 - Stock-driver reported device ID: `0xD8300010`.
 
-The device also has a separate app-local PanVK RC5 test record:
+The device also has a **legacy PanVK RC5 research record** from an earlier feasibility experiment. This is historical evidence only; PanVK is no longer the selected implementation or release dependency:
 
 - PanVK loaded successfully in the PanPlay test path.
 - One Vulkan physical device was enumerated.
@@ -122,7 +122,7 @@ The device also has a separate app-local PanVK RC5 test record:
 - PanProbe reported **41 passed, 0 failed, 0 skipped**.
 - The report's driver SHA-256 was `62c2b3f98ca987d5ab50b6f01e2d2c1c5b3ee995fe93666aa5da9415f65c3348`.
 
-The stock driver and PanVK are separate tests. Their reported device IDs differ and must remain separately identified until the exact device-ID mapping and binary provenance are reconciled. PanProbe success proves driver load/device-probe coverage for that run; it does not by itself prove correct surface presentation or complete game compatibility.
+The stock-driver test and the legacy PanVK experiment are separate records. Their reported device IDs differ and must remain separately identified until the exact device-ID mapping and binary provenance are reconciled. The legacy PanProbe result proves only the recorded load/device-probe coverage for that historical run; it does not validate the new NYAMIST implementation, surface presentation, or complete game compatibility.
 
 ## D3D11 real-game evidence
 
@@ -137,7 +137,7 @@ A user-provided PanPlay SessionLogs export and matching PerfRecorder export from
 - Reported stutters: **11,766**.
 - DXVK created a D3D11 device at feature level **11_0** (maximum reported capability was 11_1).
 - DXVK logged swapchain setup at **1280×720**, BGRA8 UNORM, IMMEDIATE present mode, four images.
-- The DXGI log identified the Mali-G925-Immortalis MC12 and a PanVK version string.
+- The DXGI log identified the Mali-G925-Immortalis MC12 and a legacy PanVK version string.
 
 **Evidence limits:** the exported logs do not provide authoritative Vulkan Present success/failure counters; the session manifest and DXGI driver version strings also have an unresolved provenance mismatch. The session ended through the user overlay and has no confirmed clean process exit. The frame-time percentiles and stutter count show that average FPS alone is not a sufficient smoothness measure.
 
@@ -147,16 +147,17 @@ This is valuable sustained-session evidence, but it does **not** yet qualify as 
 
 <badge label="V1 — Engineering Preview" color="warning"/> <badge label="Driver package not released" color="secondary"/>
 
-The repository currently contains the NYAMIST C++ profiling/validation core, PanVK report adapter, device probes, session importers, configuration templates, tests, and engineering documents. It does **not** yet contain a verified, installable NYAMIST G925 driver release asset or a published WCP download.
+The repository currently contains the NYAMIST profiling/validation core, device probes, session importers, configuration templates, tests, and engineering documents. The earlier PanVK report adapter and imported-driver evidence are retained only as legacy research material. The repository does **not** yet contain a verified, installable NYAMIST G925 native driver release asset or a published WCP download.
 
-The current PanVK RC5 evidence is an imported-driver test record, not proof that a newly built NYAMIST driver package has been produced. Do not install a package advertised as a finished NYAMIST driver until its release asset, manifest, checksums, target-device checks, and rollback procedure are published here.
+The legacy PanVK RC5 evidence is not part of the new implementation and is not proof that a NYAMIST driver package exists. Do not install or advertise a finished NYAMIST driver until its independently developed source, release asset, manifest, checksums, target-device validation, and rollback procedure are published here.
 
 ### V1 release gates
 
-1. Pin and record the exact PanVK/Mesa source revision, Android NDK/toolchain, patches, build options, and license notices.
-2. Build an arm64-v8a G925-targeted userspace ICD against the supported Android kbase/CSF interface.
+1. Define the NYAMIST Native Graphics Core architecture and module boundaries; document all hardware interfaces and their licensing/redistribution constraints.
+2. Establish the supported Android NDK/toolchain and build a minimal NYAMIST-owned arm64-v8a userspace prototype. Do not assume undocumented kbase/CSF interfaces are stable or publicly usable.
+3. Implement hardware discovery and a safe integration path that can use the stock vendor Vulkan driver as a baseline while the independent ICD feasibility is evaluated.
 3. Load it through a supported app-local driver-loading mechanism without altering the stock system driver.
-4. Verify the loaded binary identity, GPU enumeration, Vulkan features/extensions, formats, queue families, and memory behavior on the REDMI K80 Ultra.
+4. Verify NYAMIST binary identity, GPU enumeration, Vulkan features/extensions, formats, queue families, and memory behavior on the REDMI K80 Ultra; distinguish stock-driver baseline results from NYAMIST-owned implementation results.
 5. Pass surface/swapchain render-and-present tests with explicit Present evidence.
 6. Validate DXVK D3D11 device creation and repeatable real-game rendering, including a sustained run of at least 300 seconds, frame-time review, device-loss checks, and clean process exit.
 7. Build and test the WCP manifest/catalog and any required ZIP adapter against named Winlator-compatible clients.
@@ -171,14 +172,14 @@ Until these gates pass, the status remains **engineering preview / pre-release**
 - Never chmod or bypass access controls on `/dev/mali0`; never modify SELinux, vendor partitions, kernel modules, or protected system libraries.
 - Never claim a Vulkan extension or feature unless the loaded driver reports it and the relevant test passes.
 - Never treat GPU heap size as free VRAM or a guaranteed per-game allocation.
-- Keep DXVK, VKD3D-Proton, Wine, Box64/FEX, and PanVK as distinct layers with their own versions and logs.
+- Keep DXVK, VKD3D-Proton, Wine, Box64/FEX, the Android Vulkan loader, stock vendor driver, and NYAMIST-owned graphics components as distinct layers with their own versions and logs. PanVK is legacy research only, not an active dependency.
 - Distinguish device enumeration, render/present, sustained rendering, and production readiness as separate validation states.
 - Keep all source revisions, licenses, build inputs, checksums, raw logs, and test conditions attached to each release.
 
 ## Repository engineering components
 
 - C++20 device/runtime profiling and evidence core.
-- PanVK read-only report adapter and validation-state mapping.
+- Legacy PanVK report importer (historical evidence only; not used by the active driver architecture).
 - Android/Termux device probe and configuration templates.
 - PanPlay/PanProbe importers and session/PerfRecorder import tools.
 - Deterministic CI build and test workflow.
@@ -189,8 +190,8 @@ Until these gates pass, the status remains **engineering preview / pre-release**
 - [Architecture and scope](docs/architecture.md)
 - [Module contracts](docs/module-contracts.md)
 - [REDMI K80 Ultra hardware validation](docs/device-validation-redmi-k80-ultra.md)
-- [PanVK adapter and evidence gates](docs/panvk-adapter.md)
-- [PanVK kbase integration plan](docs/panvk-kbase-integration.md)
+- [Legacy PanVK adapter and evidence archive](docs/panvk-adapter.md)
+- [Legacy PanVK kbase research notes](docs/panvk-kbase-integration.md)
 - [DX11/Vulkan validation](docs/dx11-vulkan-validation.md)
 - [Game validation runbook](docs/game-validation-runbook.md)
 - [PanPlay import format](docs/panplay-import.md)
