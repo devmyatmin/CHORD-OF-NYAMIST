@@ -653,52 +653,52 @@ QueueSubmissionValidationReport collectQueueSubmissionValidationReport() {
 std::string toJson(const QueueSubmissionValidationReport& report) {
     const auto& base = static_cast<const LogicalDeviceValidationReport&>(report);
     std::string base_json = toJson(base);
-    if (!base_json.empty() && base_json.back() == '\\n') base_json.pop_back();
+    if (!base_json.empty() && base_json.back() == '\n') base_json.pop_back();
 
     std::ostringstream out;
-    out << "{\\n"
-        << "  \\"schema_version\\": 1,\\n"
-        << "  \\"project\\": \\"CHORD OF NYAMIST / NYAMIST G925 R1.3\\",\\n"
-        << "  \\"status\\": ";
+    out << "{\n"
+        << "  \"schema_version\": 1,\n"
+        << "  \"project\": \"CHORD OF NYAMIST / NYAMIST G925 R1.3\",\n"
+        << "  \"status\": ";
     writeQuoted(out, report.status);
-    out << ",\\n  \\"logical_device_validation\\": " << base_json
-        << ",\\n  \\"command_pool\\": {\\n"
-        << "    \\"status\\": ";
+    out << ",\n  \"logical_device_validation\": " << base_json
+        << ",\n  \"command_pool\": {\n"
+        << "    \"status\": ";
     writeQuoted(out, report.command_pool_status);
-    out << ",\\n    \\"created\\": "
+    out << ",\n    \"created\": "
         << (report.command_pool_created ? "true" : "false")
-        << "\\n  },\\n  \\"command_buffer\\": {\\n"
-        << "    \\"allocation_status\\": ";
+        << "\n  },\n  \"command_buffer\": {\n"
+        << "    \"allocation_status\": ";
     writeQuoted(out, report.command_buffer_allocation_status);
-    out << ",\\n    \\"allocated\\": "
+    out << ",\n    \"allocated\": "
         << (report.command_buffer_allocated ? "true" : "false")
-        << ",\\n    \\"record_status\\": ";
+        << ",\n    \"record_status\": ";
     writeQuoted(out, report.command_buffer_record_status);
-    out << ",\\n    \\"recorded\\": "
+    out << ",\n    \"recorded\": "
         << (report.command_buffer_recorded ? "true" : "false")
-        << "\\n  },\\n  \\"queue_submission\\": {\\n"
-        << "    \\"fence_creation_status\\": ";
+        << "\n  },\n  \"queue_submission\": {\n"
+        << "    \"fence_creation_status\": ";
     writeQuoted(out, report.fence_creation_status);
-    out << ",\\n    \\"fence_created\\": "
+    out << ",\n    \"fence_created\": "
         << (report.fence_created ? "true" : "false")
-        << ",\\n    \\"submit_status\\": ";
+        << ",\n    \"submit_status\": ";
     writeQuoted(out, report.queue_submit_status);
-    out << ",\\n    \\"submit_accepted\\": "
+    out << ",\n    \"submit_accepted\": "
         << (report.queue_submit_accepted ? "true" : "false")
-        << ",\\n    \\"fence_wait_status\\": ";
+        << ",\n    \"fence_wait_status\": ";
     writeQuoted(out, report.fence_wait_status);
-    out << ",\\n    \\"fence_signaled\\": "
+    out << ",\n    \"fence_signaled\": "
         << (report.fence_signaled ? "true" : "false")
-        << ",\\n    \\"fence_timeout_ns\\": 5000000000"
-        << "\\n  },\\n  \\"command_resource_cleanup\\": {\\n"
-        << "    \\"status\\": ";
+        << ",\n    \"fence_timeout_ns\": 5000000000"
+        << "\n  },\n  \"command_resource_cleanup\": {\n"
+        << "    \"status\": ";
     writeQuoted(out, report.command_resource_cleanup_status);
-    out << ",\\n    \\"resources_destroyed\\": "
+    out << ",\n    \"resources_destroyed\": "
         << (report.command_resources_destroyed ? "true" : "false")
-        << "\\n  },\\n  \\"command_failure_reason\\": ";
+        << "\n  },\n  \"command_failure_reason\": ";
     if (report.command_failure_reason.empty()) out << "null";
     else writeQuoted(out, report.command_failure_reason);
-    out << "\\n}\\n";
+    out << "\n}\n";
     return out.str();
 }
 
