@@ -114,15 +114,15 @@ void testSuccessfulSwapchainReportContract() {
           "presentation wait semaphore must be serialized");
     check(json.find("\"image_presented\": true") != std::string::npos,
           "presentation must be serialized");
-    check(json.find("\\"frame_content_written\\": true") != std::string::npos,
+    check(json.find(R"("frame_content_written": true)") != std::string::npos,
           "R1.6 must report the render-pass clear write");
-    check(json.find("\\"render_pass_begin_recorded\\": true") != std::string::npos,
+    check(json.find(R"("render_pass_begin_recorded": true)") != std::string::npos,
           "render pass begin must be serialized");
-    check(json.find("\\"frame_timing_valid\\": true") != std::string::npos,
+    check(json.find(R"("frame_timing_valid": true)") != std::string::npos,
           "CPU frame timing sample must be serialized");
-    check(json.find("\\"frame_total_cpu_us\\": 1000") != std::string::npos,
+    check(json.find(R"("frame_total_cpu_us": 1000)") != std::string::npos,
           "frame CPU duration must be serialized");
-    check(json.find("\\"gpu_timestamp_status\\": \\"not_queried\\"") != std::string::npos,
+    check(json.find(R"("gpu_timestamp_status": "not_queried")") != std::string::npos,
           "CPU timing must not be misrepresented as GPU timestamp data");
     check(json.find("\"present_semaphore_destroy_status\": \"success\"") != std::string::npos,
           "present semaphore cleanup must be serialized");
