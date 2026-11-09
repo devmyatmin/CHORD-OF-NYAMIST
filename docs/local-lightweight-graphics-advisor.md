@@ -47,17 +47,30 @@ The local model must never invent a Vulkan feature, extension, device capability
 
 ## Model and inference backend strategy
 
-Use a model/runtime matrix rather than hard-coding one model into the core.
+Use a model/runtime matrix rather than hard-coding one model into the core. The model and the execution backend are separate choices.
 
-Candidate tiers for evaluation, not preselected winners:
+### Target-device NPU feasibility test — first priority
 
-- Tiny: approximately 0.5B–1.2B parameters for short log classification and structured issue summaries.
-- Balanced: approximately 1.5B–2.6B parameters for multi-step diagnostic reasoning and constrained proposal generation.
-- Optional specialized/mobile formats: evaluate only after their model format, tokenizer, quantization, and inference runtime are verified on Android.
+The REDMI K80 Ultra reports SoC MT6991 / Dimensity 9400+ with MediaTek NPU 890. Google's current LiteRT documentation lists MT6991 for the MediaTek NeuroPilot backend, and its LiteRT-LM NPU guide lists a matching MT6991 model package:
 
-The initial backend should be a CPU-capable Android/Termux runtime with a portable model format (for example, GGUF through llama.cpp), built with conservative thread and memory limits. A Vulkan compute backend is a separate experiment: generic llama.cpp Vulkan support does not prove the target PanVK build supports every inference kernel or performs well. Keep CPU fallback available.
+- Runtime: LiteRT-LM with MediaTek NeuroPilot dispatch
+- Target ABI: Android ARM64
+- Test-only model: `litert-community/Gemma3-1B-IT`
+- Exact file: `Gemma3-1B-IT_q4_ekv1280_mt6991.litertlm`
+- Published package size: approximately 986 MB; 4-bit per-channel; context 1280
+- Runtime selection: explicit `--backend=npu`
 
-The Dimensity 9400+ product includes MediaTek NPU 890 and MediaTek lists on-device DeepSeek-R1-Distill model support. This is a hardware/platform capability claim, not proof that a Termux process can access the NPU runtime. Add an NPU backend only after the required vendor SDK/runtime is available, its licensing is reviewed, and a device-side proof-of-execution benchmark passes.
+This is a **backend proof model only**, not the final NYAMIST advisor model selection. Build the Android runtime on a Linux host using Android NDK r28b or newer and the official LiteRT-LM MediaTek dispatch target. The device-side test must prove MT6991/Neuron NPU execution and must rule out CPU/GPU fallback. See [MediaTek NPU 890 proof-of-execution experiment](npu-890-proof-of-execution.md).
+
+The official support matrix is a compatibility signal, not proof that this particular REDMI firmware exposes a usable runtime to the Termux process domain. The model download may require Hugging Face authentication/access approval. Check current available RAM and storage before downloading/loading it. Never run this proof while a game is active.
+
+### Fallback and later backend evaluation
+
+If the NPU test fails because the runtime is unavailable to Termux, classify the exact failure. Do not assume the silicon is unsupported. A signed Android APK using LiteRT's documented app integration can be evaluated as a distinct access path if the shell process is blocked.
+
+A CPU-capable Android runtime remains the fallback path, with bounded memory and thread use. GGUF through llama.cpp is one candidate backend for that separate CPU fallback; it is not the NPU runtime and is not a confirmed installed component. Vulkan compute is another separate experiment: generic llama.cpp Vulkan support does not prove the target PanVK build supports every inference kernel or performs well.
+
+The MediaTek NPU SDK/Neuron access must be evaluated through documented runtime interfaces. Do not manually copy vendor libraries from another phone or write to vendor/system partitions. Add NPU or GPU backend support only after target-device proof-of-execution, memory, latency, thermal, power, and licensing checks pass.
 
 ## DX11 and DX12 coverage
 
