@@ -16,9 +16,9 @@ void testUnavailableReportIsExplicit() {
     report.native_window_status = "not_available";
     report.failure_reason = "No Android Surface was supplied";
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 2") != std::string::npos,
+    check(json.find("\"schema_version\": 3") != std::string::npos,
           "schema version must be serialized");
-    check(json.find("NYAMIST G925 R1.6") != std::string::npos,
+    check(json.find("NYAMIST G925 R1.7") != std::string::npos,
           "R1.6 identity must be serialized");
     check(json.find("\"status\": \"unavailable\"") != std::string::npos,
           "missing native surface must be reported as unavailable");
@@ -67,6 +67,13 @@ void testSuccessfulSwapchainReportContract() {
     report.framebuffer_create_status = "success";
     report.render_pass_begin_recorded = true;
     report.render_pass_end_recorded = true;
+    report.vertex_shader_module_create_status = "success";
+    report.fragment_shader_module_create_status = "success";
+    report.pipeline_layout_create_status = "success";
+    report.graphics_pipeline_create_status = "success";
+    report.graphics_pipeline_bind_recorded = true;
+    report.draw_call_recorded = true;
+    report.draw_vertex_count = 3U;
     report.frame_content_written = true;
     report.frame_timing_source = "std::chrono::steady_clock";
     report.acquire_cpu_us = 100U;
@@ -76,7 +83,10 @@ void testSuccessfulSwapchainReportContract() {
     report.frame_total_cpu_us = 1000U;
     report.frame_timing_sample_count = 1U;
     report.frame_timing_valid = true;
-    report.gpu_timestamp_status = "not_queried";
+    report.gpu_timestamp_status = "available_not_queried";
+    report.queue_timestamp_valid_bits = 36U;
+    report.timestamp_compute_and_graphics_supported = true;
+    report.timestamp_period_ns = 1.0;
     report.image_layout_transition_recorded = true;
     report.queue_submit_status = "success";
     report.image_acquired = true;
@@ -91,6 +101,10 @@ void testSuccessfulSwapchainReportContract() {
     report.image_view_destroy_status = "success";
     report.render_pass_destroy_status = "success";
     report.framebuffer_destroy_status = "success";
+    report.graphics_pipeline_destroy_status = "success";
+    report.pipeline_layout_destroy_status = "success";
+    report.vertex_shader_module_destroy_status = "success";
+    report.fragment_shader_module_destroy_status = "success";
     report.swapchain_destroy_status = "success";
     report.device_destroy_status = "success";
     report.surface_destroy_status = "success";
@@ -115,7 +129,15 @@ void testSuccessfulSwapchainReportContract() {
     check(json.find("\"image_presented\": true") != std::string::npos,
           "presentation must be serialized");
     check(json.find(R"("frame_content_written": true)") != std::string::npos,
-          "R1.6 must report the render-pass clear write");
+          "R1.7 must report swapchain image writes");
+    check(json.find(R"("graphics_pipeline_create_status": "success")") != std::string::npos,
+          "graphics pipeline creation must be serialized");
+    check(json.find(R"("draw_call_recorded": true)") != std::string::npos,
+          "vkCmdDraw recording must be serialized");
+    check(json.find(R"("draw_vertex_count": 3)") != std::string::npos,
+          "the first draw must be a three-vertex triangle");
+    check(json.find(R"("gpu_timestamp_status": "available_not_queried")") != std::string::npos,
+          "timestamp capability must not be mistaken for a timing measurement");
     check(json.find(R"("render_pass_begin_recorded": true)") != std::string::npos,
           "render pass begin must be serialized");
     check(json.find(R"("frame_timing_valid": true)") != std::string::npos,
