@@ -43,7 +43,7 @@ void testJsonEscapingAndProvenance() {
     report.vulkan_devices.push_back(std::move(device));
 
     const std::string json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 1") != std::string::npos,
+    check(json.find("\"schema_version\": 2") != std::string::npos,
           "JSON must contain the schema version");
     check(json.find(R"(REDMI \"K80\" Ultra)") != std::string::npos,
           "JSON string values must be escaped");
@@ -58,8 +58,8 @@ void testJsonEscapingAndProvenance() {
     check(json.find("\"instance_extensions\": [\"VK_KHR_surface\", \"VK_EXT_debug_utils\"]")
               != std::string::npos,
           "instance extensions must be serialized as evidence");
-    check(json.find("\"schema_version\": 2") != std::string::npos,
-          "capability inventory must use schema version 2");
+    check(json.find("\"limits_query_status\": \"success\"") != std::string::npos,
+          "physical-device limits query status must be serialized");
     check(json.find("\"feature_query_status\": \"success\"") != std::string::npos &&
           json.find("\"name\": \"dynamicRendering\", \"api_version\": \"1.3\", \"supported\": true")
               != std::string::npos,
@@ -79,7 +79,7 @@ void testJsonEscapingAndProvenance() {
 
 void testLiveCollectionHasExplicitVulkanState() {
     const auto report = nyamist::discovery::collectHardwareDiscoveryReport();
-    check(report.schema_version == 2U, "discovery schema must be version 1");
+    check(report.schema_version == 2U, "discovery schema must be version 2");
     check(!report.captured_at_utc.empty(), "capture timestamp must be present");
     check(!report.platform.empty(), "platform must be identified");
     check(report.vulkan_status == "success" ||
