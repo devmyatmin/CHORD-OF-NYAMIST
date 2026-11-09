@@ -14,10 +14,13 @@ does not own an Android `Surface`, so a CLI-only probe cannot validate
 5. Creates an Android Vulkan surface and selects a physical device with
    `VK_KHR_swapchain` and a graphics+present queue family.
 6. Queries surface capabilities, formats and present modes.
-7. Creates a FIFO swapchain, enumerates its images, acquires one image, and
-   submits one presentation operation.
-8. Waits for the queue, destroys Vulkan objects, releases the native window,
-   and emits schema-v1 JSON.
+7. Creates a FIFO swapchain and enumerates its images.
+8. Acquires one image, records an `UNDEFINED → PRESENT_SRC_KHR` layout
+   transition, submits it waiting on the acquire semaphore and signals a
+   separate presentation semaphore.
+9. Calls `vkQueuePresentKHR` waiting on the submitted presentation semaphore.
+10. Waits for the queue, destroys command/synchronization/swapchain objects,
+    releases the native window, and emits schema-v1 JSON.
 
 No proprietary libraries are bundled. No root, device-node access, SELinux
 changes, kernel changes, or vendor partition writes are performed.
@@ -38,8 +41,9 @@ the `nyamist-g925-r1.5-debug-apk` artifact.
 
 A valid R1.5 hardware pass requires `status: success`, the G925 target match,
 both Android surface extensions, a graphics+present queue, successful surface
-and swapchain creation, one acquired and presented image, queue idle, and
-successful cleanup.
+and swapchain creation, an acquired image, a recorded present-layout transition,
+a successful queue submit, a signaled presentation semaphore consumed by
+`vkQueuePresentKHR`, one presented image, queue idle, and successful cleanup.
 
 ## Scope boundary
 
