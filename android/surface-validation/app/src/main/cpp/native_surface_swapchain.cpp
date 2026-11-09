@@ -433,8 +433,8 @@ bool renderAndPresentFrame(
     render_begin.clearValueCount = 1U;
     render_begin.pClearValues = &clear_value;
 
-    // A render-pass CLEAR operation writes a deterministic color to the acquired
-    // swapchain image. No graphics pipeline or shader is claimed in R1.6.
+    // The reusable render pass clears the acquired swapchain image, then executes
+    // the R1.8 graphics pipeline and three-vertex draw before presentation.
     vk.cmd_begin_render_pass(command_buffer, &render_begin, VK_SUBPASS_CONTENTS_INLINE);
     report.render_pass_begin_recorded = true;
     vk.cmd_bind_pipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -783,7 +783,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             VK_KHR_ANDROID_SURFACE_EXTENSION_NAME
         };
         VkApplicationInfo app_info{VK_STRUCTURE_TYPE_APPLICATION_INFO};
-        app_info.pApplicationName = "NYAMIST G925 R1.7";
+        app_info.pApplicationName = "NYAMIST G925 R1.8";
         app_info.applicationVersion = VK_MAKE_VERSION(1, 7, 0);
         app_info.pEngineName = "CHORD OF NYAMIST";
         app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -1079,7 +1079,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) != 0U) {
                             report.selected_image_usage = "COLOR_ATTACHMENT";
                         } else {
-                            fail(report, "R1.6 requires swapchain COLOR_ATTACHMENT usage for render-pass clear");
+                            fail(report, "R1.8 requires swapchain COLOR_ATTACHMENT usage for render-pass clear");
                         }
 
                         if (report.failure_reason.empty()) {
