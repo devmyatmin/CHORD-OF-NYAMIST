@@ -144,8 +144,8 @@ void testSuccessfulSwapchainReportContract() {
           "CPU frame timing sample must be serialized");
     check(json.find(R"("frame_total_cpu_us": 1000)") != std::string::npos,
           "frame CPU duration must be serialized");
-    check(json.find(R"("gpu_timestamp_status": "not_queried")") != std::string::npos,
-          "CPU timing must not be misrepresented as GPU timestamp data");
+    check(json.find(R"("gpu_timestamp_status": "available_not_queried")") != std::string::npos,
+          "timestamp capability must not be misrepresented as a GPU timing measurement");
     check(json.find("\"present_semaphore_destroy_status\": \"success\"") != std::string::npos,
           "present semaphore cleanup must be serialized");
     check(json.find("\"command_buffer_free_status\": \"success\"") != std::string::npos,
