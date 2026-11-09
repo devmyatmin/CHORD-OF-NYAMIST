@@ -4,6 +4,7 @@ project(nyamist_graphics_runtime VERSION 0.2.0 LANGUAGES CXX)
 option(NYAMIST_BUILD_TESTS "Build NYAMIST unit tests" ON)
 option(NYAMIST_BUILD_BENCHMARKS "Build NYAMIST developer microbenchmarks" OFF)
 option(NYAMIST_ENABLE_VULKAN_DISCOVERY "Compile live Vulkan physical-device discovery when the SDK/loader is available" ON)
+option(NYAMIST_FORCE_VULKAN_DYNAMIC_LOADING "Resolve Vulkan commands through dlopen/vkGetInstanceProcAddr (also used to test the Android path on desktop CI)" OFF)
 
 add_library(nyamist_core
     src/cache_store.cpp
@@ -39,7 +40,7 @@ if(NYAMIST_ENABLE_VULKAN_DISCOVERY)
         endif()
     endif()
 
-    if(NYAMIST_ANDROID_TARGET)
+    if(NYAMIST_ANDROID_TARGET OR NYAMIST_FORCE_VULKAN_DYNAMIC_LOADING)
         # Android's public Vulkan loader is resolved at runtime. Do not add
         # libvulkan.so to DT_NEEDED: some Bionic/Termux environments cannot
         # resolve the platform loader's private dependency chain at process
@@ -52,7 +53,7 @@ if(NYAMIST_ENABLE_VULKAN_DISCOVERY)
                 NYAMIST_HAS_VULKAN=1
                 NYAMIST_VULKAN_DYNAMIC_LOADING=1
             )
-            message(STATUS "NYAMIST Android Vulkan: runtime dlopen + vkGetInstanceProcAddr")
+            message(STATUS "NYAMIST Vulkan: runtime dlopen + vkGetInstanceProcAddr; no direct loader link")
         else()
             message(WARNING "Android Vulkan headers not found; discovery will report Vulkan unavailable")
         endif()
