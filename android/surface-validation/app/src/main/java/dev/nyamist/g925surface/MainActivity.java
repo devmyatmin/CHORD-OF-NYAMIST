@@ -83,7 +83,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
         if (validatedCurrentSurface || width <= 0 || height <= 0) return;
         validatedCurrentSurface = true;
-        statusView.setText("Running Vulkan shader pipeline / triangle draw validation...");
+        statusView.setText("Running R1.8 warm-up + 16-frame GPU timestamp validation...");
         final Surface surface = holder.getSurface();
         final int surfaceWidth = width;
         final int surfaceHeight = height;
@@ -102,7 +102,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                 latestReport = result;
                 reportView.setText(result);
                 statusView.setText(result.contains("\"status\": \"success\"")
-                        ? "R1.8 graphics pipeline / triangle draw: SUCCESS"
+                        ? "R1.8 16-frame GPU timestamp validation: SUCCESS"
                         : "R1.8 validation did not pass; inspect JSON report");
             });
         }, "nyamist-r1.8-validation").start();
@@ -118,15 +118,15 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         try {
             File directory = getExternalFilesDir(null);
             if (directory == null) directory = getFilesDir();
-            File output = new File(directory, "nyamist-g925-r1.8-surface-swapchain.json");
+            File output = new File(directory, "nyamist-g925-r1.8-gpu-timing.json");
             try (FileOutputStream stream = new FileOutputStream(output, false)) {
                 stream.write(json.getBytes(StandardCharsets.UTF_8));
             }
             String digest = sha256(json);
-            android.util.Log.i("NYAMIST_R1_7", "Report: " + output.getAbsolutePath());
-            android.util.Log.i("NYAMIST_R1_7", "SHA-256: " + digest);
+            android.util.Log.i("NYAMIST_R1_8", "Report: " + output.getAbsolutePath());
+            android.util.Log.i("NYAMIST_R1_8", "SHA-256: " + digest);
         } catch (Exception error) {
-            android.util.Log.e("NYAMIST_R1_7", "Could not save report", error);
+            android.util.Log.e("NYAMIST_R1_8", "Could not save report", error);
         }
     }
 
