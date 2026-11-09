@@ -59,13 +59,20 @@ void number64Field(std::ostringstream& out, const char* name, std::uint64_t valu
     out << '\n';
 }
 
+void doubleField(std::ostringstream& out, const char* name, double value,
+                 bool comma = true) {
+    out << "  \"" << name << "\": " << std::setprecision(10) << value;
+    if (comma) out << ',';
+    out << '\n';
+}
+
 } // namespace
 
 std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     std::ostringstream out;
     out << "{\n";
     numberField(out, "schema_version", report.schema_version);
-    stringField(out, "project", "CHORD OF NYAMIST / NYAMIST G925 R1.6");
+    stringField(out, "project", "CHORD OF NYAMIST / NYAMIST G925 R1.7");
     stringField(out, "status", report.status);
     stringField(out, "platform", report.platform);
     stringField(out, "loader_library", report.loader_library);
@@ -116,6 +123,13 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     stringField(out, "framebuffer_create_status", report.framebuffer_create_status);
     boolField(out, "render_pass_begin_recorded", report.render_pass_begin_recorded);
     boolField(out, "render_pass_end_recorded", report.render_pass_end_recorded);
+    stringField(out, "vertex_shader_module_create_status", report.vertex_shader_module_create_status);
+    stringField(out, "fragment_shader_module_create_status", report.fragment_shader_module_create_status);
+    stringField(out, "pipeline_layout_create_status", report.pipeline_layout_create_status);
+    stringField(out, "graphics_pipeline_create_status", report.graphics_pipeline_create_status);
+    boolField(out, "graphics_pipeline_bind_recorded", report.graphics_pipeline_bind_recorded);
+    boolField(out, "draw_call_recorded", report.draw_call_recorded);
+    numberField(out, "draw_vertex_count", report.draw_vertex_count);
     stringField(out, "frame_clear_color_rgba", report.frame_clear_color_rgba);
     stringField(out, "frame_timing_source", report.frame_timing_source);
     number64Field(out, "acquire_cpu_us", report.acquire_cpu_us);
@@ -126,6 +140,10 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     numberField(out, "frame_timing_sample_count", report.frame_timing_sample_count);
     boolField(out, "frame_timing_valid", report.frame_timing_valid);
     stringField(out, "gpu_timestamp_status", report.gpu_timestamp_status);
+    numberField(out, "queue_timestamp_valid_bits", report.queue_timestamp_valid_bits);
+    boolField(out, "timestamp_compute_and_graphics_supported",
+              report.timestamp_compute_and_graphics_supported);
+    doubleField(out, "timestamp_period_ns", report.timestamp_period_ns);
     stringField(out, "cleanup_status", report.cleanup_status);
     stringField(out, "semaphore_destroy_status", report.semaphore_destroy_status);
     stringField(out, "present_semaphore_destroy_status", report.present_semaphore_destroy_status);
@@ -134,6 +152,10 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     stringField(out, "image_view_destroy_status", report.image_view_destroy_status);
     stringField(out, "render_pass_destroy_status", report.render_pass_destroy_status);
     stringField(out, "framebuffer_destroy_status", report.framebuffer_destroy_status);
+    stringField(out, "graphics_pipeline_destroy_status", report.graphics_pipeline_destroy_status);
+    stringField(out, "pipeline_layout_destroy_status", report.pipeline_layout_destroy_status);
+    stringField(out, "vertex_shader_module_destroy_status", report.vertex_shader_module_destroy_status);
+    stringField(out, "fragment_shader_module_destroy_status", report.fragment_shader_module_destroy_status);
     stringField(out, "swapchain_destroy_status", report.swapchain_destroy_status);
     stringField(out, "device_destroy_status", report.device_destroy_status);
     stringField(out, "surface_destroy_status", report.surface_destroy_status);
