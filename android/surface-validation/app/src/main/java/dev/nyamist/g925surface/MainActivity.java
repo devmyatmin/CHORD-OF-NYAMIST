@@ -20,7 +20,7 @@ import java.security.MessageDigest;
 
 public final class MainActivity extends Activity implements SurfaceHolder.Callback {
     static {
-        System.loadLibrary("nyamist-surface-validation");
+        System.loadLibrary("nyamist_surface_validation");
     }
 
     private TextView statusView;
