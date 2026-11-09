@@ -18,8 +18,8 @@ void testUnavailableReportIsExplicit() {
     const auto json = nyamist::discovery::toJson(report);
     check(json.find("\"schema_version\": 1") != std::string::npos,
           "schema version must be serialized");
-    check(json.find("NYAMIST G925 R1.5") != std::string::npos,
-          "R1.5 identity must be serialized");
+    check(json.find("NYAMIST G925 R1.6") != std::string::npos,
+          "R1.6 identity must be serialized");
     check(json.find("\"status\": \"unavailable\"") != std::string::npos,
           "missing native surface must be reported as unavailable");
     check(json.find("\"frame_content_written\": false") != std::string::npos,
@@ -62,6 +62,21 @@ void testSuccessfulSwapchainReportContract() {
     report.command_pool_create_status = "success";
     report.command_buffer_allocate_status = "success";
     report.command_record_status = "success";
+    report.image_view_create_status = "success";
+    report.render_pass_create_status = "success";
+    report.framebuffer_create_status = "success";
+    report.render_pass_begin_recorded = true;
+    report.render_pass_end_recorded = true;
+    report.frame_content_written = true;
+    report.frame_timing_source = "std::chrono::steady_clock";
+    report.acquire_cpu_us = 100U;
+    report.queue_submit_cpu_us = 200U;
+    report.present_call_cpu_us = 300U;
+    report.queue_idle_wait_cpu_us = 400U;
+    report.frame_total_cpu_us = 1000U;
+    report.frame_timing_sample_count = 1U;
+    report.frame_timing_valid = true;
+    report.gpu_timestamp_status = "not_queried";
     report.image_layout_transition_recorded = true;
     report.queue_submit_status = "success";
     report.image_acquired = true;
@@ -73,6 +88,9 @@ void testSuccessfulSwapchainReportContract() {
     report.present_semaphore_destroy_status = "success";
     report.command_buffer_free_status = "success";
     report.command_pool_destroy_status = "success";
+    report.image_view_destroy_status = "success";
+    report.render_pass_destroy_status = "success";
+    report.framebuffer_destroy_status = "success";
     report.swapchain_destroy_status = "success";
     report.device_destroy_status = "success";
     report.surface_destroy_status = "success";
@@ -96,8 +114,16 @@ void testSuccessfulSwapchainReportContract() {
           "presentation wait semaphore must be serialized");
     check(json.find("\"image_presented\": true") != std::string::npos,
           "presentation must be serialized");
-    check(json.find("\"frame_content_written\": false") != std::string::npos,
-          "R1.5 must not claim rendering");
+    check(json.find("\\"frame_content_written\\": true") != std::string::npos,
+          "R1.6 must report the render-pass clear write");
+    check(json.find("\\"render_pass_begin_recorded\\": true") != std::string::npos,
+          "render pass begin must be serialized");
+    check(json.find("\\"frame_timing_valid\\": true") != std::string::npos,
+          "CPU frame timing sample must be serialized");
+    check(json.find("\\"frame_total_cpu_us\\": 1000") != std::string::npos,
+          "frame CPU duration must be serialized");
+    check(json.find("\\"gpu_timestamp_status\\": \\"not_queried\\"") != std::string::npos,
+          "CPU timing must not be misrepresented as GPU timestamp data");
     check(json.find("\"present_semaphore_destroy_status\": \"success\"") != std::string::npos,
           "present semaphore cleanup must be serialized");
     check(json.find("\"command_buffer_free_status\": \"success\"") != std::string::npos,
