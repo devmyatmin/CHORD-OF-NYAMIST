@@ -628,7 +628,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                                                 fail(report, "vkEndCommandBuffer failed: " + resultName(result));
                                                             } else {
                                                                 const VkPipelineStageFlags wait_stage =
-                                                                    VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+                                                                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
                                                                 VkSubmitInfo submit_info{
                                                                     VK_STRUCTURE_TYPE_SUBMIT_INFO};
                                                                 submit_info.waitSemaphoreCount = 1U;
