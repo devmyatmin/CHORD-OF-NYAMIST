@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     name: Cross-compile LiteRT-LM for Android ARM64
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     env:
@@ -74,14 +74,20 @@ jobs:
           chmod +x "$RUNNER_TEMP/bazel-bin/bazel"
           echo "$RUNNER_TEMP/bazel-bin" >> "$GITHUB_PATH"
 
-      - name: Report pinned toolchain
+      - name: Report pinned toolchain and verify host C++20 library
         working-directory: third_party/LiteRT-LM
+        shell: bash
         run: |
           set -euo pipefail
           echo "LiteRT-LM ref: $LITERT_LM_REF"
           echo "Bazel pin: $(cat .bazelversion)"
           bazel --version
           echo "Android NDK: $ANDROID_NDK_HOME"
+          clang --version
+          clang++ --version
+          printf '#include <source_location>\nint main() { return std::source_location::current().line() == 0; }\n' |
+            clang++ -std=c++20 -x c++ - -o "$RUNNER_TEMP/cxx20-source-location-check"
+          "$RUNNER_TEMP/cxx20-source-location-check"
 
       - name: Build Android ARM64 LLM runner
         working-directory: third_party/LiteRT-LM
