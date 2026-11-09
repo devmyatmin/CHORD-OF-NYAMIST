@@ -119,7 +119,7 @@ int main() {
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "Queue-submission validation test failure: "
-                  << error.what() << '\\n';
+                  << error.what() << '\n';
         return 1;
     }
 }
