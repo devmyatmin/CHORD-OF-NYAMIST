@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <dlfcn.h>
@@ -77,6 +78,12 @@ struct VulkanDispatch {
     PFN_vkEndCommandBuffer end_command_buffer{};
     PFN_vkCmdPipelineBarrier cmd_pipeline_barrier{};
     PFN_vkQueueSubmit queue_submit{};
+    PFN_vkResetCommandPool reset_command_pool{};
+    PFN_vkCreateQueryPool create_query_pool{};
+    PFN_vkDestroyQueryPool destroy_query_pool{};
+    PFN_vkCmdResetQueryPool cmd_reset_query_pool{};
+    PFN_vkCmdWriteTimestamp cmd_write_timestamp{};
+    PFN_vkGetQueryPoolResults get_query_pool_results{};
 };
 
 bool isUsable(VkResult result) {
@@ -161,6 +168,9 @@ bool renderAndPresentFrame(
         VkShaderModule& fragment_shader,
         VkPipelineLayout& pipeline_layout,
         VkPipeline& graphics_pipeline,
+        VkQueryPool timestamp_query_pool,
+        std::uint32_t timestamp_query_base,
+        bool collect_frame_sample,
         std::chrono::steady_clock::time_point frame_start) {
     VkImageViewCreateInfo image_view_info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     image_view_info.image = image;
@@ -183,45 +193,48 @@ bool renderAndPresentFrame(
         return false;
     }
 
-    VkAttachmentDescription color_attachment{};
-    color_attachment.format = format;
-    color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    if (render_pass == VK_NULL_HANDLE) {
+        VkAttachmentDescription color_attachment{};
+        color_attachment.format = format;
+        color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-    VkAttachmentReference color_reference{};
-    color_reference.attachment = 0U;
-    color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        VkAttachmentReference color_reference{};
+        color_reference.attachment = 0U;
+        color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-    VkSubpassDescription subpass{};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1U;
-    subpass.pColorAttachments = &color_reference;
+        VkSubpassDescription subpass{};
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.colorAttachmentCount = 1U;
+        subpass.pColorAttachments = &color_reference;
 
-    VkSubpassDependency dependency{};
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0U;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.srcAccessMask = 0U;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        VkSubpassDependency dependency{};
+        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+        dependency.dstSubpass = 0U;
+        dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependency.srcAccessMask = 0U;
+        dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-    VkRenderPassCreateInfo render_pass_info{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-    render_pass_info.attachmentCount = 1U;
-    render_pass_info.pAttachments = &color_attachment;
-    render_pass_info.subpassCount = 1U;
-    render_pass_info.pSubpasses = &subpass;
-    render_pass_info.dependencyCount = 1U;
-    render_pass_info.pDependencies = &dependency;
-    result = vk.create_render_pass(device, &render_pass_info, nullptr, &render_pass);
-    report.render_pass_create_status = result == VK_SUCCESS ? "success" : "failed";
-    if (result != VK_SUCCESS) {
-        fail(report, "vkCreateRenderPass failed: " + resultName(result));
-        return false;
+        VkRenderPassCreateInfo render_pass_info{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+        render_pass_info.attachmentCount = 1U;
+        render_pass_info.pAttachments = &color_attachment;
+        render_pass_info.subpassCount = 1U;
+        render_pass_info.pSubpasses = &subpass;
+        render_pass_info.dependencyCount = 1U;
+        render_pass_info.pDependencies = &dependency;
+        result = vk.create_render_pass(device, &render_pass_info, nullptr, &render_pass);
+        report.render_pass_create_status = result == VK_SUCCESS ? "success" : "failed";
+        if (result != VK_SUCCESS) {
+            fail(report, "vkCreateRenderPass failed: " + resultName(result));
+            return false;
+        }
+
     }
 
     VkFramebufferCreateInfo framebuffer_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
@@ -238,145 +251,157 @@ bool renderAndPresentFrame(
         return false;
     }
 
-    VkShaderModuleCreateInfo vertex_shader_info{
-        VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-    vertex_shader_info.codeSize = sizeof(nyamist::shaders::triangle_vertex_spirv);
-    vertex_shader_info.pCode = nyamist::shaders::triangle_vertex_spirv;
-    result = vk.create_shader_module(device, &vertex_shader_info, nullptr, &vertex_shader);
-    report.vertex_shader_module_create_status =
-        result == VK_SUCCESS ? "success" : "failed";
-    if (result != VK_SUCCESS) {
-        fail(report, "vkCreateShaderModule(vertex) failed: " + resultName(result));
-        return false;
+    if (graphics_pipeline == VK_NULL_HANDLE) {
+        VkShaderModuleCreateInfo vertex_shader_info{
+            VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+        vertex_shader_info.codeSize = sizeof(nyamist::shaders::triangle_vertex_spirv);
+        vertex_shader_info.pCode = nyamist::shaders::triangle_vertex_spirv;
+        result = vk.create_shader_module(device, &vertex_shader_info, nullptr, &vertex_shader);
+        report.vertex_shader_module_create_status =
+            result == VK_SUCCESS ? "success" : "failed";
+        if (result != VK_SUCCESS) {
+            fail(report, "vkCreateShaderModule(vertex) failed: " + resultName(result));
+            return false;
+        }
+
+        VkShaderModuleCreateInfo fragment_shader_info{
+            VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+        fragment_shader_info.codeSize = sizeof(nyamist::shaders::triangle_fragment_spirv);
+        fragment_shader_info.pCode = nyamist::shaders::triangle_fragment_spirv;
+        result = vk.create_shader_module(device, &fragment_shader_info, nullptr, &fragment_shader);
+        report.fragment_shader_module_create_status =
+            result == VK_SUCCESS ? "success" : "failed";
+        if (result != VK_SUCCESS) {
+            fail(report, "vkCreateShaderModule(fragment) failed: " + resultName(result));
+            return false;
+        }
+
+        VkPipelineLayoutCreateInfo pipeline_layout_info{
+            VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+        result = vk.create_pipeline_layout(device, &pipeline_layout_info, nullptr,
+                                           &pipeline_layout);
+        report.pipeline_layout_create_status =
+            result == VK_SUCCESS ? "success" : "failed";
+        if (result != VK_SUCCESS) {
+            fail(report, "vkCreatePipelineLayout failed: " + resultName(result));
+            return false;
+        }
+
+        VkPipelineShaderStageCreateInfo shader_stages[2]{};
+        shader_stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        shader_stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+        shader_stages[0].module = vertex_shader;
+        shader_stages[0].pName = "main";
+        shader_stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        shader_stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        shader_stages[1].module = fragment_shader;
+        shader_stages[1].pName = "main";
+
+        VkPipelineVertexInputStateCreateInfo vertex_input{
+            VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+        VkPipelineInputAssemblyStateCreateInfo input_assembly{
+            VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
+        input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        input_assembly.primitiveRestartEnable = VK_FALSE;
+
+        VkViewport viewport{};
+        viewport.x = 0.0F;
+        viewport.y = 0.0F;
+        viewport.width = static_cast<float>(extent.width);
+        viewport.height = static_cast<float>(extent.height);
+        viewport.minDepth = 0.0F;
+        viewport.maxDepth = 1.0F;
+        VkRect2D scissor{};
+        scissor.offset = {0, 0};
+        scissor.extent = extent;
+        VkPipelineViewportStateCreateInfo viewport_state{
+            VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+        viewport_state.viewportCount = 1U;
+        viewport_state.pViewports = &viewport;
+        viewport_state.scissorCount = 1U;
+        viewport_state.pScissors = &scissor;
+
+        VkPipelineRasterizationStateCreateInfo rasterization{
+            VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
+        rasterization.depthClampEnable = VK_FALSE;
+        rasterization.rasterizerDiscardEnable = VK_FALSE;
+        rasterization.polygonMode = VK_POLYGON_MODE_FILL;
+        rasterization.cullMode = VK_CULL_MODE_NONE;
+        rasterization.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        rasterization.depthBiasEnable = VK_FALSE;
+        rasterization.lineWidth = 1.0F;
+
+        VkPipelineMultisampleStateCreateInfo multisampling{
+            VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
+        multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        multisampling.sampleShadingEnable = VK_FALSE;
+
+        VkPipelineColorBlendAttachmentState color_blend_attachment{};
+        color_blend_attachment.blendEnable = VK_FALSE;
+        color_blend_attachment.colorWriteMask =
+            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+            VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        VkPipelineColorBlendStateCreateInfo color_blending{
+            VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+        color_blending.logicOpEnable = VK_FALSE;
+        color_blending.attachmentCount = 1U;
+        color_blending.pAttachments = &color_blend_attachment;
+
+        VkGraphicsPipelineCreateInfo pipeline_info{
+            VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+        pipeline_info.stageCount = 2U;
+        pipeline_info.pStages = shader_stages;
+        pipeline_info.pVertexInputState = &vertex_input;
+        pipeline_info.pInputAssemblyState = &input_assembly;
+        pipeline_info.pViewportState = &viewport_state;
+        pipeline_info.pRasterizationState = &rasterization;
+        pipeline_info.pMultisampleState = &multisampling;
+        pipeline_info.pColorBlendState = &color_blending;
+        pipeline_info.layout = pipeline_layout;
+        pipeline_info.renderPass = render_pass;
+        pipeline_info.subpass = 0U;
+        pipeline_info.basePipelineIndex = -1;
+        result = vk.create_graphics_pipelines(device, VK_NULL_HANDLE, 1U,
+                                              &pipeline_info, nullptr,
+                                              &graphics_pipeline);
+        report.graphics_pipeline_create_status =
+            result == VK_SUCCESS ? "success" : "failed";
+        if (result != VK_SUCCESS) {
+            fail(report, "vkCreateGraphicsPipelines failed: " + resultName(result));
+            return false;
+        }
+
     }
 
-    VkShaderModuleCreateInfo fragment_shader_info{
-        VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-    fragment_shader_info.codeSize = sizeof(nyamist::shaders::triangle_fragment_spirv);
-    fragment_shader_info.pCode = nyamist::shaders::triangle_fragment_spirv;
-    result = vk.create_shader_module(device, &fragment_shader_info, nullptr, &fragment_shader);
-    report.fragment_shader_module_create_status =
-        result == VK_SUCCESS ? "success" : "failed";
-    if (result != VK_SUCCESS) {
-        fail(report, "vkCreateShaderModule(fragment) failed: " + resultName(result));
-        return false;
-    }
+    if (command_pool == VK_NULL_HANDLE) {
+        VkCommandPoolCreateInfo pool_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+        pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+        pool_info.queueFamilyIndex = queue_family;
+        result = vk.create_command_pool(device, &pool_info, nullptr, &command_pool);
+        report.command_pool_create_status = result == VK_SUCCESS ? "success" : "failed";
+        if (result != VK_SUCCESS) {
+            fail(report, "vkCreateCommandPool failed: " + resultName(result));
+            return false;
+        }
 
-    VkPipelineLayoutCreateInfo pipeline_layout_info{
-        VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    result = vk.create_pipeline_layout(device, &pipeline_layout_info, nullptr,
-                                       &pipeline_layout);
-    report.pipeline_layout_create_status =
-        result == VK_SUCCESS ? "success" : "failed";
-    if (result != VK_SUCCESS) {
-        fail(report, "vkCreatePipelineLayout failed: " + resultName(result));
-        return false;
-    }
+        VkCommandBufferAllocateInfo allocate_info{
+            VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+        allocate_info.commandPool = command_pool;
+        allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocate_info.commandBufferCount = 1U;
+        result = vk.allocate_command_buffers(device, &allocate_info, &command_buffer);
+        report.command_buffer_allocate_status = result == VK_SUCCESS ? "success" : "failed";
+        if (result != VK_SUCCESS) {
+            fail(report, "vkAllocateCommandBuffers failed: " + resultName(result));
+            return false;
+        }
 
-    VkPipelineShaderStageCreateInfo shader_stages[2]{};
-    shader_stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shader_stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-    shader_stages[0].module = vertex_shader;
-    shader_stages[0].pName = "main";
-    shader_stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shader_stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    shader_stages[1].module = fragment_shader;
-    shader_stages[1].pName = "main";
-
-    VkPipelineVertexInputStateCreateInfo vertex_input{
-        VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-    VkPipelineInputAssemblyStateCreateInfo input_assembly{
-        VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
-    input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    input_assembly.primitiveRestartEnable = VK_FALSE;
-
-    VkViewport viewport{};
-    viewport.x = 0.0F;
-    viewport.y = 0.0F;
-    viewport.width = static_cast<float>(extent.width);
-    viewport.height = static_cast<float>(extent.height);
-    viewport.minDepth = 0.0F;
-    viewport.maxDepth = 1.0F;
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = extent;
-    VkPipelineViewportStateCreateInfo viewport_state{
-        VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
-    viewport_state.viewportCount = 1U;
-    viewport_state.pViewports = &viewport;
-    viewport_state.scissorCount = 1U;
-    viewport_state.pScissors = &scissor;
-
-    VkPipelineRasterizationStateCreateInfo rasterization{
-        VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
-    rasterization.depthClampEnable = VK_FALSE;
-    rasterization.rasterizerDiscardEnable = VK_FALSE;
-    rasterization.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterization.cullMode = VK_CULL_MODE_NONE;
-    rasterization.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rasterization.depthBiasEnable = VK_FALSE;
-    rasterization.lineWidth = 1.0F;
-
-    VkPipelineMultisampleStateCreateInfo multisampling{
-        VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    multisampling.sampleShadingEnable = VK_FALSE;
-
-    VkPipelineColorBlendAttachmentState color_blend_attachment{};
-    color_blend_attachment.blendEnable = VK_FALSE;
-    color_blend_attachment.colorWriteMask =
-        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    VkPipelineColorBlendStateCreateInfo color_blending{
-        VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-    color_blending.logicOpEnable = VK_FALSE;
-    color_blending.attachmentCount = 1U;
-    color_blending.pAttachments = &color_blend_attachment;
-
-    VkGraphicsPipelineCreateInfo pipeline_info{
-        VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
-    pipeline_info.stageCount = 2U;
-    pipeline_info.pStages = shader_stages;
-    pipeline_info.pVertexInputState = &vertex_input;
-    pipeline_info.pInputAssemblyState = &input_assembly;
-    pipeline_info.pViewportState = &viewport_state;
-    pipeline_info.pRasterizationState = &rasterization;
-    pipeline_info.pMultisampleState = &multisampling;
-    pipeline_info.pColorBlendState = &color_blending;
-    pipeline_info.layout = pipeline_layout;
-    pipeline_info.renderPass = render_pass;
-    pipeline_info.subpass = 0U;
-    pipeline_info.basePipelineIndex = -1;
-    result = vk.create_graphics_pipelines(device, VK_NULL_HANDLE, 1U,
-                                          &pipeline_info, nullptr,
-                                          &graphics_pipeline);
-    report.graphics_pipeline_create_status =
-        result == VK_SUCCESS ? "success" : "failed";
-    if (result != VK_SUCCESS) {
-        fail(report, "vkCreateGraphicsPipelines failed: " + resultName(result));
-        return false;
-    }
-
-    VkCommandPoolCreateInfo pool_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-    pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-    pool_info.queueFamilyIndex = queue_family;
-    result = vk.create_command_pool(device, &pool_info, nullptr, &command_pool);
-    report.command_pool_create_status = result == VK_SUCCESS ? "success" : "failed";
-    if (result != VK_SUCCESS) {
-        fail(report, "vkCreateCommandPool failed: " + resultName(result));
-        return false;
-    }
-
-    VkCommandBufferAllocateInfo allocate_info{
-        VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-    allocate_info.commandPool = command_pool;
-    allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocate_info.commandBufferCount = 1U;
-    result = vk.allocate_command_buffers(device, &allocate_info, &command_buffer);
-    report.command_buffer_allocate_status = result == VK_SUCCESS ? "success" : "failed";
-    if (result != VK_SUCCESS) {
-        fail(report, "vkAllocateCommandBuffers failed: " + resultName(result));
-        return false;
+    } else {
+        result = vk.reset_command_pool(device, command_pool, 0U);
+        if (result != VK_SUCCESS) {
+            fail(report, "vkResetCommandPool failed: " + resultName(result));
+            return false;
+        }
     }
 
     VkCommandBufferBeginInfo begin_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
@@ -386,6 +411,12 @@ bool renderAndPresentFrame(
         report.command_record_status = "failed";
         fail(report, "vkBeginCommandBuffer failed: " + resultName(result));
         return false;
+    }
+
+    if (timestamp_query_pool != VK_NULL_HANDLE && collect_frame_sample) {
+        vk.cmd_reset_query_pool(command_buffer, timestamp_query_pool, timestamp_query_base, 2U);
+        vk.cmd_write_timestamp(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                               timestamp_query_pool, timestamp_query_base);
     }
 
     VkClearValue clear_value{};
@@ -415,6 +446,10 @@ bool renderAndPresentFrame(
     vk.cmd_end_render_pass(command_buffer);
     report.render_pass_end_recorded = true;
     report.image_layout_transition_recorded = true;
+    if (timestamp_query_pool != VK_NULL_HANDLE && collect_frame_sample) {
+        vk.cmd_write_timestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                               timestamp_query_pool, timestamp_query_base + 1U);
+    }
 
     result = vk.end_command_buffer(command_buffer);
     report.command_record_status = result == VK_SUCCESS ? "success" : "failed";
@@ -477,12 +512,44 @@ bool renderAndPresentFrame(
 
     report.frame_content_written = true;
     report.frame_timing_source = "std::chrono::steady_clock";
-    report.frame_timing_sample_count = 1U;
     report.frame_total_cpu_us = static_cast<std::uint64_t>(
         std::chrono::duration_cast<std::chrono::microseconds>(
             idle_end - frame_start).count());
-    report.frame_timing_valid = true;
-    report.gpu_timestamp_status = "not_queried";
+    if (collect_frame_sample) {
+        report.acquire_cpu_us_samples.push_back(report.acquire_cpu_us);
+        report.queue_submit_cpu_us_samples.push_back(report.queue_submit_cpu_us);
+        report.present_call_cpu_us_samples.push_back(report.present_call_cpu_us);
+        report.queue_idle_wait_cpu_us_samples.push_back(report.queue_idle_wait_cpu_us);
+        report.frame_total_cpu_us_samples.push_back(report.frame_total_cpu_us);
+        report.frame_timing_sample_count =
+            static_cast<std::uint32_t>(report.frame_total_cpu_us_samples.size());
+        if (timestamp_query_pool != VK_NULL_HANDLE) {
+            std::uint64_t timestamps[2]{};
+            result = vk.get_query_pool_results(
+                device, timestamp_query_pool, timestamp_query_base, 2U,
+                sizeof(timestamps), timestamps, sizeof(std::uint64_t),
+                VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+            if (result != VK_SUCCESS) {
+                report.gpu_timestamp_query_status = "failed";
+                fail(report, "vkGetQueryPoolResults failed: " + resultName(result));
+                return false;
+            }
+            std::uint64_t ticks = timestamps[1] - timestamps[0];
+            if (report.queue_timestamp_valid_bits < 64U) {
+                const std::uint64_t mask =
+                    (std::uint64_t{1} << report.queue_timestamp_valid_bits) - 1U;
+                ticks &= mask;
+            }
+            const auto elapsed_ns = static_cast<std::uint64_t>(std::llround(
+                static_cast<long double>(ticks) *
+                static_cast<long double>(report.timestamp_period_ns)));
+            report.gpu_frame_time_ns_samples.push_back(elapsed_ns);
+            report.gpu_timestamp_sample_count =
+                static_cast<std::uint32_t>(report.gpu_frame_time_ns_samples.size());
+        }
+    }
+    report.frame_timing_valid =
+        report.frame_timing_sample_count == report.frame_target_count;
     return true;
 }
 
