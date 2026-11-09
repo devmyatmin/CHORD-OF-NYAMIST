@@ -4,7 +4,7 @@ project(nyamist_surface_validation LANGUAGES CXX)
 get_filename_component(NYAMIST_REPO_ROOT
     "${CMAKE_CURRENT_LIST_DIR}/../../../../../.." ABSOLUTE)
 
-add_library(nyamist-surface-validation SHARED
+add_library(nyamist_surface_validation SHARED
     native_surface_swapchain.cpp
     "${NYAMIST_REPO_ROOT}/src/discovery/android_surface_swapchain_validation.cpp"
 )
