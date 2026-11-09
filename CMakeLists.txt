@@ -20,15 +20,41 @@ target_include_directories(nyamist_discovery PUBLIC include)
 target_compile_features(nyamist_discovery PUBLIC cxx_std_20)
 
 if(NYAMIST_ENABLE_VULKAN_DISCOVERY)
-    if(ANDROID)
+    # Termux can target Android/Bionic without using the Android NDK CMake
+    # toolchain, so ANDROID and CMAKE_SYSTEM_NAME alone are not sufficient.
+    set(NYAMIST_ANDROID_TARGET FALSE)
+    if(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android" OR
+       CMAKE_CXX_COMPILER_TARGET MATCHES "android")
+        set(NYAMIST_ANDROID_TARGET TRUE)
+    else()
+        include(CheckCXXSourceCompiles)
+        check_cxx_source_compiles("
+            #if !defined(__ANDROID__)
+            #error Compiler target is not Android/Bionic
+            #endif
+            int main() { return 0; }
+        " NYAMIST_COMPILER_TARGETS_ANDROID)
+        if(NYAMIST_COMPILER_TARGETS_ANDROID)
+            set(NYAMIST_ANDROID_TARGET TRUE)
+        endif()
+    endif()
+
+    if(NYAMIST_ANDROID_TARGET)
+        # Android's public Vulkan loader is resolved at runtime. Do not add
+        # libvulkan.so to DT_NEEDED: some Bionic/Termux environments cannot
+        # resolve the platform loader's private dependency chain at process
+        # startup, while dlopen() from the app process is supported.
         find_path(NYAMIST_VULKAN_INCLUDE_DIR vulkan/vulkan.h)
-        find_library(NYAMIST_VULKAN_LIBRARY vulkan)
-        if(NYAMIST_VULKAN_INCLUDE_DIR AND NYAMIST_VULKAN_LIBRARY)
+        if(NYAMIST_VULKAN_INCLUDE_DIR)
             target_include_directories(nyamist_discovery PRIVATE ${NYAMIST_VULKAN_INCLUDE_DIR})
-            target_link_libraries(nyamist_discovery PRIVATE ${NYAMIST_VULKAN_LIBRARY})
-            target_compile_definitions(nyamist_discovery PRIVATE NYAMIST_HAS_VULKAN=1)
+            target_link_libraries(nyamist_discovery PRIVATE ${CMAKE_DL_LIBS})
+            target_compile_definitions(nyamist_discovery PRIVATE
+                NYAMIST_HAS_VULKAN=1
+                NYAMIST_VULKAN_DYNAMIC_LOADING=1
+            )
+            message(STATUS "NYAMIST Android Vulkan: runtime dlopen + vkGetInstanceProcAddr")
         else()
-            message(WARNING "Android Vulkan headers/loader not found; discovery will report Vulkan unavailable")
+            message(WARNING "Android Vulkan headers not found; discovery will report Vulkan unavailable")
         endif()
     else()
         find_package(Vulkan QUIET)
