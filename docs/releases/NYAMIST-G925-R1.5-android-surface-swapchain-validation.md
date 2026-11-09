@@ -19,8 +19,10 @@ pretending a Termux CLI process can manufacture a window surface.
 - A FIFO swapchain is created and its images enumerated.
 - One image is acquired and transitioned from `UNDEFINED` to
   `PRESENT_SRC_KHR` with an image memory barrier.
-- A queue submission waits on the acquire semaphore and signals a dedicated
-  present semaphore; `vkQueuePresentKHR` waits on that semaphore.
+- A queue submission waits on the acquire semaphore at
+  `VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT`, records the image transition from
+  `TOP_OF_PIPE` to `BOTTOM_OF_PIPE` with zero destination access, and signals
+  a dedicated present semaphore; `vkQueuePresentKHR` waits on that semaphore.
 - Queue idle is confirmed before command, semaphore, swapchain, device, surface,
   instance, and native-window teardown.
 - The JSON report records extension, surface, queue, swapchain, acquire,
