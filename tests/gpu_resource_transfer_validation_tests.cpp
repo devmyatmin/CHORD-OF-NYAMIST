@@ -70,6 +70,10 @@ void testJsonContract() {
           "schema version must be serialized");
     check(json.find("\"project\": \"CHORD OF NYAMIST / NYAMIST G925 R1.4\"") != std::string::npos,
           "R1.4 project identity must be serialized");
+    check(json.find("\"host_to_transfer_barrier_recorded\": true") != std::string::npos,
+          "host-to-transfer memory dependency must be serialized");
+    check(json.find("\"transfer_to_host_barrier_recorded\": true") != std::string::npos,
+          "transfer-to-host memory dependency must be serialized");
     check(json.find("\"source_create_status\": \"success\"") != std::string::npos,
           "source buffer creation status must be serialized");
     check(json.find("\"submit_result\": \"VK_SUCCESS\"") != std::string::npos,
@@ -113,6 +117,9 @@ void testLiveResultIsExplicitAndBounded() {
         check(report.source_memory_bind_status == "success" &&
               report.destination_memory_bind_status == "success",
               "overall success requires both memory bindings");
+        check(report.host_to_transfer_barrier_recorded &&
+              report.transfer_to_host_barrier_recorded,
+              "overall success requires both host/device memory dependencies");
         check(report.queue_submission_succeeded && report.fence_signaled,
               "overall success requires completed transfer submission");
         check(report.bytes_copied == report.transfer_size_bytes &&
