@@ -89,6 +89,36 @@ find "$HOME" /storage/emulated/0/Download -type f \
 
 Do not start the model during gameplay. If available RAM is low, stop here and review the memory report before loading the model.
 
+### Vendor NeuroPilot runtime preflight
+
+The Termux home/download search above does not inspect Android system or vendor libraries. Before model loading, also collect this read-only vendor inventory:
+
+```sh
+echo "===== NEURON / APU PROPERTIES ====="
+getprop | grep -iE 'neuron|neural|nnapi|apu|npu|mediatek|mtk|soc|platform' | sort
+
+echo
+echo "===== VENDOR NEUROPILOT LIBRARIES ====="
+for d in /vendor/lib64 /system_ext/lib64 /system/lib64 /product/lib64; do
+  [ -d "$d" ] || continue
+  find "$d" -maxdepth 3 \( -type f -o -type l \) \
+    \( -iname 'libneuronusdk_adapter*.so' \
+       -o -iname 'libneuron_adapter*.so' \
+       -o -iname 'libneuron_sys_util*.so' \
+       -o -iname 'libapuware*.so' \
+       -o -iname 'libmvpu*.so' \) -print 2>/dev/null
+done
+
+echo
+echo "===== NNAPI / NEURON SERVICES ====="
+dumpsys -l 2>/dev/null | grep -iE 'neural|neuron|nnapi|apu|mediatek' || true
+```
+
+A previous upstream LiteRT-LM report on an **MT6991** device recorded an AOT model-restore failure where the device Neuron SDK was 8.1.6; the maintainer attributed it to a mismatch between the model's compiled NeuroPilot version and the device runtime. This is a device/firmware-specific report, not proof that all MT6991 devices fail. Preserve the `Neuron api version` / `Neuron SDK version` lines from our own device log and compare them before classifying the result:
+- https://github.com/google-ai-edge/LiteRT-LM/issues/1268
+
+Finding a library or service is only a preflight signal. It does not prove Termux can load it or that inference executes on the NPU. Do not copy vendor libraries from another device or change system/vendor files.
+
 ## Device-side smoke test
 
 After the workflow artifact and model are downloaded, extract the runtime into a private directory under Termux `$HOME`, not into Android system/vendor locations.
