@@ -1,0 +1,147 @@
+name: Build LiteRT-LM Android ARM64 (MediaTek MT6991 NPU)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-litertlm-mt6991-npu.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: litertlm-mt6991-npu-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Cross-compile LiteRT-LM for Android ARM64
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+
+    env:
+      LITERT_LM_REF: v0.19.0
+      ANDROID_NDK_VERSION: r28b
+
+    steps:
+      - name: Check out NYAMIST-LAYER
+        uses: actions/checkout@v4
+
+      - name: Check out pinned LiteRT-LM source
+        uses: actions/checkout@v4
+        with:
+          repository: google-ai-edge/LiteRT-LM
+          ref: v0.19.0
+          path: third_party/LiteRT-LM
+
+      - name: Install host build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            openjdk-17-jdk-headless unzip zip curl ca-certificates \
+            python3 build-essential binutils
+          java -version
+
+      - name: Install Android NDK r28b
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCHIVE="$RUNNER_TEMP/android-ndk-${ANDROID_NDK_VERSION}-linux.zip"
+          curl -fL --retry 4 --retry-delay 3 \
+            "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux.zip" \
+            -o "$ARCHIVE"
+          mkdir -p "$RUNNER_TEMP/android-ndk"
+          unzip -q "$ARCHIVE" -d "$RUNNER_TEMP/android-ndk"
+          NDK_HOME="$RUNNER_TEMP/android-ndk/android-ndk-${ANDROID_NDK_VERSION}"
+          test -f "$NDK_HOME/README.md"
+          echo "ANDROID_NDK_HOME=$NDK_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK=$NDK_HOME" >> "$GITHUB_ENV"
+          echo "NDK_HOME=$NDK_HOME" >> "$GITHUB_ENV"
+          "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" --version
+          rm -f "$ARCHIVE"
+
+      - name: Install Bazelisk
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bazel-bin"
+          curl -fL --retry 4 \
+            "https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64" \
+            -o "$RUNNER_TEMP/bazel-bin/bazel"
+          chmod +x "$RUNNER_TEMP/bazel-bin/bazel"
+          echo "$RUNNER_TEMP/bazel-bin" >> "$GITHUB_PATH"
+
+      - name: Report pinned toolchain
+        working-directory: third_party/LiteRT-LM
+        run: |
+          set -euo pipefail
+          echo "LiteRT-LM ref: $LITERT_LM_REF"
+          echo "Bazel pin: $(cat .bazelversion)"
+          bazel --version
+          echo "Android NDK: $ANDROID_NDK_HOME"
+
+      - name: Build Android ARM64 LLM runner
+        working-directory: third_party/LiteRT-LM
+        run: |
+          set -euo pipefail
+          bazel build --jobs=2 --config=android_arm64 \
+            //runtime/engine:litert_lm_main
+
+      - name: Build MediaTek NeuroPilot dispatch library
+        working-directory: third_party/LiteRT-LM
+        run: |
+          set -euo pipefail
+          bazel build --jobs=2 --config=android_arm64 \
+            @litert//litert/vendors/mediatek/dispatch:dispatch_api_so
+
+      - name: Package Android ARM64 runtime
+        working-directory: third_party/LiteRT-LM
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/out/nyamist-mt6991-npu-runtime"
+          mkdir -p "$OUT"
+
+          test -x bazel-bin/runtime/engine/litert_lm_main
+          install -m 0755 bazel-bin/runtime/engine/litert_lm_main "$OUT/litert_lm_main"
+
+          test -d bazel-bin/external/litert/litert/vendors/mediatek
+          find bazel-bin/external/litert/litert/vendors/mediatek \
+            -type f -name '*.so' -print -exec cp -v '{}' "$OUT/" \;
+          test "$(find "$OUT" -maxdepth 1 -type f -name '*.so' | wc -l)" -gt 0
+
+          test -d prebuilt/android_arm64
+          find prebuilt/android_arm64 -maxdepth 1 -type f -name '*.so' \
+            -print -exec cp -v '{}' "$OUT/" \;
+
+          cp LICENSE "$OUT/UPSTREAM-LICENSE"
+          {
+            echo "NYAMIST-LAYER MediaTek NPU runtime build"
+            echo "Target SoC: MT6991 (Dimensity 9400/9400+)"
+            echo "Target ABI: Android ARM64"
+            echo "Upstream: https://github.com/google-ai-edge/LiteRT-LM"
+            echo "Upstream ref: $LITERT_LM_REF"
+            echo "Build target: //runtime/engine:litert_lm_main"
+            echo "Dispatch target: @litert//litert/vendors/mediatek/dispatch:dispatch_api_so"
+            echo "NDK: $ANDROID_NDK_VERSION"
+            echo "Bazel: $(bazel --version)"
+            echo "Build UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "This is a cross-compiled runtime package, not proof of device-side NPU execution."
+          } > "$OUT/BUILD_INFO.txt"
+
+          file "$OUT/litert_lm_main"
+          readelf -h "$OUT/litert_lm_main" | grep -E 'Class:|Machine:'
+          (cd "$OUT" && sha256sum * > SHA256SUMS)
+          tar -C "$GITHUB_WORKSPACE/out" -czf \
+            "$GITHUB_WORKSPACE/out/nyamist-mt6991-npu-runtime.tar.gz" \
+            nyamist-mt6991-npu-runtime
+
+      - name: Upload runtime artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nyamist-mt6991-npu-runtime
+          path: out/nyamist-mt6991-npu-runtime.tar.gz
+          if-no-files-found: error
+          retention-days: 14
