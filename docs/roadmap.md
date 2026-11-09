@@ -47,10 +47,14 @@ Establish repeatable D3D11 real-game execution on REDMI K80 Ultra through the ex
 
 - [x] Define the offline/post-session model boundary and safety contract.
 - [ ] Audit and normalize PerfRecorder typed CSV streams and metadata consistency.
-- [ ] Benchmark a tiny mobile-first local model on CPU with bounded memory/thread use.
+- [ ] **NPU feasibility:** build LiteRT-LM Android ARM64 runtime and MediaTek dispatch for MT6991.
+- [ ] **NPU feasibility:** run the MT6991-specific Gemma3-1B-IT LiteRT-LM model with explicit `--backend=npu`; prove there is no CPU/GPU fallback.
+- [ ] Measure NPU inference memory, latency, generation rate, temperature and power after the game exits.
+- [ ] If the NPU path is inaccessible to Termux, distinguish process-domain restrictions from actual SoC/runtime incompatibility; evaluate the documented Android app route separately.
+- [ ] Keep a bounded-memory CPU inference path as fallback, not as an assumption that NPU is unavailable.
 - [ ] Add an optional model adapter that emits schema-validated, evidence-linked proposals.
 - [ ] Keep deterministic policy validation and A/B evaluation as final authority.
-- [ ] Evaluate PanVK Vulkan compute and MediaTek NPU access only as separate, measured backends.
+- [ ] Evaluate PanVK Vulkan compute separately; GPU compute and NPU execution are not interchangeable.
 - [ ] Keep model inference out of the game frame/render/present path.
 
 ## Milestone 5 — separate D3D12/VKD3D-Proton validation
