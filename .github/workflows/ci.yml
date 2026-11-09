@@ -75,6 +75,32 @@ jobs:
           print("R1.2 report contract is valid:", report["status"])
           PY
 
+      - name: R1.3 queue-submission and fence validation report smoke test
+        run: |
+          set +e
+          ./build-dynamic/nyamist-cli validate-submit --output ./build-dynamic/nyamist-r1.3-queue-submission.json
+          probe_exit=$?
+          set -e
+          if [ "$probe_exit" -gt 1 ]; then
+            echo "R1.3 probe returned an unexpected CLI exit code: $probe_exit"
+            exit "$probe_exit"
+          fi
+          python3 -m json.tool ./build-dynamic/nyamist-r1.3-queue-submission.json > /dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("./build-dynamic/nyamist-r1.3-queue-submission.json").read_text())
+          assert report["schema_version"] == 1
+          assert report["status"] in {"success", "failed", "unavailable"}
+          if report["status"] == "success":
+              assert report["logical_device_validation"]["logical_device"]["create_status"] == "success"
+              assert report["queue_submission"]["submit_status"] == "success"
+              assert report["queue_submission"]["fence_signaled"] is True
+              assert report["command_resource_cleanup"]["resources_destroyed"] is True
+          print("R1.3 report contract is valid:", report["status"])
+          PY
+
       - name: Verify runtime Vulkan dispatch has no direct loader dependency
         run: |
           if readelf -d build-dynamic/nyamist-cli | grep -Fq 'Shared library: [libvulkan.so]' || \
