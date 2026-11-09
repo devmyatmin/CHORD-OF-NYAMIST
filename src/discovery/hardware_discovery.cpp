@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
@@ -215,6 +216,369 @@ std::string deviceTypeName(VkPhysicalDeviceType type) {
     }
 }
 
+
+
+void appendQueueFlagNames(unsigned int flags, std::vector<std::string>& names) {
+    if ((flags & VK_QUEUE_GRAPHICS_BIT) != 0U) names.emplace_back("graphics");
+    if ((flags & VK_QUEUE_COMPUTE_BIT) != 0U) names.emplace_back("compute");
+    if ((flags & VK_QUEUE_TRANSFER_BIT) != 0U) names.emplace_back("transfer");
+    if ((flags & VK_QUEUE_SPARSE_BINDING_BIT) != 0U) names.emplace_back("sparse_binding");
+#if defined(VK_VERSION_1_1)
+    if ((flags & VK_QUEUE_PROTECTED_BIT) != 0U) names.emplace_back("protected");
+#endif
+}
+
+void appendMemoryPropertyNames(unsigned int flags, std::vector<std::string>& names) {
+    if ((flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0U) names.emplace_back("device_local");
+    if ((flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0U) names.emplace_back("host_visible");
+    if ((flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0U) names.emplace_back("host_coherent");
+    if ((flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) != 0U) names.emplace_back("host_cached");
+    if ((flags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT) != 0U) names.emplace_back("lazily_allocated");
+#if defined(VK_VERSION_1_1)
+    if ((flags & VK_MEMORY_PROPERTY_PROTECTED_BIT) != 0U) names.emplace_back("protected");
+#endif
+}
+
+void appendFormatFeatureNames(
+    unsigned int flags, std::vector<std::string>& names) {
+#define NYAMIST_FORMAT_FLAG(bit, label) \
+    if ((flags & static_cast<unsigned int>(bit)) != 0U) names.emplace_back(label)
+    NYAMIST_FORMAT_FLAG(VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT, "sampled_image");
+    NYAMIST_FORMAT_FLAG(VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT, "storage_image");
+    NYAMIST_FORMAT_FLAG(VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT, "storage_image_atomic");
+    NYAMIST_FORMAT_FLAG(VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT, "uniform_texel_buffer");
+    NYAMIST_FORMAT_FLAG(VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT, "storage_texel_buffer");
+    NYAMIST_FORMAT_FLAG(VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT, "storage_texel_buffer_atomic");
+    NYAMIST_FORMAT_FLAG(VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT, "vertex_buffer");
+    NYAMIST_FORMAT_FLAG(VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT, "color_attachment");
+    NYAMIST_FORMAT_FLAG(VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT, "color_attachment_blend");
+    NYAMIST_FORMAT_FLAG(VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT, "depth_stencil_attachment");
+    NYAMIST_FORMAT_FLAG(VK_FORMAT_FEATURE_BLIT_SRC_BIT, "blit_src");
+    NYAMIST_FORMAT_FLAG(VK_FORMAT_FEATURE_BLIT_DST_BIT, "blit_dst");
+    NYAMIST_FORMAT_FLAG(VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT, "sampled_image_filter_linear");
+#if defined(VK_VERSION_1_1)
+    NYAMIST_FORMAT_FLAG(VK_FORMAT_FEATURE_TRANSFER_SRC_BIT, "transfer_src");
+    NYAMIST_FORMAT_FLAG(VK_FORMAT_FEATURE_TRANSFER_DST_BIT, "transfer_dst");
+#endif
+#undef NYAMIST_FORMAT_FLAG
+}
+
+void addFeature(
+    VulkanDeviceObservation& device, const char* name, const char* api,
+    VkBool32 supported) {
+    device.features.push_back({name, api, supported == VK_TRUE});
+}
+
+void collectCore10Features(
+    VulkanDeviceObservation& device, const VkPhysicalDeviceFeatures& f) {
+#define NYAMIST_ADD_FEATURE(field) addFeature(device, #field, "1.0", f.field)
+    NYAMIST_ADD_FEATURE(robustBufferAccess);
+    NYAMIST_ADD_FEATURE(fullDrawIndexUint32);
+    NYAMIST_ADD_FEATURE(imageCubeArray);
+    NYAMIST_ADD_FEATURE(independentBlend);
+    NYAMIST_ADD_FEATURE(geometryShader);
+    NYAMIST_ADD_FEATURE(tessellationShader);
+    NYAMIST_ADD_FEATURE(sampleRateShading);
+    NYAMIST_ADD_FEATURE(dualSrcBlend);
+    NYAMIST_ADD_FEATURE(logicOp);
+    NYAMIST_ADD_FEATURE(multiDrawIndirect);
+    NYAMIST_ADD_FEATURE(drawIndirectFirstInstance);
+    NYAMIST_ADD_FEATURE(depthClamp);
+    NYAMIST_ADD_FEATURE(depthBiasClamp);
+    NYAMIST_ADD_FEATURE(fillModeNonSolid);
+    NYAMIST_ADD_FEATURE(depthBounds);
+    NYAMIST_ADD_FEATURE(wideLines);
+    NYAMIST_ADD_FEATURE(largePoints);
+    NYAMIST_ADD_FEATURE(alphaToOne);
+    NYAMIST_ADD_FEATURE(multiViewport);
+    NYAMIST_ADD_FEATURE(samplerAnisotropy);
+    NYAMIST_ADD_FEATURE(textureCompressionETC2);
+    NYAMIST_ADD_FEATURE(textureCompressionASTC_LDR);
+    NYAMIST_ADD_FEATURE(textureCompressionBC);
+    NYAMIST_ADD_FEATURE(occlusionQueryPrecise);
+    NYAMIST_ADD_FEATURE(pipelineStatisticsQuery);
+    NYAMIST_ADD_FEATURE(vertexPipelineStoresAndAtomics);
+    NYAMIST_ADD_FEATURE(fragmentStoresAndAtomics);
+    NYAMIST_ADD_FEATURE(shaderTessellationAndGeometryPointSize);
+    NYAMIST_ADD_FEATURE(shaderImageGatherExtended);
+    NYAMIST_ADD_FEATURE(shaderStorageImageExtendedFormats);
+    NYAMIST_ADD_FEATURE(shaderStorageImageMultisample);
+    NYAMIST_ADD_FEATURE(shaderStorageImageReadWithoutFormat);
+    NYAMIST_ADD_FEATURE(shaderStorageImageWriteWithoutFormat);
+    NYAMIST_ADD_FEATURE(shaderUniformBufferArrayDynamicIndexing);
+    NYAMIST_ADD_FEATURE(shaderSampledImageArrayDynamicIndexing);
+    NYAMIST_ADD_FEATURE(shaderStorageBufferArrayDynamicIndexing);
+    NYAMIST_ADD_FEATURE(shaderStorageImageArrayDynamicIndexing);
+    NYAMIST_ADD_FEATURE(shaderClipDistance);
+    NYAMIST_ADD_FEATURE(shaderCullDistance);
+    NYAMIST_ADD_FEATURE(shaderFloat64);
+    NYAMIST_ADD_FEATURE(shaderInt64);
+    NYAMIST_ADD_FEATURE(shaderInt16);
+    NYAMIST_ADD_FEATURE(shaderResourceResidency);
+    NYAMIST_ADD_FEATURE(shaderResourceMinLod);
+    NYAMIST_ADD_FEATURE(sparseBinding);
+    NYAMIST_ADD_FEATURE(sparseResidencyBuffer);
+    NYAMIST_ADD_FEATURE(sparseResidencyImage2D);
+    NYAMIST_ADD_FEATURE(sparseResidencyImage3D);
+    NYAMIST_ADD_FEATURE(sparseResidency2Samples);
+    NYAMIST_ADD_FEATURE(sparseResidency4Samples);
+    NYAMIST_ADD_FEATURE(sparseResidency8Samples);
+    NYAMIST_ADD_FEATURE(sparseResidency16Samples);
+    NYAMIST_ADD_FEATURE(sparseResidencyAliased);
+    NYAMIST_ADD_FEATURE(variableMultisampleRate);
+    NYAMIST_ADD_FEATURE(inheritedQueries);
+#undef NYAMIST_ADD_FEATURE
+}
+
+#if defined(VK_VERSION_1_1)
+void collectCore11Features(
+    VulkanDeviceObservation& device, const VkPhysicalDeviceVulkan11Features& f) {
+#define NYAMIST_ADD_FEATURE(field) addFeature(device, #field, "1.1", f.field)
+    NYAMIST_ADD_FEATURE(storageBuffer16BitAccess);
+    NYAMIST_ADD_FEATURE(uniformAndStorageBuffer16BitAccess);
+    NYAMIST_ADD_FEATURE(storagePushConstant16);
+    NYAMIST_ADD_FEATURE(storageInputOutput16);
+    NYAMIST_ADD_FEATURE(multiview);
+    NYAMIST_ADD_FEATURE(multiviewGeometryShader);
+    NYAMIST_ADD_FEATURE(multiviewTessellationShader);
+    NYAMIST_ADD_FEATURE(variablePointersStorageBuffer);
+    NYAMIST_ADD_FEATURE(variablePointers);
+    NYAMIST_ADD_FEATURE(protectedMemory);
+    NYAMIST_ADD_FEATURE(samplerYcbcrConversion);
+    NYAMIST_ADD_FEATURE(shaderDrawParameters);
+#undef NYAMIST_ADD_FEATURE
+}
+#endif
+
+#if defined(VK_VERSION_1_2)
+void collectCore12Features(
+    VulkanDeviceObservation& device, const VkPhysicalDeviceVulkan12Features& f) {
+#define NYAMIST_ADD_FEATURE(field) addFeature(device, #field, "1.2", f.field)
+    NYAMIST_ADD_FEATURE(samplerMirrorClampToEdge);
+    NYAMIST_ADD_FEATURE(drawIndirectCount);
+    NYAMIST_ADD_FEATURE(storageBuffer8BitAccess);
+    NYAMIST_ADD_FEATURE(uniformAndStorageBuffer8BitAccess);
+    NYAMIST_ADD_FEATURE(storagePushConstant8);
+    NYAMIST_ADD_FEATURE(shaderBufferInt64Atomics);
+    NYAMIST_ADD_FEATURE(shaderSharedInt64Atomics);
+    NYAMIST_ADD_FEATURE(shaderFloat16);
+    NYAMIST_ADD_FEATURE(shaderInt8);
+    NYAMIST_ADD_FEATURE(descriptorIndexing);
+    NYAMIST_ADD_FEATURE(shaderInputAttachmentArrayDynamicIndexing);
+    NYAMIST_ADD_FEATURE(shaderUniformTexelBufferArrayDynamicIndexing);
+    NYAMIST_ADD_FEATURE(shaderStorageTexelBufferArrayDynamicIndexing);
+    NYAMIST_ADD_FEATURE(shaderUniformBufferArrayNonUniformIndexing);
+    NYAMIST_ADD_FEATURE(shaderSampledImageArrayNonUniformIndexing);
+    NYAMIST_ADD_FEATURE(shaderStorageBufferArrayNonUniformIndexing);
+    NYAMIST_ADD_FEATURE(shaderStorageImageArrayNonUniformIndexing);
+    NYAMIST_ADD_FEATURE(shaderInputAttachmentArrayNonUniformIndexing);
+    NYAMIST_ADD_FEATURE(shaderUniformTexelBufferArrayNonUniformIndexing);
+    NYAMIST_ADD_FEATURE(shaderStorageTexelBufferArrayNonUniformIndexing);
+    NYAMIST_ADD_FEATURE(descriptorBindingUniformBufferUpdateAfterBind);
+    NYAMIST_ADD_FEATURE(descriptorBindingSampledImageUpdateAfterBind);
+    NYAMIST_ADD_FEATURE(descriptorBindingStorageImageUpdateAfterBind);
+    NYAMIST_ADD_FEATURE(descriptorBindingStorageBufferUpdateAfterBind);
+    NYAMIST_ADD_FEATURE(descriptorBindingUniformTexelBufferUpdateAfterBind);
+    NYAMIST_ADD_FEATURE(descriptorBindingStorageTexelBufferUpdateAfterBind);
+    NYAMIST_ADD_FEATURE(descriptorBindingUpdateUnusedWhilePending);
+    NYAMIST_ADD_FEATURE(descriptorBindingPartiallyBound);
+    NYAMIST_ADD_FEATURE(descriptorBindingVariableDescriptorCount);
+    NYAMIST_ADD_FEATURE(runtimeDescriptorArray);
+    NYAMIST_ADD_FEATURE(samplerFilterMinmax);
+    NYAMIST_ADD_FEATURE(scalarBlockLayout);
+    NYAMIST_ADD_FEATURE(imagelessFramebuffer);
+    NYAMIST_ADD_FEATURE(uniformBufferStandardLayout);
+    NYAMIST_ADD_FEATURE(shaderSubgroupExtendedTypes);
+    NYAMIST_ADD_FEATURE(separateDepthStencilLayouts);
+    NYAMIST_ADD_FEATURE(hostQueryReset);
+    NYAMIST_ADD_FEATURE(timelineSemaphore);
+    NYAMIST_ADD_FEATURE(bufferDeviceAddress);
+    NYAMIST_ADD_FEATURE(bufferDeviceAddressCaptureReplay);
+    NYAMIST_ADD_FEATURE(bufferDeviceAddressMultiDevice);
+    NYAMIST_ADD_FEATURE(vulkanMemoryModel);
+    NYAMIST_ADD_FEATURE(vulkanMemoryModelDeviceScope);
+    NYAMIST_ADD_FEATURE(vulkanMemoryModelAvailabilityVisibilityChains);
+    NYAMIST_ADD_FEATURE(shaderOutputViewportIndex);
+    NYAMIST_ADD_FEATURE(shaderOutputLayer);
+    NYAMIST_ADD_FEATURE(subgroupBroadcastDynamicId);
+#undef NYAMIST_ADD_FEATURE
+}
+#endif
+
+#if defined(VK_VERSION_1_3)
+void collectCore13Features(
+    VulkanDeviceObservation& device, const VkPhysicalDeviceVulkan13Features& f) {
+#define NYAMIST_ADD_FEATURE(field) addFeature(device, #field, "1.3", f.field)
+    NYAMIST_ADD_FEATURE(robustImageAccess);
+    NYAMIST_ADD_FEATURE(inlineUniformBlock);
+    NYAMIST_ADD_FEATURE(descriptorBindingInlineUniformBlockUpdateAfterBind);
+    NYAMIST_ADD_FEATURE(pipelineCreationCacheControl);
+    NYAMIST_ADD_FEATURE(privateData);
+    NYAMIST_ADD_FEATURE(shaderDemoteToHelperInvocation);
+    NYAMIST_ADD_FEATURE(shaderTerminateInvocation);
+    NYAMIST_ADD_FEATURE(subgroupSizeControl);
+    NYAMIST_ADD_FEATURE(computeFullSubgroups);
+    NYAMIST_ADD_FEATURE(synchronization2);
+    NYAMIST_ADD_FEATURE(textureCompressionASTC_HDR);
+    NYAMIST_ADD_FEATURE(shaderZeroInitializeWorkgroupMemory);
+    NYAMIST_ADD_FEATURE(dynamicRendering);
+    NYAMIST_ADD_FEATURE(shaderIntegerDotProduct);
+    NYAMIST_ADD_FEATURE(maintenance4);
+#undef NYAMIST_ADD_FEATURE
+}
+#endif
+
+void collectFeatureInventory(
+    VulkanDispatch& dispatch, VkPhysicalDevice physical_device,
+    const VkPhysicalDeviceProperties& properties, VulkanDeviceObservation& device) {
+    const std::uint32_t api_version = properties.apiVersion;
+    if (api_version < VK_API_VERSION_1_1) {
+        VkPhysicalDeviceFeatures features{};
+        dispatch.get_physical_device_features(physical_device, &features);
+        collectCore10Features(device, features);
+        device.feature_query_api_max = "1.0";
+        device.feature_query_status = "success";
+        return;
+    }
+
+#if defined(VK_VERSION_1_1)
+    if (dispatch.get_physical_device_features2 == nullptr) {
+        device.feature_query_status = "failed";
+        device.feature_query_api_max = "1.0";
+        device.feature_query_failure_reason =
+            "vkGetPhysicalDeviceFeatures2 is unavailable for a Vulkan 1.1+ physical device";
+        return;
+    }
+
+    VkPhysicalDeviceFeatures2 features2{};
+    features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    VkPhysicalDeviceVulkan11Features features11{};
+    features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+    features2.pNext = &features11;
+
+#if defined(VK_VERSION_1_2)
+    VkPhysicalDeviceVulkan12Features features12{};
+    features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    if (api_version >= VK_API_VERSION_1_2) features11.pNext = &features12;
+#endif
+#if defined(VK_VERSION_1_3)
+    VkPhysicalDeviceVulkan13Features features13{};
+    features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+#if defined(VK_VERSION_1_2)
+    if (api_version >= VK_API_VERSION_1_3) features12.pNext = &features13;
+#else
+    (void)features13;
+#endif
+#endif
+
+    dispatch.get_physical_device_features2(physical_device, &features2);
+    collectCore10Features(device, features2.features);
+    collectCore11Features(device, features11);
+    device.feature_query_api_max = "1.1";
+#if defined(VK_VERSION_1_2)
+    if (api_version >= VK_API_VERSION_1_2) {
+        collectCore12Features(device, features12);
+        device.feature_query_api_max = "1.2";
+    }
+#endif
+#if defined(VK_VERSION_1_3) && defined(VK_VERSION_1_2)
+    if (api_version >= VK_API_VERSION_1_3) {
+        collectCore13Features(device, features13);
+        device.feature_query_api_max = "1.3";
+    }
+#endif
+    device.feature_query_status = "success";
+#else
+    device.feature_query_status = "partial";
+    device.feature_query_api_max = "1.0";
+    device.feature_query_failure_reason =
+        "Build Vulkan headers do not expose Vulkan 1.1 feature structures";
+    VkPhysicalDeviceFeatures features{};
+    dispatch.get_physical_device_features(physical_device, &features);
+    collectCore10Features(device, features);
+#endif
+}
+
+void addLimit(
+    VulkanDeviceObservation& device, const char* name, unsigned long long value) {
+    device.limits.push_back({name, value});
+}
+
+void collectLimitInventory(
+    const VkPhysicalDeviceLimits& l, VulkanDeviceObservation& device) {
+#define NYAMIST_ADD_LIMIT(field) addLimit(device, #field, static_cast<unsigned long long>(l.field))
+    NYAMIST_ADD_LIMIT(maxImageDimension1D);
+    NYAMIST_ADD_LIMIT(maxImageDimension2D);
+    NYAMIST_ADD_LIMIT(maxImageDimension3D);
+    NYAMIST_ADD_LIMIT(maxImageDimensionCube);
+    NYAMIST_ADD_LIMIT(maxImageArrayLayers);
+    NYAMIST_ADD_LIMIT(maxTexelBufferElements);
+    NYAMIST_ADD_LIMIT(maxUniformBufferRange);
+    NYAMIST_ADD_LIMIT(maxStorageBufferRange);
+    NYAMIST_ADD_LIMIT(maxPushConstantsSize);
+    NYAMIST_ADD_LIMIT(maxMemoryAllocationCount);
+    NYAMIST_ADD_LIMIT(maxSamplerAllocationCount);
+    NYAMIST_ADD_LIMIT(maxBoundDescriptorSets);
+    NYAMIST_ADD_LIMIT(maxPerStageDescriptorSamplers);
+    NYAMIST_ADD_LIMIT(maxPerStageDescriptorUniformBuffers);
+    NYAMIST_ADD_LIMIT(maxPerStageDescriptorStorageBuffers);
+    NYAMIST_ADD_LIMIT(maxPerStageDescriptorSampledImages);
+    NYAMIST_ADD_LIMIT(maxPerStageDescriptorStorageImages);
+    NYAMIST_ADD_LIMIT(maxPerStageDescriptorInputAttachments);
+    NYAMIST_ADD_LIMIT(maxPerStageResources);
+    NYAMIST_ADD_LIMIT(maxDescriptorSetSamplers);
+    NYAMIST_ADD_LIMIT(maxDescriptorSetUniformBuffers);
+    NYAMIST_ADD_LIMIT(maxDescriptorSetUniformBuffersDynamic);
+    NYAMIST_ADD_LIMIT(maxDescriptorSetStorageBuffers);
+    NYAMIST_ADD_LIMIT(maxDescriptorSetStorageBuffersDynamic);
+    NYAMIST_ADD_LIMIT(maxDescriptorSetSampledImages);
+    NYAMIST_ADD_LIMIT(maxDescriptorSetStorageImages);
+    NYAMIST_ADD_LIMIT(maxVertexInputAttributes);
+    NYAMIST_ADD_LIMIT(maxVertexInputBindings);
+    NYAMIST_ADD_LIMIT(maxVertexInputAttributeOffset);
+    NYAMIST_ADD_LIMIT(maxVertexInputBindingStride);
+    NYAMIST_ADD_LIMIT(maxVertexOutputComponents);
+    NYAMIST_ADD_LIMIT(maxFragmentInputComponents);
+    NYAMIST_ADD_LIMIT(maxFragmentOutputAttachments);
+    NYAMIST_ADD_LIMIT(maxFragmentDualSrcAttachments);
+    NYAMIST_ADD_LIMIT(maxFragmentCombinedOutputResources);
+    NYAMIST_ADD_LIMIT(maxComputeSharedMemorySize);
+    NYAMIST_ADD_LIMIT(maxComputeWorkGroupInvocations);
+    NYAMIST_ADD_LIMIT(maxDrawIndexedIndexValue);
+    NYAMIST_ADD_LIMIT(maxDrawIndirectCount);
+    NYAMIST_ADD_LIMIT(maxFramebufferWidth);
+    NYAMIST_ADD_LIMIT(maxFramebufferHeight);
+    NYAMIST_ADD_LIMIT(maxFramebufferLayers);
+    NYAMIST_ADD_LIMIT(framebufferColorSampleCounts);
+    NYAMIST_ADD_LIMIT(framebufferDepthSampleCounts);
+    NYAMIST_ADD_LIMIT(framebufferStencilSampleCounts);
+    NYAMIST_ADD_LIMIT(framebufferNoAttachmentsSampleCounts);
+    NYAMIST_ADD_LIMIT(sampledImageColorSampleCounts);
+    NYAMIST_ADD_LIMIT(sampledImageIntegerSampleCounts);
+    NYAMIST_ADD_LIMIT(sampledImageDepthSampleCounts);
+    NYAMIST_ADD_LIMIT(sampledImageStencilSampleCounts);
+    NYAMIST_ADD_LIMIT(storageImageSampleCounts);
+    NYAMIST_ADD_LIMIT(minUniformBufferOffsetAlignment);
+    NYAMIST_ADD_LIMIT(minStorageBufferOffsetAlignment);
+    NYAMIST_ADD_LIMIT(optimalBufferCopyOffsetAlignment);
+    NYAMIST_ADD_LIMIT(optimalBufferCopyRowPitchAlignment);
+    NYAMIST_ADD_LIMIT(timestampComputeAndGraphics);
+#undef NYAMIST_ADD_LIMIT
+    for (unsigned int index = 0U; index < 3U; ++index) {
+        const std::string suffix = "[" + std::to_string(index) + "]";
+        addLimit(device, ("maxComputeWorkGroupCount" + suffix).c_str(),
+                 l.maxComputeWorkGroupCount[index]);
+        addLimit(device, ("maxComputeWorkGroupSize" + suffix).c_str(),
+                 l.maxComputeWorkGroupSize[index]);
+        addLimit(device, ("maxViewportDimensions" + suffix).c_str(),
+                 l.maxViewportDimensions[index]);
+    }
+    device.floating_limits.push_back({
+        "timestampPeriod_ns", static_cast<double>(l.timestampPeriod)
+    });
+    device.limits_query_status = "success";
+}
+
 std::string resultName(VkResult result) {
     switch (result) {
     case VK_SUCCESS: return "VK_SUCCESS";
@@ -252,6 +616,10 @@ struct VulkanDispatch {
     PFN_vkEnumeratePhysicalDevices enumerate_physical_devices{};
     PFN_vkGetPhysicalDeviceProperties get_physical_device_properties{};
     PFN_vkGetPhysicalDeviceProperties2 get_physical_device_properties2{};
+    PFN_vkGetPhysicalDeviceFeatures get_physical_device_features{};
+#if defined(VK_VERSION_1_1)
+    PFN_vkGetPhysicalDeviceFeatures2 get_physical_device_features2{};
+#endif
     PFN_vkGetPhysicalDeviceQueueFamilyProperties get_queue_family_properties{};
     PFN_vkEnumerateDeviceExtensionProperties enumerate_device_extensions{};
     PFN_vkGetPhysicalDeviceMemoryProperties get_memory_properties{};
@@ -366,6 +734,14 @@ bool loadInstanceDispatch(VulkanDispatch& dispatch, VkInstance instance,
     dispatch.get_physical_device_properties2 =
         reinterpret_cast<PFN_vkGetPhysicalDeviceProperties2>(
             resolve("vkGetPhysicalDeviceProperties2"));
+    dispatch.get_physical_device_features =
+        reinterpret_cast<PFN_vkGetPhysicalDeviceFeatures>(
+            resolve("vkGetPhysicalDeviceFeatures"));
+#if defined(VK_VERSION_1_1)
+    dispatch.get_physical_device_features2 =
+        reinterpret_cast<PFN_vkGetPhysicalDeviceFeatures2>(
+            resolve("vkGetPhysicalDeviceFeatures2"));
+#endif
     dispatch.get_queue_family_properties =
         reinterpret_cast<PFN_vkGetPhysicalDeviceQueueFamilyProperties>(
             resolve("vkGetPhysicalDeviceQueueFamilyProperties"));
@@ -384,6 +760,8 @@ bool loadInstanceDispatch(VulkanDispatch& dispatch, VkInstance instance,
         {"vkEnumeratePhysicalDevices", dispatch.enumerate_physical_devices != nullptr},
         {"vkGetPhysicalDeviceProperties",
          dispatch.get_physical_device_properties != nullptr},
+        {"vkGetPhysicalDeviceFeatures",
+         dispatch.get_physical_device_features != nullptr},
         {"vkGetPhysicalDeviceQueueFamilyProperties",
          dispatch.get_queue_family_properties != nullptr},
         {"vkEnumerateDeviceExtensionProperties",
@@ -532,18 +910,32 @@ void queryVulkan(DiscoveryReport& report) {
         std::uint32_t extension_count = 0U;
         result = dispatch.enumerate_device_extensions(
             physical_device, nullptr, &extension_count, nullptr);
-        if (result == VK_SUCCESS && extension_count > 0U) {
+        if (result != VK_SUCCESS) {
+            device.extension_query_status = "failed";
+            device.extension_query_failure_reason =
+                "vkEnumerateDeviceExtensionProperties(count): " + resultName(result);
+        } else if (extension_count > 0U) {
             std::vector<VkExtensionProperties> extensions(extension_count);
             result = dispatch.enumerate_device_extensions(
                 physical_device, nullptr, &extension_count, extensions.data());
-            if (result == VK_SUCCESS) {
+            if (result != VK_SUCCESS) {
+                device.extension_query_status = "failed";
+                device.extension_query_failure_reason =
+                    "vkEnumerateDeviceExtensionProperties(data): " + resultName(result);
+            } else {
                 extensions.resize(extension_count);
                 for (const auto& extension : extensions) {
                     device.extensions.emplace_back(extension.extensionName);
                 }
                 std::sort(device.extensions.begin(), device.extensions.end());
+                device.extension_query_status = "success";
             }
+        } else {
+            device.extension_query_status = "success";
         }
+
+        collectFeatureInventory(dispatch, physical_device, properties, device);
+        collectLimitInventory(properties.limits, device);
 
 #if defined(VK_KHR_driver_properties)
         const bool supports_driver_properties =
@@ -574,10 +966,12 @@ void queryVulkan(DiscoveryReport& report) {
             queues.resize(queue_count);
         }
         for (std::uint32_t index = 0U; index < queue_count; ++index) {
-            device.queue_families.push_back({
-                index, queues[index].queueCount,
-                static_cast<unsigned int>(queues[index].queueFlags)
-            });
+            QueueFamilyObservation observation;
+            observation.index = index;
+            observation.queue_count = queues[index].queueCount;
+            observation.flags = static_cast<unsigned int>(queues[index].queueFlags);
+            appendQueueFlagNames(observation.flags, observation.flag_names);
+            device.queue_families.push_back(std::move(observation));
         }
 
         VkPhysicalDeviceMemoryProperties memory{};
@@ -588,6 +982,17 @@ void queryVulkan(DiscoveryReport& report) {
                 index, static_cast<unsigned long long>(heap.size),
                 (heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) != 0U
             });
+        }
+        for (std::uint32_t index = 0U; index < memory.memoryTypeCount; ++index) {
+            const auto& memory_type = memory.memoryTypes[index];
+            MemoryTypeObservation observation;
+            observation.index = index;
+            observation.heap_index = memory_type.heapIndex;
+            observation.property_flags =
+                static_cast<unsigned int>(memory_type.propertyFlags);
+            appendMemoryPropertyNames(
+                observation.property_flags, observation.property_flag_names);
+            device.memory_types.push_back(std::move(observation));
         }
 
         struct FormatEntry { VkFormat format; const char* name; };
@@ -601,12 +1006,24 @@ void queryVulkan(DiscoveryReport& report) {
             VkFormatProperties format_properties{};
             dispatch.get_format_properties(
                 physical_device, format.format, &format_properties);
-            device.formats.push_back({
-                format.name,
-                static_cast<unsigned int>(format_properties.linearTilingFeatures),
-                static_cast<unsigned int>(format_properties.optimalTilingFeatures),
-                static_cast<unsigned int>(format_properties.bufferFeatures)
-            });
+            FormatObservation observation;
+            observation.name = format.name;
+            observation.linear_tiling_features =
+                static_cast<unsigned int>(format_properties.linearTilingFeatures);
+            observation.optimal_tiling_features =
+                static_cast<unsigned int>(format_properties.optimalTilingFeatures);
+            observation.buffer_features =
+                static_cast<unsigned int>(format_properties.bufferFeatures);
+            appendFormatFeatureNames(
+                observation.linear_tiling_features,
+                observation.linear_tiling_feature_names);
+            appendFormatFeatureNames(
+                observation.optimal_tiling_features,
+                observation.optimal_tiling_feature_names);
+            appendFormatFeatureNames(
+                observation.buffer_features,
+                observation.buffer_feature_names);
+            device.formats.push_back(std::move(observation));
         }
         report.vulkan_devices.push_back(std::move(device));
     }
@@ -695,12 +1112,60 @@ std::string toJson(const DiscoveryReport& report) {
         if (device.driver_name.empty()) out << "null"; else writeQuoted(out, device.driver_name);
         out << ",\n        \"driver_info\": ";
         if (device.driver_info.empty()) out << "null"; else writeQuoted(out, device.driver_info);
-        out << ",\n        \"queue_families\": [";
+        out << ",\n        \"extension_query_status\": ";
+        writeQuoted(out, device.extension_query_status);
+        out << ",\n        \"extension_query_failure_reason\": ";
+        if (device.extension_query_failure_reason.empty()) out << "null";
+        else writeQuoted(out, device.extension_query_failure_reason);
+        out << ",\n        \"feature_query_status\": ";
+        writeQuoted(out, device.feature_query_status);
+        out << ",\n        \"feature_query_api_max\": ";
+        if (device.feature_query_api_max.empty()) out << "null";
+        else writeQuoted(out, device.feature_query_api_max);
+        out << ",\n        \"feature_query_failure_reason\": ";
+        if (device.feature_query_failure_reason.empty()) out << "null";
+        else writeQuoted(out, device.feature_query_failure_reason);
+        out << ",\n        \"features\": [";
+        for (std::size_t index = 0U; index < device.features.size(); ++index) {
+            const auto& feature = device.features[index];
+            if (index > 0U) out << ", ";
+            out << "{\"name\": ";
+            writeQuoted(out, feature.name);
+            out << ", \"api_version\": ";
+            writeQuoted(out, feature.api_version);
+            out << ", \"supported\": "
+                << (feature.supported ? "true" : "false") << "}";
+        }
+        out << "],\n        \"limits_query_status\": ";
+        writeQuoted(out, device.limits_query_status);
+        out << ",\n        \"limits\": [";
+        for (std::size_t index = 0U; index < device.limits.size(); ++index) {
+            const auto& limit = device.limits[index];
+            if (index > 0U) out << ", ";
+            out << "{\"name\": ";
+            writeQuoted(out, limit.name);
+            out << ", \"value\": " << limit.value << "}";
+        }
+        out << "],\n        \"floating_limits\": [";
+        for (std::size_t index = 0U; index < device.floating_limits.size(); ++index) {
+            const auto& limit = device.floating_limits[index];
+            if (index > 0U) out << ", ";
+            out << "{\"name\": ";
+            writeQuoted(out, limit.name);
+            out << ", \"value\": " << std::setprecision(9) << limit.value
+                << std::setprecision(6) << "}";
+        }
+        out << "],\n        \"queue_families\": [";
         for (std::size_t index = 0U; index < device.queue_families.size(); ++index) {
             const auto& queue = device.queue_families[index];
             if (index > 0U) out << ", ";
             out << "{\"index\": " << queue.index << ", \"queue_count\": " << queue.queue_count
-                << ", \"flags_raw\": " << queue.flags << "}";
+                << ", \"flags_raw\": " << queue.flags << ", \"flag_names\": [";
+            for (std::size_t flag = 0U; flag < queue.flag_names.size(); ++flag) {
+                if (flag > 0U) out << ", ";
+                writeQuoted(out, queue.flag_names[flag]);
+            }
+            out << "]}";
         }
         out << "],\n        \"extensions\": [";
         for (std::size_t index = 0U; index < device.extensions.size(); ++index) {
@@ -714,6 +1179,20 @@ std::string toJson(const DiscoveryReport& report) {
             out << "{\"index\": " << heap.index << ", \"size_bytes\": " << heap.size_bytes
                 << ", \"device_local\": " << (heap.device_local ? "true" : "false") << "}";
         }
+        out << "],\n        \"memory_types\": [";
+        for (std::size_t index = 0U; index < device.memory_types.size(); ++index) {
+            const auto& memory_type = device.memory_types[index];
+            if (index > 0U) out << ", ";
+            out << "{\"index\": " << memory_type.index
+                << ", \"heap_index\": " << memory_type.heap_index
+                << ", \"property_flags_raw\": " << memory_type.property_flags
+                << ", \"property_flag_names\": [";
+            for (std::size_t flag = 0U; flag < memory_type.property_flag_names.size(); ++flag) {
+                if (flag > 0U) out << ", ";
+                writeQuoted(out, memory_type.property_flag_names[flag]);
+            }
+            out << "]}";
+        }
         out << "],\n        \"formats\": [";
         for (std::size_t index = 0U; index < device.formats.size(); ++index) {
             const auto& format = device.formats[index];
@@ -722,7 +1201,23 @@ std::string toJson(const DiscoveryReport& report) {
             writeQuoted(out, format.name);
             out << ", \"linear_tiling_features_raw\": " << format.linear_tiling_features
                 << ", \"optimal_tiling_features_raw\": " << format.optimal_tiling_features
-                << ", \"buffer_features_raw\": " << format.buffer_features << "}";
+                << ", \"buffer_features_raw\": " << format.buffer_features
+                << ", \"linear_tiling_feature_names\": [";
+            for (std::size_t flag = 0U; flag < format.linear_tiling_feature_names.size(); ++flag) {
+                if (flag > 0U) out << ", ";
+                writeQuoted(out, format.linear_tiling_feature_names[flag]);
+            }
+            out << "], \"optimal_tiling_feature_names\": [";
+            for (std::size_t flag = 0U; flag < format.optimal_tiling_feature_names.size(); ++flag) {
+                if (flag > 0U) out << ", ";
+                writeQuoted(out, format.optimal_tiling_feature_names[flag]);
+            }
+            out << "], \"buffer_feature_names\": [";
+            for (std::size_t flag = 0U; flag < format.buffer_feature_names.size(); ++flag) {
+                if (flag > 0U) out << ", ";
+                writeQuoted(out, format.buffer_feature_names[flag]);
+            }
+            out << "]}";
         }
         out << "]\n      }"
             << (device_index + 1U == report.vulkan_devices.size() ? "\n" : ",\n");
