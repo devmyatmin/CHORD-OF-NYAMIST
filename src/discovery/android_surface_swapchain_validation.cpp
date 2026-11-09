@@ -51,13 +51,21 @@ void numberField(std::ostringstream& out, const char* name, std::uint32_t value,
     out << '\n';
 }
 
+
+void number64Field(std::ostringstream& out, const char* name, std::uint64_t value,
+                   bool comma = true) {
+    out << "  \"" << name << "\": " << value;
+    if (comma) out << ',';
+    out << '\n';
+}
+
 } // namespace
 
 std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     std::ostringstream out;
     out << "{\n";
     numberField(out, "schema_version", report.schema_version);
-    stringField(out, "project", "CHORD OF NYAMIST / NYAMIST G925 R1.5");
+    stringField(out, "project", "CHORD OF NYAMIST / NYAMIST G925 R1.6");
     stringField(out, "status", report.status);
     stringField(out, "platform", report.platform);
     stringField(out, "loader_library", report.loader_library);
@@ -103,11 +111,29 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     boolField(out, "image_presented", report.image_presented);
     stringField(out, "queue_idle_status", report.queue_idle_status);
     boolField(out, "frame_content_written", report.frame_content_written);
+    stringField(out, "image_view_create_status", report.image_view_create_status);
+    stringField(out, "render_pass_create_status", report.render_pass_create_status);
+    stringField(out, "framebuffer_create_status", report.framebuffer_create_status);
+    boolField(out, "render_pass_begin_recorded", report.render_pass_begin_recorded);
+    boolField(out, "render_pass_end_recorded", report.render_pass_end_recorded);
+    stringField(out, "frame_clear_color_rgba", report.frame_clear_color_rgba);
+    stringField(out, "frame_timing_source", report.frame_timing_source);
+    number64Field(out, "acquire_cpu_us", report.acquire_cpu_us);
+    number64Field(out, "queue_submit_cpu_us", report.queue_submit_cpu_us);
+    number64Field(out, "present_call_cpu_us", report.present_call_cpu_us);
+    number64Field(out, "queue_idle_wait_cpu_us", report.queue_idle_wait_cpu_us);
+    number64Field(out, "frame_total_cpu_us", report.frame_total_cpu_us);
+    numberField(out, "frame_timing_sample_count", report.frame_timing_sample_count);
+    boolField(out, "frame_timing_valid", report.frame_timing_valid);
+    stringField(out, "gpu_timestamp_status", report.gpu_timestamp_status);
     stringField(out, "cleanup_status", report.cleanup_status);
     stringField(out, "semaphore_destroy_status", report.semaphore_destroy_status);
     stringField(out, "present_semaphore_destroy_status", report.present_semaphore_destroy_status);
     stringField(out, "command_buffer_free_status", report.command_buffer_free_status);
     stringField(out, "command_pool_destroy_status", report.command_pool_destroy_status);
+    stringField(out, "image_view_destroy_status", report.image_view_destroy_status);
+    stringField(out, "render_pass_destroy_status", report.render_pass_destroy_status);
+    stringField(out, "framebuffer_destroy_status", report.framebuffer_destroy_status);
     stringField(out, "swapchain_destroy_status", report.swapchain_destroy_status);
     stringField(out, "device_destroy_status", report.device_destroy_status);
     stringField(out, "surface_destroy_status", report.surface_destroy_status);
