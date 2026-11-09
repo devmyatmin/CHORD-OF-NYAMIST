@@ -1,4 +1,5 @@
 #include "nyamist/discovery/android_surface_swapchain_validation.hpp"
+#include "triangle_shaders.hpp"
 
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
@@ -51,8 +52,16 @@ struct VulkanDispatch {
     PFN_vkDestroyRenderPass destroy_render_pass{};
     PFN_vkCreateFramebuffer create_framebuffer{};
     PFN_vkDestroyFramebuffer destroy_framebuffer{};
+    PFN_vkCreateShaderModule create_shader_module{};
+    PFN_vkDestroyShaderModule destroy_shader_module{};
+    PFN_vkCreatePipelineLayout create_pipeline_layout{};
+    PFN_vkDestroyPipelineLayout destroy_pipeline_layout{};
+    PFN_vkCreateGraphicsPipelines create_graphics_pipelines{};
+    PFN_vkDestroyPipeline destroy_pipeline{};
     PFN_vkCmdBeginRenderPass cmd_begin_render_pass{};
     PFN_vkCmdEndRenderPass cmd_end_render_pass{};
+    PFN_vkCmdBindPipeline cmd_bind_pipeline{};
+    PFN_vkCmdDraw cmd_draw{};
     PFN_vkGetSwapchainImagesKHR get_swapchain_images{};
     PFN_vkCreateSemaphore create_semaphore{};
     PFN_vkDestroySemaphore destroy_semaphore{};
@@ -148,6 +157,10 @@ bool renderAndPresentFrame(
         VkImageView& image_view,
         VkRenderPass& render_pass,
         VkFramebuffer& framebuffer,
+        VkShaderModule& vertex_shader,
+        VkShaderModule& fragment_shader,
+        VkPipelineLayout& pipeline_layout,
+        VkPipeline& graphics_pipeline,
         std::chrono::steady_clock::time_point frame_start) {
     VkImageViewCreateInfo image_view_info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     image_view_info.image = image;
@@ -225,6 +238,125 @@ bool renderAndPresentFrame(
         return false;
     }
 
+    VkShaderModuleCreateInfo vertex_shader_info{
+        VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+    vertex_shader_info.codeSize = sizeof(nyamist::shaders::triangle_vertex_spirv);
+    vertex_shader_info.pCode = nyamist::shaders::triangle_vertex_spirv;
+    result = vk.create_shader_module(device, &vertex_shader_info, nullptr, &vertex_shader);
+    report.vertex_shader_module_create_status =
+        result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "vkCreateShaderModule(vertex) failed: " + resultName(result));
+        return false;
+    }
+
+    VkShaderModuleCreateInfo fragment_shader_info{
+        VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+    fragment_shader_info.codeSize = sizeof(nyamist::shaders::triangle_fragment_spirv);
+    fragment_shader_info.pCode = nyamist::shaders::triangle_fragment_spirv;
+    result = vk.create_shader_module(device, &fragment_shader_info, nullptr, &fragment_shader);
+    report.fragment_shader_module_create_status =
+        result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "vkCreateShaderModule(fragment) failed: " + resultName(result));
+        return false;
+    }
+
+    VkPipelineLayoutCreateInfo pipeline_layout_info{
+        VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+    result = vk.create_pipeline_layout(device, &pipeline_layout_info, nullptr,
+                                       &pipeline_layout);
+    report.pipeline_layout_create_status =
+        result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "vkCreatePipelineLayout failed: " + resultName(result));
+        return false;
+    }
+
+    VkPipelineShaderStageCreateInfo shader_stages[2]{};
+    shader_stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    shader_stages[0].module = vertex_shader;
+    shader_stages[0].pName = "main";
+    shader_stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    shader_stages[1].module = fragment_shader;
+    shader_stages[1].pName = "main";
+
+    VkPipelineVertexInputStateCreateInfo vertex_input{
+        VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+    VkPipelineInputAssemblyStateCreateInfo input_assembly{
+        VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
+    input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    input_assembly.primitiveRestartEnable = VK_FALSE;
+
+    VkViewport viewport{};
+    viewport.x = 0.0F;
+    viewport.y = 0.0F;
+    viewport.width = static_cast<float>(extent.width);
+    viewport.height = static_cast<float>(extent.height);
+    viewport.minDepth = 0.0F;
+    viewport.maxDepth = 1.0F;
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = extent;
+    VkPipelineViewportStateCreateInfo viewport_state{
+        VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+    viewport_state.viewportCount = 1U;
+    viewport_state.pViewports = &viewport;
+    viewport_state.scissorCount = 1U;
+    viewport_state.pScissors = &scissor;
+
+    VkPipelineRasterizationStateCreateInfo rasterization{
+        VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
+    rasterization.depthClampEnable = VK_FALSE;
+    rasterization.rasterizerDiscardEnable = VK_FALSE;
+    rasterization.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterization.cullMode = VK_CULL_MODE_NONE;
+    rasterization.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rasterization.depthBiasEnable = VK_FALSE;
+    rasterization.lineWidth = 1.0F;
+
+    VkPipelineMultisampleStateCreateInfo multisampling{
+        VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
+    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisampling.sampleShadingEnable = VK_FALSE;
+
+    VkPipelineColorBlendAttachmentState color_blend_attachment{};
+    color_blend_attachment.blendEnable = VK_FALSE;
+    color_blend_attachment.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    VkPipelineColorBlendStateCreateInfo color_blending{
+        VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+    color_blending.logicOpEnable = VK_FALSE;
+    color_blending.attachmentCount = 1U;
+    color_blending.pAttachments = &color_blend_attachment;
+
+    VkGraphicsPipelineCreateInfo pipeline_info{
+        VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+    pipeline_info.stageCount = 2U;
+    pipeline_info.pStages = shader_stages;
+    pipeline_info.pVertexInputState = &vertex_input;
+    pipeline_info.pInputAssemblyState = &input_assembly;
+    pipeline_info.pViewportState = &viewport_state;
+    pipeline_info.pRasterizationState = &rasterization;
+    pipeline_info.pMultisampleState = &multisampling;
+    pipeline_info.pColorBlendState = &color_blending;
+    pipeline_info.layout = pipeline_layout;
+    pipeline_info.renderPass = render_pass;
+    pipeline_info.subpass = 0U;
+    pipeline_info.basePipelineIndex = -1;
+    result = vk.create_graphics_pipelines(device, VK_NULL_HANDLE, 1U,
+                                          &pipeline_info, nullptr,
+                                          &graphics_pipeline);
+    report.graphics_pipeline_create_status =
+        result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "vkCreateGraphicsPipelines failed: " + resultName(result));
+        return false;
+    }
+
     VkCommandPoolCreateInfo pool_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
     pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
     pool_info.queueFamilyIndex = queue_family;
@@ -274,6 +406,12 @@ bool renderAndPresentFrame(
     // swapchain image. No graphics pipeline or shader is claimed in R1.6.
     vk.cmd_begin_render_pass(command_buffer, &render_begin, VK_SUBPASS_CONTENTS_INLINE);
     report.render_pass_begin_recorded = true;
+    vk.cmd_bind_pipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                         graphics_pipeline);
+    report.graphics_pipeline_bind_recorded = true;
+    vk.cmd_draw(command_buffer, 3U, 1U, 0U, 0U);
+    report.draw_call_recorded = true;
+    report.draw_vertex_count = 3U;
     vk.cmd_end_render_pass(command_buffer);
     report.render_pass_end_recorded = true;
     report.image_layout_transition_recorded = true;
@@ -361,6 +499,10 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     VkImageView image_view = VK_NULL_HANDLE;
     VkRenderPass render_pass = VK_NULL_HANDLE;
     VkFramebuffer framebuffer = VK_NULL_HANDLE;
+    VkShaderModule vertex_shader = VK_NULL_HANDLE;
+    VkShaderModule fragment_shader = VK_NULL_HANDLE;
+    VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
+    VkPipeline graphics_pipeline = VK_NULL_HANDLE;
     VkSemaphore acquire_semaphore = VK_NULL_HANDLE;
     VkSemaphore present_semaphore = VK_NULL_HANDLE;
     VkCommandPool command_pool = VK_NULL_HANDLE;
@@ -431,8 +573,8 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             VK_KHR_ANDROID_SURFACE_EXTENSION_NAME
         };
         VkApplicationInfo app_info{VK_STRUCTURE_TYPE_APPLICATION_INFO};
-        app_info.pApplicationName = "NYAMIST G925 R1.5";
-        app_info.applicationVersion = VK_MAKE_VERSION(1, 5, 0);
+        app_info.pApplicationName = "NYAMIST G925 R1.7";
+        app_info.applicationVersion = VK_MAKE_VERSION(1, 7, 0);
         app_info.pEngineName = "CHORD OF NYAMIST";
         app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
         app_info.apiVersion = VK_API_VERSION_1_0;
@@ -486,6 +628,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     }
 
     std::uint32_t selected_queue_family = 0U;
+    std::uint32_t selected_queue_timestamp_valid_bits = 0U;
     VkPhysicalDevice selected_physical_device = VK_NULL_HANDLE;
     if (report.failure_reason.empty() && surface != VK_NULL_HANDLE) {
         std::uint32_t physical_count = 0U;
@@ -528,6 +671,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                     if (support_result == VK_SUCCESS && present_supported == VK_TRUE) {
                         selected_physical_device = physical;
                         selected_queue_family = index;
+                        selected_queue_timestamp_valid_bits = families[index].timestampValidBits;
                         break;
                     }
                 }
@@ -561,6 +705,14 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                     return out;
                 }(properties.deviceID);
                 report.physical_device_api_version = versionString(properties.apiVersion);
+                report.queue_timestamp_valid_bits = selected_queue_timestamp_valid_bits;
+                report.timestamp_compute_and_graphics_supported =
+                    properties.limits.timestampComputeAndGraphics == VK_TRUE;
+                report.timestamp_period_ns = properties.limits.timestampPeriod;
+                report.gpu_timestamp_status =
+                    (selected_queue_timestamp_valid_bits > 0U &&
+                     report.timestamp_compute_and_graphics_supported)
+                        ? "available_not_queried" : "unsupported";
                 const std::string gpu_name = report.device_name;
                 report.target_gpu_match = gpu_name.find("G925") != std::string::npos ||
                                           gpu_name.find("g925") != std::string::npos;
@@ -601,8 +753,16 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             LOAD_DEVICE(destroy_render_pass, "vkDestroyRenderPass");
             LOAD_DEVICE(create_framebuffer, "vkCreateFramebuffer");
             LOAD_DEVICE(destroy_framebuffer, "vkDestroyFramebuffer");
+            LOAD_DEVICE(create_shader_module, "vkCreateShaderModule");
+            LOAD_DEVICE(destroy_shader_module, "vkDestroyShaderModule");
+            LOAD_DEVICE(create_pipeline_layout, "vkCreatePipelineLayout");
+            LOAD_DEVICE(destroy_pipeline_layout, "vkDestroyPipelineLayout");
+            LOAD_DEVICE(create_graphics_pipelines, "vkCreateGraphicsPipelines");
+            LOAD_DEVICE(destroy_pipeline, "vkDestroyPipeline");
             LOAD_DEVICE(cmd_begin_render_pass, "vkCmdBeginRenderPass");
             LOAD_DEVICE(cmd_end_render_pass, "vkCmdEndRenderPass");
+            LOAD_DEVICE(cmd_bind_pipeline, "vkCmdBindPipeline");
+            LOAD_DEVICE(cmd_draw, "vkCmdDraw");
             LOAD_DEVICE(get_swapchain_images, "vkGetSwapchainImagesKHR");
             LOAD_DEVICE(create_semaphore, "vkCreateSemaphore");
             LOAD_DEVICE(destroy_semaphore, "vkDestroySemaphore");
@@ -624,7 +784,11 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                 vk.create_image_view == nullptr || vk.destroy_image_view == nullptr ||
                 vk.create_render_pass == nullptr || vk.destroy_render_pass == nullptr ||
                 vk.create_framebuffer == nullptr || vk.destroy_framebuffer == nullptr ||
+                vk.create_shader_module == nullptr || vk.destroy_shader_module == nullptr ||
+                vk.create_pipeline_layout == nullptr || vk.destroy_pipeline_layout == nullptr ||
+                vk.create_graphics_pipelines == nullptr || vk.destroy_pipeline == nullptr ||
                 vk.cmd_begin_render_pass == nullptr || vk.cmd_end_render_pass == nullptr ||
+                vk.cmd_bind_pipeline == nullptr || vk.cmd_draw == nullptr ||
                 vk.create_semaphore == nullptr || vk.destroy_semaphore == nullptr ||
                 vk.acquire_next_image == nullptr || vk.queue_present == nullptr ||
                 vk.queue_wait_idle == nullptr || vk.create_command_pool == nullptr ||
@@ -817,7 +981,8 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                                         swapchain, images[image_index], selected_format.format,
                                                         extent, image_index, acquire_semaphore, present_semaphore,
                                                         command_pool, command_buffer, image_view, render_pass,
-                                                        framebuffer, frame_start);
+                                                        framebuffer, vertex_shader, fragment_shader,
+                                                        pipeline_layout, graphics_pipeline, frame_start);
                                                     if (!frame_ok && report.failure_reason.empty()) {
                                                         fail(report, "R1.6 render-and-present frame did not complete");
                                                     }
@@ -838,6 +1003,42 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     if (device != VK_NULL_HANDLE && vk.device_wait_idle != nullptr) {
         const VkResult idle_result = vk.device_wait_idle(device);
         if (idle_result != VK_SUCCESS) cleanup_ok = false;
+    }
+    if (graphics_pipeline != VK_NULL_HANDLE) {
+        if (vk.destroy_pipeline != nullptr) {
+            vk.destroy_pipeline(device, graphics_pipeline, nullptr);
+            report.graphics_pipeline_destroy_status = "success";
+        } else {
+            report.graphics_pipeline_destroy_status = "failed";
+            cleanup_ok = false;
+        }
+    }
+    if (pipeline_layout != VK_NULL_HANDLE) {
+        if (vk.destroy_pipeline_layout != nullptr) {
+            vk.destroy_pipeline_layout(device, pipeline_layout, nullptr);
+            report.pipeline_layout_destroy_status = "success";
+        } else {
+            report.pipeline_layout_destroy_status = "failed";
+            cleanup_ok = false;
+        }
+    }
+    if (fragment_shader != VK_NULL_HANDLE) {
+        if (vk.destroy_shader_module != nullptr) {
+            vk.destroy_shader_module(device, fragment_shader, nullptr);
+            report.fragment_shader_module_destroy_status = "success";
+        } else {
+            report.fragment_shader_module_destroy_status = "failed";
+            cleanup_ok = false;
+        }
+    }
+    if (vertex_shader != VK_NULL_HANDLE) {
+        if (vk.destroy_shader_module != nullptr) {
+            vk.destroy_shader_module(device, vertex_shader, nullptr);
+            report.vertex_shader_module_destroy_status = "success";
+        } else {
+            report.vertex_shader_module_destroy_status = "failed";
+            cleanup_ok = false;
+        }
     }
     if (framebuffer != VK_NULL_HANDLE) {
         if (vk.destroy_framebuffer != nullptr) {
@@ -979,7 +1180,17 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         report.image_view_create_status == "success" &&
         report.render_pass_create_status == "success" &&
         report.framebuffer_create_status == "success" &&
+        report.vertex_shader_module_create_status == "success" &&
+        report.fragment_shader_module_create_status == "success" &&
+        report.pipeline_layout_create_status == "success" &&
+        report.graphics_pipeline_create_status == "success" &&
         report.render_pass_begin_recorded && report.render_pass_end_recorded &&
+        report.graphics_pipeline_bind_recorded && report.draw_call_recorded &&
+        report.draw_vertex_count == 3U &&
+        report.graphics_pipeline_destroy_status == "success" &&
+        report.pipeline_layout_destroy_status == "success" &&
+        report.vertex_shader_module_destroy_status == "success" &&
+        report.fragment_shader_module_destroy_status == "success" &&
         report.frame_content_written && report.frame_timing_valid &&
         report.image_view_destroy_status == "success" &&
         report.render_pass_destroy_status == "success" &&
