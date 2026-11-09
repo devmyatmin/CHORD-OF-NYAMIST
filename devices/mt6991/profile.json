@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "profile_id": "mediatek-mt6991-redmi-k80-ultra",
+  "profile_status": "observed_reference_device",
+  "captured_on": "2026-11-09",
+  "identity": {
+    "device_name": "REDMI K80 Ultra",
+    "device_model": "25060RK16C",
+    "device_codename": "dali",
+    "soc": "MediaTek MT6991",
+    "commercial_platform": "Dimensity 9400+",
+    "android_release": "16",
+    "android_api_level": 36,
+    "abi": "arm64-v8a"
+  },
+  "cpu": {
+    "architecture": "Armv8-A",
+    "logical_cores": 8,
+    "online_cores": "0-7",
+    "clusters": [
+      {
+        "name": "Cortex-A720",
+        "cores": "0-3",
+        "midr_part": "0xd81",
+        "reported_max_frequency_khz": 2400000
+      },
+      {
+        "name": "Cortex-X4",
+        "cores": "4-6",
+        "midr_part": "0xd82",
+        "reported_max_frequency_khz": 3300000
+      },
+      {
+        "name": "Cortex-X925",
+        "cores": "7",
+        "midr_part": "0xd85",
+        "reported_max_frequency_khz": 3730000
+      }
+    ],
+    "evidence": "MIDR part IDs from /proc/cpuinfo; frequency limits from cpufreq sysfs."
+  },
+  "gpu": {
+    "name": "Mali-G925-Immortalis MC12",
+    "vendor_id": "0x13b5",
+    "device_id": "0xd8300010",
+    "driver_version_reported": "v1.r49p1-03bet0.4505ac1771886c7c25f13653ad4cdff7",
+    "device_vulkan_api": "1.3.278",
+    "loader_api_reported": "1.4.0",
+    "android_graphics_properties": {
+      "egl": "mali",
+      "vulkan": "mali",
+      "hardware_composer": "mtk_common",
+      "composer_version": "3.3"
+    },
+    "userspace_libraries": [
+      {
+        "path": "/system/lib64/libvulkan.so",
+        "role": "Android Vulkan loader",
+        "evidence": "path observed"
+      },
+      {
+        "path": "/vendor/lib64/hw/mt6991/vulkan.mali.so",
+        "role": "Mali Vulkan HAL",
+        "soname": "vulkan.mali.so",
+        "build_id": "9b2f75009917c80b",
+        "needed": [
+          "libGLES_mali.so",
+          "libc++.so",
+          "libc.so",
+          "libm.so",
+          "libdl.so"
+        ]
+      },
+      {
+        "path": "/vendor/lib64/egl/mt6991/libGLES_mali.so",
+        "role": "Mali EGL/OpenGL ES driver",
+        "soname": "libGLES_mali.so",
+        "build_id": "9f301b3680542f75",
+        "notable_dependencies": [
+          "android.hardware.graphics.allocator-V2-ndk.so",
+          "android.hardware.graphics.mapper@4.0.so",
+          "libged.so",
+          "libgpud.so",
+          "libgralloc_extra.so",
+          "libgralloc_metadata.so",
+          "libgralloctypes_mtk.so",
+          "libdmabufheap.so",
+          "arm.mali.platform-V2-ndk.so"
+        ]
+      },
+      {
+        "path": "/vendor/lib64/libged.so",
+        "build_id": "a571a65bb5c7b659bb6df304a541e9b7"
+      },
+      {
+        "path": "/vendor/lib64/libgpud.so",
+        "build_id": "4ae32fc7ce63c8a35948de30ff9b7be9"
+      },
+      {
+        "path": "/vendor/lib64/hw/gralloc.default.so",
+        "build_id": "93a2e938048887c3528df09e5aeeb31a"
+      },
+      {
+        "path": "/vendor/lib64/hw/hwcomposer.mtk_common.so",
+        "role": "MediaTek hardware composer",
+        "inspection": "path discovered; direct file inspection denied to Termux"
+      }
+    ],
+    "runtime_validation": {
+      "r1_1_physical_device_discovery_and_capabilities": "passed_on_device",
+      "r1_2_logical_device_and_queue": "passed_on_device",
+      "r1_3_empty_command_buffer_submit_and_fence": "passed_on_device",
+      "surface_or_swapchain_present": "not_yet_validated",
+      "rendered_workload": "not_yet_validated",
+      "sustained_fps_benchmark": "not_yet_validated"
+    }
+  },
+  "graphics_hal": {
+    "services": [
+      {
+        "name": "android.hardware.graphics.allocator.IAllocator/default",
+        "version": 2,
+        "evidence": "VINTF declared and listed by Service Manager"
+      },
+      {
+        "name": "android.hardware.graphics.composer3.IComposer/default",
+        "version": 3,
+        "evidence": "VINTF declared and listed by Service Manager"
+      },
+      {
+        "name": "vendor.xiaomi.hardware.display.mihwcextension.IMiHwcExtension/default",
+        "version": 1,
+        "evidence": "VINTF declared"
+      },
+      {
+        "name": "vendor.mediatek.hardware.gpuserv.IGpuService/default",
+        "version": 2,
+        "evidence": "VINTF declared and listed by Service Manager"
+      }
+    ],
+    "related_services": [
+      "SurfaceFlinger",
+      "vendor.mediatek.hardware.composer_ext.IComposerExt/default"
+    ],
+    "init_services_running": [
+      "gpu",
+      "displayfeature"
+    ]
+  },
+  "npu": {
+    "nnapi_hal_version": 4,
+    "declared_devices": [
+      "android.hardware.neuralnetworks.IDevice/mtk-neuron_shim",
+      "android.hardware.neuralnetworks.IDevice/mtk-dsp_shim",
+      "android.hardware.neuralnetworks.IDevice/mtk-mdla_shim"
+    ],
+    "neuron_hal_init_state": "running",
+    "neuron_service_manager_state": "found",
+    "related_apuware_services": [
+      "vendor.mediatek.hardware.apuware.apusys.INeuronApusys/default",
+      "vendor.mediatek.hardware.apuware.utils.IApuwareUtils/default"
+    ],
+    "actual_inference": "not_yet_validated",
+    "userspace_libraries": [
+      {
+        "path": "/system_ext/lib64/libneuronusdk_adapter.mtk.so",
+        "build_id": "599075976823a51a0d50860d16c4508602d9d0c5"
+      },
+      {
+        "path": "/system_ext/lib64/libneuronusdk_adapter.9.mtk.so",
+        "build_id": "23e35b4219d57b708a5f5278f595bbeda6f01ca7"
+      },
+      {
+        "path": "/system_ext/lib64/libneuron_runtime_mtk.so"
+      },
+      {
+        "path": "/system_ext/lib64/libneuron_graph_delegate.mtk.so"
+      },
+      {
+        "path": "/system_ext/lib64/libneuron_sys_util.mtk.so"
+      },
+      {
+        "path": "/system_ext/lib64/libneuronservice_adapter.mtk.so"
+      },
+      {
+        "path": "/vendor/lib64/mt6991/libneuron_runtime.so"
+      },
+      {
+        "path": "/vendor/lib64/mt6991/libneuron_runtime.8.so"
+      },
+      {
+        "path": "/vendor/lib64/mt6991/libneuron_adapter_mgvi.so"
+      },
+      {
+        "path": "/vendor/lib64/mt6991/libneuron_wrapper.so"
+      }
+    ]
+  },
+  "memory": {
+    "mem_total_kb_snapshot": 11556580,
+    "mem_available_kb_snapshot": 4841000,
+    "swap_total_kb_reported_by_meminfo": 12582908,
+    "swap_free_kb_reported_by_meminfo": 6649056,
+    "dma_heaps_observed": [
+      "system",
+      "system-uncached",
+      "mtk_mm",
+      "mtk_mm-uncached",
+      "mtk_prot_page-uncached",
+      "mtk_prot_region",
+      "mtk_prot_region-aligned",
+      "mtk_svp_page-uncached",
+      "mtk_tee_page-uncached"
+    ],
+    "note": "Heap enumeration does not establish allocation access or available GPU/NPU memory. /proc/swaps was not readable from Termux."
+  },
+  "thermal": {
+    "running_services": [
+      "thermald",
+      "mi_thermald"
+    ],
+    "sensor_telemetry": "not_readable_in_current_Termux_context"
+  },
+  "access_context": {
+    "termux_uid": 10250,
+    "selinux_domain": "untrusted_app_27",
+    "drm_node": "/dev/dri/card0",
+    "drm_node_access": "system:system mode 0660; Termux is not in the system group",
+    "sysfs_drm_access": "permission_denied",
+    "vendor_hwcomposer_elf_inspection": "permission_denied"
+  },
+  "validation_limits": [
+    "A library path or VINTF declaration does not prove that the component is loaded in a particular process.",
+    "A registered NNAPI device does not prove that a model executed on the NPU.",
+    "R1.3 submitted an intentionally empty command buffer; it is not rendering evidence.",
+    "No surface presentation, sustained rendering, or FPS result is claimed by this profile."
+  ]
+}
