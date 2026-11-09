@@ -187,6 +187,7 @@ Until these gates pass, the status remains **engineering preview / pre-release**
 
 ### Development documents
 
+- [NYAMIST G925 R1 — First Release Plan](docs/releases/NYAMIST-G925-R1.md)
 - [Architecture and scope](docs/architecture.md)
 - [Module contracts](docs/module-contracts.md)
 - [REDMI K80 Ultra hardware validation](docs/device-validation-redmi-k80-ultra.md)
