@@ -500,6 +500,10 @@ void collectLimitInventory(
                  l.maxComputeWorkGroupCount[index]);
         addLimit(device, ("maxComputeWorkGroupSize" + suffix).c_str(),
                  l.maxComputeWorkGroupSize[index]);
+    }
+
+    for (unsigned int index = 0U; index < 2U; ++index) {
+        const std::string suffix = "[" + std::to_string(index) + "]";
         addLimit(device, ("maxViewportDimensions" + suffix).c_str(),
                  l.maxViewportDimensions[index]);
     }

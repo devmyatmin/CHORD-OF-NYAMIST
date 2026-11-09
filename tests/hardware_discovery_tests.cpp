@@ -33,6 +33,8 @@ void testJsonEscapingAndProvenance() {
     device.features.push_back({"dynamicRendering", "1.3", true});
     device.limits_query_status = "success";
     device.limits.push_back({"maxImageDimension2D", 16384ULL});
+    device.limits.push_back({"maxViewportDimensions[0]", 16384ULL});
+    device.limits.push_back({"maxViewportDimensions[1]", 16384ULL});
     device.floating_limits.push_back({"timestampPeriod_ns", 1.0});
     device.queue_families.push_back({0U, 2U, 7U, {"graphics", "compute", "transfer"}});
     device.memory_types.push_back({0U, 0U, 3U, {"device_local", "host_visible"}});
@@ -66,6 +68,13 @@ void testJsonEscapingAndProvenance() {
           "core feature support and API provenance must be serialized");
     check(json.find("\"maxImageDimension2D\", \"value\": 16384") != std::string::npos,
           "physical-device limits must be serialized as numeric values");
+
+    check(json.find("\"maxViewportDimensions[0]\", \"value\": 16384") != std::string::npos,
+          "viewport dimension 0 must be serialized");
+    check(json.find("\"maxViewportDimensions[1]\", \"value\": 16384") != std::string::npos,
+          "viewport dimension 1 must be serialized");
+    check(json.find("\"maxViewportDimensions[2]\"") == std::string::npos,
+          "viewport dimension 2 must never be serialized");
     check(json.find("\"property_flag_names\": [\"device_local\", \"host_visible\"]")
               != std::string::npos,
           "memory type flags must have symbolic names");
@@ -100,6 +109,40 @@ void testLiveCollectionHasExplicitVulkanState() {
         check(device.limits_query_status == "success" ||
               device.limits_query_status == "unavailable",
               "limits query state must be explicit");
+
+        if (device.limits_query_status == "success") {
+            unsigned int viewport_entries = 0U;
+            unsigned int viewport_0_entries = 0U;
+            unsigned int viewport_1_entries = 0U;
+            unsigned int viewport_2_entries = 0U;
+
+            for (const auto& limit : device.limits) {
+                if (limit.name.find("maxViewportDimensions") == 0U) {
+                    ++viewport_entries;
+
+                    if (limit.name == "maxViewportDimensions[0]") {
+                        ++viewport_0_entries;
+                        check(limit.value > 0U,
+                              "viewport dimension 0 must be positive");
+                    } else if (limit.name == "maxViewportDimensions[1]") {
+                        ++viewport_1_entries;
+                        check(limit.value > 0U,
+                              "viewport dimension 1 must be positive");
+                    } else if (limit.name == "maxViewportDimensions[2]") {
+                        ++viewport_2_entries;
+                    }
+                }
+            }
+
+            check(viewport_entries == 2U,
+                  "exactly two viewport dimensions must be collected");
+            check(viewport_0_entries == 1U,
+                  "viewport dimension 0 must be collected exactly once");
+            check(viewport_1_entries == 1U,
+                  "viewport dimension 1 must be collected exactly once");
+            check(viewport_2_entries == 0U,
+                  "out-of-bounds viewport dimension 2 must never be collected");
+        }
     }
 }
 
