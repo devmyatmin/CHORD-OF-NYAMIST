@@ -9,15 +9,15 @@ add_library(nyamist_surface_validation SHARED
     "${NYAMIST_REPO_ROOT}/src/discovery/android_surface_swapchain_validation.cpp"
 )
 
-target_include_directories(nyamist-surface-validation PRIVATE
+target_include_directories(nyamist_surface_validation PRIVATE
     "${NYAMIST_REPO_ROOT}/include"
 )
 
-target_compile_features(nyamist-surface-validation PRIVATE cxx_std_20)
+target_compile_features(nyamist_surface_validation PRIVATE cxx_std_20)
 find_library(android-lib android REQUIRED)
 find_library(log-lib log REQUIRED)
 
-target_link_libraries(nyamist-surface-validation PRIVATE
+target_link_libraries(nyamist_surface_validation PRIVATE
     ${CMAKE_DL_LIBS}
     ${android-lib}
     ${log-lib}
