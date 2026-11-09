@@ -1,70 +1,73 @@
-# NYAMIST G925 R1.7 — Graphics Pipeline & Triangle Draw Validation
+# NYAMIST G925 R1.8 — GPU Timestamp Query & Multi-Frame Validation
 
-This Android application validates graphics-pipeline creation, shader-module
-creation, a three-vertex draw call, and swapchain presentation through the
-stock Android Vulkan loader on the target device.
+This Android application extends the R1.7 shader/pipeline/triangle test into a
+repeatable 16-frame validation sequence with Vulkan timestamp queries on the
+selected graphics queue.
 
-## Rendering path
+## Execution model
 
-1. Receives the Activity SurfaceView and obtains an ANativeWindow.
-2. Loads the public Android Vulkan loader with dlopen("libvulkan.so") and
-   resolves Vulkan entry points through vkGetInstanceProcAddr and
-   vkGetDeviceProcAddr.
-3. Creates the Android surface, identifies the Immortalis-G925 device, and
-   selects a graphics+present queue.
-4. Creates a FIFO swapchain with COLOR_ATTACHMENT usage.
-5. Creates an image view, one-color-attachment render pass, and framebuffer.
-6. Compiles the checked-in GLSL vertex and fragment shaders to Vulkan 1.0
-   SPIR-V during the native build; embeds the resulting words in a generated
-   C++ header without loading a separate runtime shader file.
-7. Creates vertex/fragment shader modules, an empty pipeline layout, and a
-   graphics pipeline compatible with the render pass and swapchain format.
-8. Records a render-pass clear, binds the graphics pipeline, and records
-   vkCmdDraw(3, 1, 0, 0) using gl_VertexIndex. No vertex buffer, descriptors,
-   textures, or external shader assets are required.
-9. Submits the command buffer, presents the rendered swapchain image, waits
-   for queue idle, records CPU-observed timings, and cleans up Vulkan objects.
+1. Create the Android Vulkan instance, surface, G925 logical device, graphics /
+   present queue, and FIFO swapchain through the stock Android loader.
+2. Create one reusable render pass, shader modules, pipeline layout, graphics
+   pipeline, command pool, and command buffer.
+3. Submit one unmeasured warm-up frame to initialize pipeline/driver state.
+4. Submit and present 16 measured frames. Each measured frame reacquires a
+   swapchain image, records the same three-vertex triangle draw, submits,
+   presents, waits for queue idle, and reuses the command pool only after it is
+   no longer pending.
+5. Allocate a timestamp query pool with two timestamp queries per measured
+   frame. Reset each query pair in its command buffer, write a TOP_OF_PIPE
+   timestamp immediately before the render pass, and a BOTTOM_OF_PIPE timestamp
+   after the render pass. Read each pair only after queue idle.
+6. Convert timestamp ticks to nanoseconds using the physical device's
+   timestampPeriod. Apply timestampValidBits wrap masking for queues with fewer
+   than 64 valid bits.
+7. Record each frame's CPU acquire, queue-submit call, present call, queue-idle
+   wait, acquire-to-idle total, plus each GPU timestamp interval.
+8. Serialize raw sample arrays and min / median / nearest-rank P95 / max
+   summaries. CPU wall-clock values and GPU timestamp values remain separate.
+9. Destroy per-image framebuffer and image-view objects after each completed
+   frame, then destroy the shared pipeline, shader, query pool, synchronization,
+   command, swapchain, and device resources in dependency-safe order.
 
-## Shader build requirements
+## Timing definitions
 
-The CMake build requires the host-side glslangValidator executable and Python
-3. GitHub Actions installs Ubuntu's glslang-tools package before Gradle invokes
-the Android native build. The runtime APK only uses the generated SPIR-V
-arrays; it does not invoke a shader compiler on the phone.
+- frame_total_cpu_us_samples: CPU wall-clock from immediately before image
+  acquisition to return from queue idle for each measured frame.
+- acquire_cpu_us_samples: CPU time spent in vkAcquireNextImageKHR.
+- queue_submit_cpu_us_samples: CPU time spent inside vkQueueSubmit.
+- present_call_cpu_us_samples: CPU time spent inside vkQueuePresentKHR.
+- queue_idle_wait_cpu_us_samples: CPU time spent inside vkQueueWaitIdle.
+- gpu_frame_time_ns_samples: GPU timestamp tick interval converted to ns
+  between TOP_OF_PIPE before the render pass and BOTTOM_OF_PIPE after it.
 
-The source shaders are:
-- app/src/main/shaders/triangle.vert
-- app/src/main/shaders/triangle.frag
-
-## Timing and GPU timestamp capability
-
-R1.7 retains the R1.6 CPU wall-clock timings. It also records whether the
-selected graphics queue and physical-device limits expose timestamp support.
-A capability indication is not a GPU timestamp measurement. GPU timestamp
-query-pool execution and multi-frame performance sampling are separate follow-up
-work and must not be inferred from this milestone.
+A GPU timestamp interval is not a display-refresh measurement and must not be
+reported as FPS. The CPU acquire-to-idle interval is not GPU execution time.
+The 16 samples are a short validation run, not sustained performance, thermal,
+or game-compatibility evidence. Queue idle is deliberately used for deterministic
+single-queue resource and semaphore reuse; this is not a throughput-optimized
+renderer.
 
 ## Build and run
 
-The r1.7-android-shader-pipeline.yml workflow builds an arm64-v8a debug APK
-and uploads nyamist-g925-r1.7-debug-apk.
+The R1.8 workflow builds an arm64-v8a debug APK and uploads the
+nyamist-g925-r1.8-debug-apk artifact.
 
-1. Download app-debug.apk from the successful R1.7 Android workflow run.
-2. Install and open NYAMIST G925 R1.7 Triangle Draw Test.
-3. Keep the app foregrounded until its JSON report appears.
-4. Tap Copy JSON report and paste the complete report into the project chat.
-5. The report is also written under the app-specific external files directory.
+1. Download the APK from a successful R1.8 Android workflow run.
+2. Install and open NYAMIST G925 R1.8 Multi-Frame GPU Timing Test.
+3. Keep the app in the foreground until the 1 warm-up + 16 measured frames finish.
+4. Tap Copy JSON report and paste the complete JSON into the project chat.
 
-## Acceptance boundary
+## Hardware acceptance
 
-A hardware pass requires G925 identification, shader-module and pipeline-layout
-creation, graphics-pipeline creation, render-pass begin/end, recorded pipeline
-bind and three-vertex draw, successful queue submission and presentation,
-queue idle, and complete cleanup.
+A full R1.8 pass requires the target G925 identity, shader modules and graphics
+pipeline, 17 successful frame submissions/presentations (1 warm-up + 16 samples),
+16 valid CPU samples, 16 valid GPU timestamp query samples, successful
+presentation/queue-idle operations, and complete Vulkan cleanup.
 
-Hosted CI proves shader compilation and Android APK packaging only. It cannot
-prove that the phone's GPU accepted or executed the pipeline and draw. Actual
-REDMI K80 Ultra report evidence is mandatory for hardware acceptance.
+Hosted CI validates C++ tests, Android native compilation, shader compilation,
+and APK packaging only. Actual REDMI K80 Ultra JSON evidence is mandatory for
+hardware acceptance.
 
-No root, device-node access, SELinux changes, kernel changes, vendor partition
-writes, driver replacement, or proprietary libraries are used.
+No root, direct device-node access, SELinux/kernel changes, vendor partition
+writes, or driver replacement are used.
