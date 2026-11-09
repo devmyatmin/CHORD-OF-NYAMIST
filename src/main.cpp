@@ -1,6 +1,7 @@
 #include "nyamist/cache_store.hpp"
 #include "nyamist/discovery/hardware_discovery.hpp"
 #include "nyamist/discovery/logical_device_validation.hpp"
+#include "nyamist/discovery/queue_submission_validation.hpp"
 #include "nyamist/fingerprint.hpp"
 #include "nyamist/optimization_advisor.hpp"
 #include "nyamist/runtime/device_probe_adapter.hpp"
@@ -25,6 +26,7 @@ void printUsage() {
         << "  nyamist-cli demo-cache <directory>\n"
         << "  nyamist-cli discover [--output <report.json>]\n"
         << "  nyamist-cli validate-device [--output <report.json>]\n"
+        << "  nyamist-cli validate-submit [--output <report.json>]\n"
         << "  nyamist-cli inspect-panvk <report.env>\n"
         << "  nyamist-cli inspect-device <report.env>\n"
         << "  nyamist-cli inspect-dxvk <report.env>\n"
@@ -117,6 +119,58 @@ int runValidateDevice(int argc, char** argv) {
                   << "Cleanup: " << report.cleanup_status << '\n';
         if (!report.failure_reason.empty()) {
             std::cout << "Failure reason: " << report.failure_reason << '\n';
+        }
+    }
+    return report.status == "success" ? 0 : 1;
+}
+
+int runValidateQueueSubmission(int argc, char** argv) {
+    std::string output_path;
+    if (argc == 4 && std::string(argv[2]) == "--output") {
+        output_path = argv[3];
+    } else if (argc != 2) {
+        printUsage();
+        return 2;
+    }
+
+    const auto report =
+        nyamist::discovery::collectQueueSubmissionValidationReport();
+    const std::string json = nyamist::discovery::toJson(report);
+    if (output_path.empty()) {
+        std::cout << json;
+        if (!std::cout.good()) return 1;
+    } else {
+        std::ofstream output(output_path, std::ios::binary | std::ios::trunc);
+        if (!output) {
+            std::cerr << "Unable to create queue-submission report: "
+                      << output_path << '\\n';
+            return 1;
+        }
+        output << json;
+        if (!output.good()) {
+            std::cerr << "Failed while writing queue-submission report: "
+                      << output_path << '\\n';
+            return 1;
+        }
+        std::cout << "NYAMIST R1.3 queue-submission report: "
+                  << output_path << '\\n'
+                  << "Validation status: " << report.status << '\\n'
+                  << "Physical device: "
+                  << (report.device_name.empty() ? "not identified" : report.device_name)
+                  << '\\n'
+                  << "Command buffer recorded: "
+                  << (report.command_buffer_recorded ? "yes" : "no") << '\\n'
+                  << "Queue submit: " << report.queue_submit_status << '\\n'
+                  << "Fence signaled: "
+                  << (report.fence_signaled ? "yes" : "no") << '\\n'
+                  << "Resource cleanup: "
+                  << report.command_resource_cleanup_status << '\\n';
+        if (!report.command_failure_reason.empty()) {
+            std::cout << "Command failure reason: "
+                      << report.command_failure_reason << '\\n';
+        }
+        if (!report.failure_reason.empty()) {
+            std::cout << "Failure reason: " << report.failure_reason << '\\n';
         }
     }
     return report.status == "success" ? 0 : 1;
@@ -270,6 +324,9 @@ int main(int argc, char** argv) {
     }
     if (command == "validate-device") {
         return runValidateDevice(argc, argv);
+    }
+    if (command == "validate-submit") {
+        return runValidateQueueSubmission(argc, argv);
     }
     if (command == "inspect-panvk" && argc == 3) {
         return runInspectPanvk(argv[2]);
