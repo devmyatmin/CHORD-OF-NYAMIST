@@ -57,13 +57,22 @@ void testSuccessfulSwapchainReportContract() {
     report.swapchain_image_query_status = "success";
     report.swapchain_image_count = 3U;
     report.semaphore_create_status = "success";
+    report.present_semaphore_create_status = "success";
     report.image_acquire_status = "success";
+    report.command_pool_create_status = "success";
+    report.command_buffer_allocate_status = "success";
+    report.command_record_status = "success";
+    report.image_layout_transition_recorded = true;
+    report.queue_submit_status = "success";
     report.image_acquired = true;
     report.image_present_status = "success";
     report.image_presented = true;
     report.queue_idle_status = "success";
     report.cleanup_status = "success";
     report.semaphore_destroy_status = "success";
+    report.present_semaphore_destroy_status = "success";
+    report.command_buffer_free_status = "success";
+    report.command_pool_destroy_status = "success";
     report.swapchain_destroy_status = "success";
     report.device_destroy_status = "success";
     report.surface_destroy_status = "success";
@@ -79,6 +88,12 @@ void testSuccessfulSwapchainReportContract() {
           "swapchain images must be counted");
     check(json.find("\"image_acquired\": true") != std::string::npos,
           "swapchain acquisition must be serialized");
+    check(json.find("\"image_layout_transition_recorded\": true") != std::string::npos,
+          "present layout transition must be serialized");
+    check(json.find("\"queue_submit_status\": \"success\"") != std::string::npos,
+          "queue submission between acquire and present must be serialized");
+    check(json.find("\"present_semaphore_create_status\": \"success\"") != std::string::npos,
+          "presentation wait semaphore must be serialized");
     check(json.find("\"image_presented\": true") != std::string::npos,
           "presentation must be serialized");
     check(json.find("\"frame_content_written\": false") != std::string::npos,
