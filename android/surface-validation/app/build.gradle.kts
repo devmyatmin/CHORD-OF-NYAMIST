@@ -11,8 +11,8 @@ android {
         applicationId = "dev.nyamist.g925surface"
         minSdk = 26
         targetSdk = 35
-        versionCode = 150
-        versionName = "1.5.0"
+        versionCode = 160
+        versionName = "1.6.0"
 
         ndk {
             abiFilters += "arm64-v8a"
