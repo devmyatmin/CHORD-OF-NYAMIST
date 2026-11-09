@@ -453,11 +453,11 @@ QueueSubmissionValidationReport collectQueueSubmissionValidationReport() {
             get_instance_proc_addr(instance, "vkDestroyDevice"));
     }
 
+    VkQueue queue = VK_NULL_HANDLE;
     if (get_queue == nullptr) {
         report.queue_retrieval_status = "failed";
         report.queue_retrieval_result = "vkGetDeviceQueue entry point unavailable";
     } else {
-        VkQueue queue = VK_NULL_HANDLE;
         get_queue(device, family->index, 0U, &queue);
         report.queue_handle_non_null = queue != VK_NULL_HANDLE;
         report.queue_retrieval_status = report.queue_handle_non_null ? "success" : "failed";
