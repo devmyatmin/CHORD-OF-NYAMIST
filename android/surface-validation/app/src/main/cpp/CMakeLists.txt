@@ -14,11 +14,6 @@ target_include_directories(nyamist-surface-validation PRIVATE
 )
 
 target_compile_features(nyamist-surface-validation PRIVATE cxx_std_20)
-target_compile_definitions(nyamist-surface-validation PRIVATE
-    VK_NO_PROTOTYPES=1
-    VK_USE_PLATFORM_ANDROID_KHR=1
-)
-
 find_library(android-lib android REQUIRED)
 find_library(log-lib log REQUIRED)
 
