@@ -36,6 +36,7 @@ jobs:
           repository: google-ai-edge/LiteRT-LM
           ref: v0.19.0
           path: third_party/LiteRT-LM
+          lfs: true
 
       - name: Install host build dependencies
         run: |
