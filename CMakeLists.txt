@@ -16,6 +16,7 @@ target_compile_features(nyamist_core PUBLIC cxx_std_20)
 
 add_library(nyamist_discovery
     src/discovery/hardware_discovery.cpp
+    src/discovery/logical_device_validation.cpp
 )
 target_include_directories(nyamist_discovery PUBLIC include)
 target_compile_features(nyamist_discovery PUBLIC cxx_std_20)
@@ -116,6 +117,12 @@ if(NYAMIST_BUILD_TESTS)
     add_executable(nyamist-discovery-tests tests/hardware_discovery_tests.cpp)
     target_link_libraries(nyamist-discovery-tests PRIVATE nyamist_discovery)
     add_test(NAME nyamist-hardware-discovery-tests COMMAND nyamist-discovery-tests)
+
+    add_executable(nyamist-logical-device-validation-tests
+        tests/logical_device_validation_tests.cpp)
+    target_link_libraries(nyamist-logical-device-validation-tests PRIVATE nyamist_discovery)
+    add_test(NAME nyamist-logical-device-validation-tests
+        COMMAND nyamist-logical-device-validation-tests)
 
     add_executable(nyamist-runtime-tests tests/runtime_tests.cpp)
     target_link_libraries(nyamist-runtime-tests PRIVATE nyamist_runtime)

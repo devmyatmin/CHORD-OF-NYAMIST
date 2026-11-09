@@ -2,7 +2,7 @@ name: NYAMIST Core CI
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -46,6 +46,34 @@ jobs:
 
       - name: Test runtime Vulkan dispatch variant
         run: ctest --test-dir build-dynamic --output-on-failure
+
+      - name: R1.2 logical-device and queue validation report smoke test
+        run: |
+          set +e
+          ./build-dynamic/nyamist-cli validate-device --output ./build-dynamic/nyamist-r1.2-device-validation.json
+          probe_exit=$?
+          set -e
+          if [ "$probe_exit" -gt 1 ]; then
+            echo "R1.2 probe returned an unexpected CLI exit code: $probe_exit"
+            exit "$probe_exit"
+          fi
+          python3 -m json.tool ./build-dynamic/nyamist-r1.2-device-validation.json > /dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("./build-dynamic/nyamist-r1.2-device-validation.json").read_text())
+          assert report["schema_version"] == 1
+          assert report["status"] in {"success", "failed", "unavailable"}
+          assert report["logical_device"]["enabled_device_extension_count"] == 0
+          assert report["logical_device"]["enabled_core_features"] == "none"
+          if report["status"] == "success":
+              assert report["logical_device"]["create_status"] == "success"
+              assert report["queue_retrieval"]["status"] == "success"
+              assert report["queue_retrieval"]["queue_handle_non_null"] is True
+              assert report["cleanup"]["logical_device_destroyed"] is True
+          print("R1.2 report contract is valid:", report["status"])
+          PY
 
       - name: Verify runtime Vulkan dispatch has no direct loader dependency
         run: |
