@@ -111,6 +111,50 @@ jobs:
           print("R1.3 report contract is valid:", report["status"])
           PY
 
+      - name: R1.4 GPU resource-transfer validation report smoke test
+        run: |
+          set +e
+          ./build-dynamic/nyamist-cli validate-transfer --output ./build-dynamic/nyamist-r1.4-gpu-resource-transfer.json
+          probe_exit=$?
+          set -e
+          if [ "$probe_exit" -gt 1 ]; then
+            echo "R1.4 probe returned an unexpected CLI exit code: $probe_exit"
+            exit "$probe_exit"
+          fi
+          python3 -m json.tool ./build-dynamic/nyamist-r1.4-gpu-resource-transfer.json > /dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("./build-dynamic/nyamist-r1.4-gpu-resource-transfer.json").read_text())
+          assert report["schema_version"] == 1
+          assert report["status"] in {"success", "failed", "unavailable"}
+          assert report["buffers"]["size_bytes"] == 4096
+          assert report["command"]["submit_status"] in {"success", "failed", "not_attempted"}
+          assert report["readback"]["status"] in {"success", "mismatch", "failed", "not_attempted"}
+          assert isinstance(report["device_lost"], bool)
+          if report["status"] == "success":
+              assert report["buffers"]["source_create_status"] == "success"
+              assert report["buffers"]["destination_create_status"] == "success"
+              assert report["memory"]["source_allocate_status"] == "success"
+              assert report["memory"]["destination_allocate_status"] == "success"
+              assert report["memory"]["source_bind_status"] == "success"
+              assert report["memory"]["destination_bind_status"] == "success"
+              assert report["command"]["submitted"] is True
+              assert report["command"]["fence_signaled"] is True
+              assert report["readback"]["bytes_copied"] == 4096
+              assert report["readback"]["bytes_verified"] == 4096
+              assert report["readback"]["data_match"] is True
+              assert report["device_lost"] is False
+              assert report["cleanup"]["source_buffer_destroyed"] is True
+              assert report["cleanup"]["destination_buffer_destroyed"] is True
+              assert report["cleanup"]["source_memory_freed"] is True
+              assert report["cleanup"]["destination_memory_freed"] is True
+              assert report["cleanup"]["logical_device_destroyed"] is True
+              assert report["cleanup"]["instance_destroyed"] is True
+          print("R1.4 report contract is valid:", report["status"])
+          PY
+
       - name: Verify runtime Vulkan dispatch has no direct loader dependency
         run: |
           if readelf -d build-dynamic/nyamist-cli | grep -Fq 'Shared library: [libvulkan.so]' || \

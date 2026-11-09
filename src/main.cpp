@@ -2,6 +2,7 @@
 #include "nyamist/discovery/hardware_discovery.hpp"
 #include "nyamist/discovery/logical_device_validation.hpp"
 #include "nyamist/discovery/command_submission_validation.hpp"
+#include "nyamist/discovery/gpu_resource_transfer_validation.hpp"
 #include "nyamist/fingerprint.hpp"
 #include "nyamist/optimization_advisor.hpp"
 #include "nyamist/runtime/device_probe_adapter.hpp"
@@ -170,6 +171,48 @@ int runValidateSubmit(int argc, char** argv) {
     return report.status == "success" ? 0 : 1;
 }
 
+
+int runValidateTransfer(int argc, char** argv) {
+    std::string output_path;
+    if (argc == 4 && std::string(argv[2]) == "--output") {
+        output_path = argv[3];
+    } else if (argc != 2) {
+        printUsage();
+        return 2;
+    }
+
+    const auto report =
+        nyamist::discovery::collectGpuResourceTransferValidationReport();
+    const std::string json = nyamist::discovery::toJson(report);
+    if (output_path.empty()) {
+        std::cout << json;
+        if (!std::cout.good()) return 1;
+    } else {
+        std::ofstream output(output_path, std::ios::binary | std::ios::trunc);
+        if (!output) {
+            std::cerr << "Unable to create GPU transfer report: " << output_path << '\n';
+            return 1;
+        }
+        output << json;
+        if (!output.good()) {
+            std::cerr << "Failed while writing GPU transfer report: " << output_path << '\n';
+            return 1;
+        }
+        std::cout << "NYAMIST R1.4 GPU resource-transfer report: " << output_path << '\n'
+                  << "Validation status: " << report.status << '\n'
+                  << "Physical device: "
+                  << (report.device_name.empty() ? "not identified" : report.device_name) << '\n'
+                  << "Bytes copied: " << report.bytes_copied << '\n'
+                  << "Bytes verified: " << report.bytes_verified << '\n'
+                  << "Data match: " << (report.data_match ? "yes" : "no") << '\n'
+                  << "Cleanup: " << report.cleanup_status << '\n';
+        if (!report.failure_reason.empty()) {
+            std::cout << "Failure reason: " << report.failure_reason << '\n';
+        }
+    }
+    return report.status == "success" ? 0 : 1;
+}
+
 int runAdvice() {
     nyamist::GpuProfile gpu;
     gpu.gpu_name = "REDMI K80 Ultra (target profile; runtime probe pending)";
@@ -321,6 +364,9 @@ int main(int argc, char** argv) {
     }
     if (command == "validate-submit") {
         return runValidateSubmit(argc, argv);
+    }
+    if (command == "validate-transfer") {
+        return runValidateTransfer(argc, argv);
     }
     if (command == "inspect-panvk" && argc == 3) {
         return runInspectPanvk(argv[2]);
