@@ -75,6 +75,42 @@ jobs:
           print("R1.2 report contract is valid:", report["status"])
           PY
 
+      - name: R1.3 command-submission and fence validation report smoke test
+        run: |
+          set +e
+          ./build-dynamic/nyamist-cli validate-submit --output ./build-dynamic/nyamist-r1.3-command-submission.json
+          probe_exit=$?
+          set -e
+          if [ "$probe_exit" -gt 1 ]; then
+            echo "R1.3 probe returned an unexpected CLI exit code: $probe_exit"
+            exit "$probe_exit"
+          fi
+          python3 -m json.tool ./build-dynamic/nyamist-r1.3-command-submission.json > /dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("./build-dynamic/nyamist-r1.3-command-submission.json").read_text())
+          assert report["schema_version"] == 1
+          assert report["status"] in {"success", "failed", "unavailable"}
+          assert report["physical_device"]["query_status"] in {"success", "failed", "not_attempted"}
+          assert report["queue_submission"]["status"] in {"success", "failed", "not_attempted"}
+          assert report["fence"]["wait_status"] in {"success", "failed", "not_attempted"}
+          assert isinstance(report["device_lost"], bool)
+          if report["status"] == "success":
+              assert report["queue_submission"]["submitted"] is True
+              assert report["fence"]["wait_status"] == "success"
+              assert report["fence"]["status_query"] == "success"
+              assert report["fence"]["signaled"] is True
+              assert report["device_lost"] is False
+              assert report["cleanup"]["fence_destroyed"] is True
+              assert report["cleanup"]["command_buffer_freed"] is True
+              assert report["cleanup"]["command_pool_destroyed"] is True
+              assert report["cleanup"]["logical_device_destroyed"] is True
+              assert report["cleanup"]["instance_destroyed"] is True
+          print("R1.3 report contract is valid:", report["status"])
+          PY
+
       - name: Verify runtime Vulkan dispatch has no direct loader dependency
         run: |
           if readelf -d build-dynamic/nyamist-cli | grep -Fq 'Shared library: [libvulkan.so]' || \
