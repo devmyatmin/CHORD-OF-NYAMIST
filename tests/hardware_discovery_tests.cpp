@@ -19,6 +19,10 @@ void testJsonEscapingAndProvenance() {
     });
     report.vulkan_compiled = true;
     report.vulkan_status = "unavailable";
+    report.vulkan_loader_library = "libvulkan.so";
+    report.vulkan_instance_extensions = {
+        "VK_KHR_surface", "VK_EXT_debug_utils"
+    };
     report.vulkan_failure_reason = "line1\nline2";
 
     const std::string json = nyamist::discovery::toJson(report);
@@ -32,6 +36,11 @@ void testJsonEscapingAndProvenance() {
           "control characters must be escaped");
     check(json.find("\"enumeration_status\": \"unavailable\"") != std::string::npos,
           "Vulkan status must be explicit");
+    check(json.find("\"loader_library\": \"libvulkan.so\"") != std::string::npos,
+          "the selected Vulkan loader library must be recorded");
+    check(json.find("\"instance_extensions\": [\"VK_KHR_surface\", \"VK_EXT_debug_utils\"]")
+              != std::string::npos,
+          "instance extensions must be serialized as evidence");
 }
 
 void testLiveCollectionHasExplicitVulkanState() {
