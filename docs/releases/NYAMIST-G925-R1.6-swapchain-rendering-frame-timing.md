@@ -60,3 +60,26 @@ graphics pipeline, execute shaders, or draw geometry. GPU timestamps are not
 queried. A single blocking CPU timing sample is not a performance benchmark
 and cannot establish FPS, sustained throughput, thermal stability, or game
 compatibility.
+
+## REDMI K80 Ultra hardware evidence — 2026-11-09
+
+The target-device schema-v2 report is recorded at
+docs/hardware-reports/mt6991-redmi-k80-ultra-r1.6-2026-11-09.json.
+
+Observed on Mali-G925-Immortalis MC12 (vendor 0x13b5, device 0xd8300010,
+Vulkan 1.3.278): Android surface and FIFO swapchain succeeded; six images were
+enumerated; image index 0 was acquired; image view, render pass and framebuffer
+creation succeeded; render-pass begin/end were recorded; queue submission,
+presentation and queue idle succeeded; frame_content_written was true; all
+reported cleanup operations succeeded; failure_reason was empty.
+
+The submitted CPU-observed timings were: acquire 10 µs, queue-submit call
+3,280 µs, present call 8,447 µs, queue-idle wait 294 µs, total acquire-to-idle
+14,612 µs. This is one sample from std::chrono::steady_clock. It is not GPU
+execution timing, a refresh-rate/FPS result, or a sustained performance
+benchmark. gpu_timestamp_status remains not_queried.
+
+**R1.6 target-device acceptance: PASS.** The milestone proves a successful
+render-pass clear and presentation of the acquired swapchain image on the
+target GPU. It does not prove shader execution, geometry rendering, game
+compatibility, or sustained frame throughput.
