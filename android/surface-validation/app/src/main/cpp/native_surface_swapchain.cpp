@@ -51,6 +51,14 @@ struct VulkanDispatch {
     PFN_vkQueuePresentKHR queue_present{};
     PFN_vkQueueWaitIdle queue_wait_idle{};
     PFN_vkDeviceWaitIdle device_wait_idle{};
+    PFN_vkCreateCommandPool create_command_pool{};
+    PFN_vkDestroyCommandPool destroy_command_pool{};
+    PFN_vkAllocateCommandBuffers allocate_command_buffers{};
+    PFN_vkFreeCommandBuffers free_command_buffers{};
+    PFN_vkBeginCommandBuffer begin_command_buffer{};
+    PFN_vkEndCommandBuffer end_command_buffer{};
+    PFN_vkCmdPipelineBarrier cmd_pipeline_barrier{};
+    PFN_vkQueueSubmit queue_submit{};
 };
 
 bool isUsable(VkResult result) {
@@ -123,6 +131,9 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     VkQueue queue = VK_NULL_HANDLE;
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
     VkSemaphore acquire_semaphore = VK_NULL_HANDLE;
+    VkSemaphore present_semaphore = VK_NULL_HANDLE;
+    VkCommandPool command_pool = VK_NULL_HANDLE;
+    VkCommandBuffer command_buffer = VK_NULL_HANDLE;
 
     if (java_surface == nullptr || requested_width <= 0 || requested_height <= 0) {
         report.native_window_status = "invalid_input";
@@ -360,12 +371,24 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             LOAD_DEVICE(queue_present, "vkQueuePresentKHR");
             LOAD_DEVICE(queue_wait_idle, "vkQueueWaitIdle");
             LOAD_DEVICE(device_wait_idle, "vkDeviceWaitIdle");
+            LOAD_DEVICE(create_command_pool, "vkCreateCommandPool");
+            LOAD_DEVICE(destroy_command_pool, "vkDestroyCommandPool");
+            LOAD_DEVICE(allocate_command_buffers, "vkAllocateCommandBuffers");
+            LOAD_DEVICE(free_command_buffers, "vkFreeCommandBuffers");
+            LOAD_DEVICE(begin_command_buffer, "vkBeginCommandBuffer");
+            LOAD_DEVICE(end_command_buffer, "vkEndCommandBuffer");
+            LOAD_DEVICE(cmd_pipeline_barrier, "vkCmdPipelineBarrier");
+            LOAD_DEVICE(queue_submit, "vkQueueSubmit");
 #undef LOAD_DEVICE
             if (vk.get_device_queue == nullptr || vk.create_swapchain == nullptr ||
                 vk.destroy_swapchain == nullptr || vk.get_swapchain_images == nullptr ||
                 vk.create_semaphore == nullptr || vk.destroy_semaphore == nullptr ||
                 vk.acquire_next_image == nullptr || vk.queue_present == nullptr ||
-                vk.queue_wait_idle == nullptr) {
+                vk.queue_wait_idle == nullptr || vk.create_command_pool == nullptr ||
+                vk.destroy_command_pool == nullptr || vk.allocate_command_buffers == nullptr ||
+                vk.free_command_buffers == nullptr || vk.begin_command_buffer == nullptr ||
+                vk.end_command_buffer == nullptr || vk.cmd_pipeline_barrier == nullptr ||
+                vk.queue_submit == nullptr) {
                 fail(report, "One or more required Vulkan device entry points are unavailable");
             } else {
                 vk.get_device_queue(device, selected_queue_family, 0U, &queue);
@@ -531,25 +554,122 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                         } else {
                                             report.image_acquired = true;
                                             report.acquired_image_index = image_index;
-                                            VkPresentInfoKHR present_info{
-                                                VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
-                                            present_info.waitSemaphoreCount = 1U;
-                                            present_info.pWaitSemaphores = &acquire_semaphore;
-                                            present_info.swapchainCount = 1U;
-                                            present_info.pSwapchains = &swapchain;
-                                            present_info.pImageIndices = &image_index;
-                                            result = vk.queue_present(queue, &present_info);
-                                            report.image_present_status =
-                                                isUsable(result) ? "success" : "failed";
-                                            report.image_presented = isUsable(result);
-                                            if (!isUsable(result)) {
-                                                fail(report, "vkQueuePresentKHR failed: " + resultName(result));
+
+                                            result = vk.create_semaphore(
+                                                device, &semaphore_info, nullptr, &present_semaphore);
+                                            report.present_semaphore_create_status =
+                                                result == VK_SUCCESS ? "success" : "failed";
+                                            if (result != VK_SUCCESS) {
+                                                fail(report, "Present semaphore creation failed: " + resultName(result));
                                             } else {
-                                                result = vk.queue_wait_idle(queue);
-                                                report.queue_idle_status =
+                                                VkCommandPoolCreateInfo pool_info{
+                                                    VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+                                                pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+                                                pool_info.queueFamilyIndex = selected_queue_family;
+                                                result = vk.create_command_pool(
+                                                    device, &pool_info, nullptr, &command_pool);
+                                                report.command_pool_create_status =
                                                     result == VK_SUCCESS ? "success" : "failed";
                                                 if (result != VK_SUCCESS) {
-                                                    fail(report, "vkQueueWaitIdle failed: " + resultName(result));
+                                                    fail(report, "vkCreateCommandPool failed: " + resultName(result));
+                                                } else {
+                                                    VkCommandBufferAllocateInfo allocate_info{
+                                                        VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+                                                    allocate_info.commandPool = command_pool;
+                                                    allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+                                                    allocate_info.commandBufferCount = 1U;
+                                                    result = vk.allocate_command_buffers(
+                                                        device, &allocate_info, &command_buffer);
+                                                    report.command_buffer_allocate_status =
+                                                        result == VK_SUCCESS ? "success" : "failed";
+                                                    if (result != VK_SUCCESS) {
+                                                        fail(report, "vkAllocateCommandBuffers failed: " + resultName(result));
+                                                    } else {
+                                                        VkCommandBufferBeginInfo begin_info{
+                                                            VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+                                                        begin_info.flags =
+                                                            VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+                                                        result = vk.begin_command_buffer(
+                                                            command_buffer, &begin_info);
+                                                        if (result != VK_SUCCESS) {
+                                                            report.command_record_status = "failed";
+                                                            fail(report, "vkBeginCommandBuffer failed: " + resultName(result));
+                                                        } else {
+                                                            VkImageMemoryBarrier present_barrier{
+                                                                VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+                                                            present_barrier.srcAccessMask = 0U;
+                                                            present_barrier.dstAccessMask = 0U;
+                                                            present_barrier.oldLayout =
+                                                                VK_IMAGE_LAYOUT_UNDEFINED;
+                                                            present_barrier.newLayout =
+                                                                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+                                                            present_barrier.srcQueueFamilyIndex =
+                                                                VK_QUEUE_FAMILY_IGNORED;
+                                                            present_barrier.dstQueueFamilyIndex =
+                                                                VK_QUEUE_FAMILY_IGNORED;
+                                                            present_barrier.image = images[image_index];
+                                                            present_barrier.subresourceRange.aspectMask =
+                                                                VK_IMAGE_ASPECT_COLOR_BIT;
+                                                            present_barrier.subresourceRange.baseMipLevel = 0U;
+                                                            present_barrier.subresourceRange.levelCount = 1U;
+                                                            present_barrier.subresourceRange.baseArrayLayer = 0U;
+                                                            present_barrier.subresourceRange.layerCount = 1U;
+                                                            vk.cmd_pipeline_barrier(
+                                                                command_buffer,
+                                                                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                                                                VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                                                                0U, 0U, nullptr, 0U, nullptr,
+                                                                1U, &present_barrier);
+                                                            report.image_layout_transition_recorded = true;
+                                                            result = vk.end_command_buffer(command_buffer);
+                                                            report.command_record_status =
+                                                                result == VK_SUCCESS ? "success" : "failed";
+                                                            if (result != VK_SUCCESS) {
+                                                                fail(report, "vkEndCommandBuffer failed: " + resultName(result));
+                                                            } else {
+                                                                const VkPipelineStageFlags wait_stage =
+                                                                    VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+                                                                VkSubmitInfo submit_info{
+                                                                    VK_STRUCTURE_TYPE_SUBMIT_INFO};
+                                                                submit_info.waitSemaphoreCount = 1U;
+                                                                submit_info.pWaitSemaphores = &acquire_semaphore;
+                                                                submit_info.pWaitDstStageMask = &wait_stage;
+                                                                submit_info.commandBufferCount = 1U;
+                                                                submit_info.pCommandBuffers = &command_buffer;
+                                                                submit_info.signalSemaphoreCount = 1U;
+                                                                submit_info.pSignalSemaphores = &present_semaphore;
+                                                                result = vk.queue_submit(
+                                                                    queue, 1U, &submit_info, VK_NULL_HANDLE);
+                                                                report.queue_submit_status =
+                                                                    result == VK_SUCCESS ? "success" : "failed";
+                                                                if (result != VK_SUCCESS) {
+                                                                    fail(report, "vkQueueSubmit for present-layout transition failed: " + resultName(result));
+                                                                } else {
+                                                                    VkPresentInfoKHR present_info{
+                                                                        VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+                                                                    present_info.waitSemaphoreCount = 1U;
+                                                                    present_info.pWaitSemaphores = &present_semaphore;
+                                                                    present_info.swapchainCount = 1U;
+                                                                    present_info.pSwapchains = &swapchain;
+                                                                    present_info.pImageIndices = &image_index;
+                                                                    result = vk.queue_present(queue, &present_info);
+                                                                    report.image_present_status =
+                                                                        isUsable(result) ? "success" : "failed";
+                                                                    report.image_presented = isUsable(result);
+                                                                    if (!isUsable(result)) {
+                                                                        fail(report, "vkQueuePresentKHR failed: " + resultName(result));
+                                                                    } else {
+                                                                        result = vk.queue_wait_idle(queue);
+                                                                        report.queue_idle_status =
+                                                                            result == VK_SUCCESS ? "success" : "failed";
+                                                                        if (result != VK_SUCCESS) {
+                                                                            fail(report, "vkQueueWaitIdle failed: " + resultName(result));
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -568,12 +688,39 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         const VkResult idle_result = vk.device_wait_idle(device);
         if (idle_result != VK_SUCCESS) cleanup_ok = false;
     }
+    if (command_buffer != VK_NULL_HANDLE && command_pool != VK_NULL_HANDLE) {
+        if (vk.free_command_buffers != nullptr) {
+            vk.free_command_buffers(device, command_pool, 1U, &command_buffer);
+            report.command_buffer_free_status = "success";
+        } else {
+            report.command_buffer_free_status = "failed";
+            cleanup_ok = false;
+        }
+    }
+    if (command_pool != VK_NULL_HANDLE) {
+        if (vk.destroy_command_pool != nullptr) {
+            vk.destroy_command_pool(device, command_pool, nullptr);
+            report.command_pool_destroy_status = "success";
+        } else {
+            report.command_pool_destroy_status = "failed";
+            cleanup_ok = false;
+        }
+    }
     if (acquire_semaphore != VK_NULL_HANDLE) {
         if (vk.destroy_semaphore != nullptr) {
             vk.destroy_semaphore(device, acquire_semaphore, nullptr);
             report.semaphore_destroy_status = "success";
         } else {
             report.semaphore_destroy_status = "failed";
+            cleanup_ok = false;
+        }
+    }
+    if (present_semaphore != VK_NULL_HANDLE) {
+        if (vk.destroy_semaphore != nullptr) {
+            vk.destroy_semaphore(device, present_semaphore, nullptr);
+            report.present_semaphore_destroy_status = "success";
+        } else {
+            report.present_semaphore_destroy_status = "failed";
             cleanup_ok = false;
         }
     }
@@ -638,9 +785,19 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         report.swapchain_image_query_status == "success" &&
         report.swapchain_image_count > 0U &&
         report.semaphore_create_status == "success" &&
+        report.present_semaphore_create_status == "success" &&
         report.image_acquire_status == "success" && report.image_acquired &&
+        report.command_pool_create_status == "success" &&
+        report.command_buffer_allocate_status == "success" &&
+        report.command_record_status == "success" &&
+        report.image_layout_transition_recorded &&
+        report.queue_submit_status == "success" &&
         report.image_present_status == "success" && report.image_presented &&
-        report.queue_idle_status == "success" && report.cleanup_status == "success";
+        report.queue_idle_status == "success" && report.cleanup_status == "success" &&
+        report.semaphore_destroy_status == "success" &&
+        report.present_semaphore_destroy_status == "success" &&
+        report.command_buffer_free_status == "success" &&
+        report.command_pool_destroy_status == "success";
     if (complete && report.failure_reason.empty()) report.status = "success";
     else if (report.status != "failed") report.status = "failed";
     return report;
