@@ -106,6 +106,12 @@ std::string formatName(VkFormat format) {
     }
 }
 
+std::string colorSpaceName(VkColorSpaceKHR color_space) {
+    if (color_space == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) return "SRGB_NONLINEAR";
+    return "VkColorSpaceKHR(" +
+           std::to_string(static_cast<int>(color_space)) + ")";
+}
+
 AndroidSurfaceSwapchainValidationReport runValidation(
         JNIEnv* env, jobject java_surface, jint requested_width, jint requested_height) {
     AndroidSurfaceSwapchainValidationReport report;
@@ -418,7 +424,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                             if (preferred != formats.end()) selected_format = *preferred;
                         }
                         report.selected_surface_format =
-                            formatName(selected_format.format) + " / SRGB_NONLINEAR";
+                            formatName(selected_format.format) + " / " + colorSpaceName(selected_format.colorSpace);
                         report.selected_present_mode = "FIFO";
 
                         VkImageUsageFlags image_usage = 0U;
