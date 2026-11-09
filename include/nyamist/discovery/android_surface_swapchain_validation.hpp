@@ -2,11 +2,12 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace nyamist::discovery {
 
 struct AndroidSurfaceSwapchainValidationReport {
-    std::uint32_t schema_version{3U};
+    std::uint32_t schema_version{4U};
     std::string status{"unavailable"};
     std::string platform{"android"};
     std::string loader_library;
@@ -77,7 +78,20 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::uint64_t frame_total_cpu_us{};
     std::uint32_t frame_timing_sample_count{};
     bool frame_timing_valid{};
+    std::uint32_t frame_target_count{16U};
+    std::uint32_t frame_completed_count{};
+    std::uint32_t warmup_frame_count{1U};
+    std::vector<std::uint64_t> acquire_cpu_us_samples;
+    std::vector<std::uint64_t> queue_submit_cpu_us_samples;
+    std::vector<std::uint64_t> present_call_cpu_us_samples;
+    std::vector<std::uint64_t> queue_idle_wait_cpu_us_samples;
+    std::vector<std::uint64_t> frame_total_cpu_us_samples;
     std::string gpu_timestamp_status{"not_queried"};
+    std::string gpu_timestamp_query_pool_create_status{"not_attempted"};
+    std::string gpu_timestamp_query_status{"not_queried"};
+    std::string gpu_timestamp_query_pool_destroy_status{"not_required"};
+    std::uint32_t gpu_timestamp_sample_count{};
+    std::vector<std::uint64_t> gpu_frame_time_ns_samples;
     std::uint32_t queue_timestamp_valid_bits{};
     bool timestamp_compute_and_graphics_supported{};
     double timestamp_period_ns{};
