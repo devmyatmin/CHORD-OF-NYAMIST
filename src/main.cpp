@@ -1,5 +1,6 @@
 #include "nyamist/cache_store.hpp"
 #include "nyamist/discovery/hardware_discovery.hpp"
+#include "nyamist/discovery/logical_device_validation.hpp"
 #include "nyamist/fingerprint.hpp"
 #include "nyamist/optimization_advisor.hpp"
 #include "nyamist/runtime/device_probe_adapter.hpp"
@@ -23,6 +24,7 @@ void printUsage() {
         << "  nyamist-cli fingerprint <text>\n"
         << "  nyamist-cli demo-cache <directory>\n"
         << "  nyamist-cli discover [--output <report.json>]\n"
+        << "  nyamist-cli validate-device [--output <report.json>]\n"
         << "  nyamist-cli inspect-panvk <report.env>\n"
         << "  nyamist-cli inspect-device <report.env>\n"
         << "  nyamist-cli inspect-dxvk <report.env>\n"
@@ -72,6 +74,52 @@ int runDiscover(int argc, char** argv) {
         std::cout << "Vulkan note: " << report.vulkan_failure_reason << '\n';
     }
     return 0;
+}
+
+int runValidateDevice(int argc, char** argv) {
+    std::string output_path;
+    if (argc == 4 && std::string(argv[2]) == "--output") {
+        output_path = argv[3];
+    } else if (argc != 2) {
+        printUsage();
+        return 2;
+    }
+
+    const auto report =
+        nyamist::discovery::collectLogicalDeviceValidationReport();
+    const std::string json = nyamist::discovery::toJson(report);
+    if (output_path.empty()) {
+        std::cout << json;
+        if (!std::cout.good()) return 1;
+    } else {
+        std::ofstream output(output_path, std::ios::binary | std::ios::trunc);
+        if (!output) {
+            std::cerr << "Unable to create logical-device report: "
+                      << output_path << '\n';
+            return 1;
+        }
+        output << json;
+        if (!output.good()) {
+            std::cerr << "Failed while writing logical-device report: "
+                      << output_path << '\n';
+            return 1;
+        }
+        std::cout << "NYAMIST R1.2 logical-device report: "
+                  << output_path << '\n'
+                  << "Validation status: " << report.status << '\n'
+                  << "Physical device: "
+                  << (report.device_name.empty() ? "not identified" : report.device_name)
+                  << '\n'
+                  << "Target G925 name match: "
+                  << (report.target_gpu_match ? "yes" : "no") << '\n'
+                  << "Logical device: " << report.logical_device_status << '\n'
+                  << "Queue retrieval: " << report.queue_retrieval_status << '\n'
+                  << "Cleanup: " << report.cleanup_status << '\n';
+        if (!report.failure_reason.empty()) {
+            std::cout << "Failure reason: " << report.failure_reason << '\n';
+        }
+    }
+    return report.status == "success" ? 0 : 1;
 }
 
 int runAdvice() {
@@ -219,6 +267,9 @@ int main(int argc, char** argv) {
     }
     if (command == "discover") {
         return runDiscover(argc, argv);
+    }
+    if (command == "validate-device") {
+        return runValidateDevice(argc, argv);
     }
     if (command == "inspect-panvk" && argc == 3) {
         return runInspectPanvk(argv[2]);
