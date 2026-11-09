@@ -20,7 +20,13 @@
 #endif
 
 #if defined(NYAMIST_HAS_VULKAN)
+#if defined(NYAMIST_VULKAN_DYNAMIC_LOADING)
+#define VK_NO_PROTOTYPES
+#endif
 #include <vulkan/vulkan.h>
+#if defined(NYAMIST_VULKAN_DYNAMIC_LOADING)
+#include <dlfcn.h>
+#endif
 #endif
 
 namespace nyamist::discovery {
@@ -212,23 +218,211 @@ std::string deviceTypeName(VkPhysicalDeviceType type) {
 std::string resultName(VkResult result) {
     switch (result) {
     case VK_SUCCESS: return "VK_SUCCESS";
+    case VK_INCOMPLETE: return "VK_INCOMPLETE";
     case VK_ERROR_INITIALIZATION_FAILED: return "VK_ERROR_INITIALIZATION_FAILED";
     case VK_ERROR_INCOMPATIBLE_DRIVER: return "VK_ERROR_INCOMPATIBLE_DRIVER";
     case VK_ERROR_OUT_OF_HOST_MEMORY: return "VK_ERROR_OUT_OF_HOST_MEMORY";
     case VK_ERROR_OUT_OF_DEVICE_MEMORY: return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
     case VK_ERROR_EXTENSION_NOT_PRESENT: return "VK_ERROR_EXTENSION_NOT_PRESENT";
+    case VK_ERROR_LAYER_NOT_PRESENT: return "VK_ERROR_LAYER_NOT_PRESENT";
+    case VK_ERROR_DEVICE_LOST: return "VK_ERROR_DEVICE_LOST";
     default: return "VkResult(" + std::to_string(static_cast<int>(result)) + ")";
     }
 }
 
+#if defined(NYAMIST_VULKAN_DYNAMIC_LOADING)
+struct VulkanLibraryHandle {
+    void* handle{};
+    std::string name;
+
+    ~VulkanLibraryHandle() {
+        if (handle != nullptr) {
+            dlclose(handle);
+        }
+    }
+};
+#endif
+
+struct VulkanDispatch {
+    PFN_vkGetInstanceProcAddr get_instance_proc_addr{};
+    PFN_vkEnumerateInstanceVersion enumerate_instance_version{};
+    PFN_vkEnumerateInstanceExtensionProperties enumerate_instance_extensions{};
+    PFN_vkCreateInstance create_instance{};
+    PFN_vkDestroyInstance destroy_instance{};
+    PFN_vkEnumeratePhysicalDevices enumerate_physical_devices{};
+    PFN_vkGetPhysicalDeviceProperties get_physical_device_properties{};
+    PFN_vkGetPhysicalDeviceProperties2 get_physical_device_properties2{};
+    PFN_vkGetPhysicalDeviceQueueFamilyProperties get_queue_family_properties{};
+    PFN_vkEnumerateDeviceExtensionProperties enumerate_device_extensions{};
+    PFN_vkGetPhysicalDeviceMemoryProperties get_memory_properties{};
+    PFN_vkGetPhysicalDeviceFormatProperties get_format_properties{};
+};
+
+bool initializeVulkanDispatch(
+    VulkanDispatch& dispatch,
+    DiscoveryReport& report
+#if defined(NYAMIST_VULKAN_DYNAMIC_LOADING)
+    , VulkanLibraryHandle& library
+#endif
+) {
+#if defined(NYAMIST_VULKAN_DYNAMIC_LOADING)
+    constexpr const char* candidates[] = {
+        "libvulkan.so",
+        "libvulkan.so.1"
+    };
+    std::string load_errors;
+
+    for (const char* candidate : candidates) {
+        dlerror();
+        void* handle = dlopen(candidate, RTLD_NOW | RTLD_LOCAL);
+        if (handle == nullptr) {
+            const char* error = dlerror();
+            if (!load_errors.empty()) load_errors += "; ";
+            load_errors += candidate;
+            load_errors += ": ";
+            load_errors += error != nullptr ? error : "dlopen failed without diagnostic";
+            continue;
+        }
+
+        dlerror();
+        auto get_instance_proc_addr =
+            reinterpret_cast<PFN_vkGetInstanceProcAddr>(
+                dlsym(handle, "vkGetInstanceProcAddr"));
+        const char* symbol_error = dlerror();
+
+        if (get_instance_proc_addr == nullptr || symbol_error != nullptr) {
+            if (!load_errors.empty()) load_errors += "; ";
+            load_errors += candidate;
+            load_errors += ": ";
+            load_errors += symbol_error != nullptr
+                ? symbol_error : "vkGetInstanceProcAddr symbol is null";
+            dlclose(handle);
+            continue;
+        }
+
+        library.handle = handle;
+        library.name = candidate;
+        dispatch.get_instance_proc_addr = get_instance_proc_addr;
+        break;
+    }
+
+    if (library.handle == nullptr) {
+        report.vulkan_failure_reason =
+            "Unable to load Android Vulkan loader: " +
+            (load_errors.empty() ? std::string("no candidate library loaded") : load_errors);
+        return false;
+    }
+
+    report.vulkan_loader_library = library.name;
+    dispatch.enumerate_instance_version =
+        reinterpret_cast<PFN_vkEnumerateInstanceVersion>(
+            dispatch.get_instance_proc_addr(
+                VK_NULL_HANDLE, "vkEnumerateInstanceVersion"));
+    dispatch.enumerate_instance_extensions =
+        reinterpret_cast<PFN_vkEnumerateInstanceExtensionProperties>(
+            dispatch.get_instance_proc_addr(
+                VK_NULL_HANDLE, "vkEnumerateInstanceExtensionProperties"));
+    dispatch.create_instance =
+        reinterpret_cast<PFN_vkCreateInstance>(
+            dispatch.get_instance_proc_addr(VK_NULL_HANDLE, "vkCreateInstance"));
+#else
+    dispatch.get_instance_proc_addr = &vkGetInstanceProcAddr;
+    dispatch.enumerate_instance_version = &vkEnumerateInstanceVersion;
+    dispatch.enumerate_instance_extensions = &vkEnumerateInstanceExtensionProperties;
+    dispatch.create_instance = &vkCreateInstance;
+    report.vulkan_loader_library = "linked";
+#endif
+
+    if (dispatch.get_instance_proc_addr == nullptr) {
+        report.vulkan_failure_reason = "vkGetInstanceProcAddr is unavailable";
+        return false;
+    }
+    if (dispatch.enumerate_instance_extensions == nullptr) {
+        report.vulkan_failure_reason =
+            "vkEnumerateInstanceExtensionProperties is unavailable";
+        return false;
+    }
+    if (dispatch.create_instance == nullptr) {
+        report.vulkan_failure_reason = "vkCreateInstance is unavailable";
+        return false;
+    }
+    return true;
+}
+
+bool loadInstanceDispatch(VulkanDispatch& dispatch, VkInstance instance,
+                          std::string& missing_function) {
+    const auto resolve = [&dispatch, instance](const char* name) {
+        return dispatch.get_instance_proc_addr(instance, name);
+    };
+
+    dispatch.destroy_instance =
+        reinterpret_cast<PFN_vkDestroyInstance>(resolve("vkDestroyInstance"));
+    dispatch.enumerate_physical_devices =
+        reinterpret_cast<PFN_vkEnumeratePhysicalDevices>(
+            resolve("vkEnumeratePhysicalDevices"));
+    dispatch.get_physical_device_properties =
+        reinterpret_cast<PFN_vkGetPhysicalDeviceProperties>(
+            resolve("vkGetPhysicalDeviceProperties"));
+    dispatch.get_physical_device_properties2 =
+        reinterpret_cast<PFN_vkGetPhysicalDeviceProperties2>(
+            resolve("vkGetPhysicalDeviceProperties2"));
+    dispatch.get_queue_family_properties =
+        reinterpret_cast<PFN_vkGetPhysicalDeviceQueueFamilyProperties>(
+            resolve("vkGetPhysicalDeviceQueueFamilyProperties"));
+    dispatch.enumerate_device_extensions =
+        reinterpret_cast<PFN_vkEnumerateDeviceExtensionProperties>(
+            resolve("vkEnumerateDeviceExtensionProperties"));
+    dispatch.get_memory_properties =
+        reinterpret_cast<PFN_vkGetPhysicalDeviceMemoryProperties>(
+            resolve("vkGetPhysicalDeviceMemoryProperties"));
+    dispatch.get_format_properties =
+        reinterpret_cast<PFN_vkGetPhysicalDeviceFormatProperties>(
+            resolve("vkGetPhysicalDeviceFormatProperties"));
+
+    const std::pair<const char*, bool> required[] = {
+        {"vkDestroyInstance", dispatch.destroy_instance != nullptr},
+        {"vkEnumeratePhysicalDevices", dispatch.enumerate_physical_devices != nullptr},
+        {"vkGetPhysicalDeviceProperties",
+         dispatch.get_physical_device_properties != nullptr},
+        {"vkGetPhysicalDeviceQueueFamilyProperties",
+         dispatch.get_queue_family_properties != nullptr},
+        {"vkEnumerateDeviceExtensionProperties",
+         dispatch.enumerate_device_extensions != nullptr},
+        {"vkGetPhysicalDeviceMemoryProperties",
+         dispatch.get_memory_properties != nullptr},
+        {"vkGetPhysicalDeviceFormatProperties",
+         dispatch.get_format_properties != nullptr}
+    };
+
+    for (const auto& [name, available] : required) {
+        if (!available) {
+            if (!missing_function.empty()) missing_function += ", ";
+            missing_function += name;
+        }
+    }
+    return missing_function.empty();
+}
+
 void queryVulkan(DiscoveryReport& report) {
     report.vulkan_compiled = true;
+    VulkanDispatch dispatch;
+#if defined(NYAMIST_VULKAN_DYNAMIC_LOADING)
+    VulkanLibraryHandle library;
+#endif
+    if (!initializeVulkanDispatch(
+            dispatch, report
+#if defined(NYAMIST_VULKAN_DYNAMIC_LOADING)
+            , library
+#endif
+            )) {
+        report.vulkan_status = "failed";
+        return;
+    }
+
     std::uint32_t loader_version = VK_API_VERSION_1_0;
-    const auto enumerate_instance_version =
-        reinterpret_cast<PFN_vkEnumerateInstanceVersion>(
-            vkGetInstanceProcAddr(VK_NULL_HANDLE, "vkEnumerateInstanceVersion"));
-    if (enumerate_instance_version != nullptr) {
-        const VkResult version_result = enumerate_instance_version(&loader_version);
+    if (dispatch.enumerate_instance_version != nullptr) {
+        const VkResult version_result =
+            dispatch.enumerate_instance_version(&loader_version);
         if (version_result != VK_SUCCESS) {
             report.vulkan_status = "failed";
             report.vulkan_failure_reason =
@@ -238,44 +432,88 @@ void queryVulkan(DiscoveryReport& report) {
     }
     report.vulkan_loader_api_version = versionString(loader_version);
 
+    std::uint32_t instance_extension_count = 0U;
+    VkResult result = dispatch.enumerate_instance_extensions(
+        nullptr, &instance_extension_count, nullptr);
+    if (result != VK_SUCCESS) {
+        report.vulkan_status = "failed";
+        report.vulkan_failure_reason =
+            "vkEnumerateInstanceExtensionProperties(count): " + resultName(result);
+        return;
+    }
+
+    if (instance_extension_count > 0U) {
+        std::vector<VkExtensionProperties> extensions(instance_extension_count);
+        result = dispatch.enumerate_instance_extensions(
+            nullptr, &instance_extension_count, extensions.data());
+        if (result != VK_SUCCESS) {
+            report.vulkan_status = "failed";
+            report.vulkan_failure_reason =
+                "vkEnumerateInstanceExtensionProperties(data): " + resultName(result);
+            return;
+        }
+        extensions.resize(instance_extension_count);
+        for (const auto& extension : extensions) {
+            report.vulkan_instance_extensions.emplace_back(extension.extensionName);
+        }
+        std::sort(report.vulkan_instance_extensions.begin(),
+                  report.vulkan_instance_extensions.end());
+    }
+
     VkApplicationInfo application_info{};
     application_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     application_info.pApplicationName = "CHORD OF NYAMIST R1 Hardware Discovery";
     application_info.applicationVersion = 1U;
     application_info.pEngineName = "NYAMIST Discovery";
     application_info.engineVersion = 1U;
-    application_info.apiVersion = VK_API_VERSION_1_0;
+    // R1 currently uses core functionality through Vulkan 1.3 at most.
+    application_info.apiVersion = std::min(loader_version, VK_API_VERSION_1_3);
 
     VkInstanceCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.pApplicationInfo = &application_info;
 
     VkInstance instance = VK_NULL_HANDLE;
-    const VkResult create_result = vkCreateInstance(&create_info, nullptr, &instance);
+    const VkResult create_result =
+        dispatch.create_instance(&create_info, nullptr, &instance);
     if (create_result != VK_SUCCESS) {
         report.vulkan_status = "failed";
-        report.vulkan_failure_reason = "vkCreateInstance: " + resultName(create_result);
+        report.vulkan_failure_reason =
+            "vkCreateInstance: " + resultName(create_result);
+        return;
+    }
+
+    std::string missing_function;
+    if (!loadInstanceDispatch(dispatch, instance, missing_function)) {
+        report.vulkan_status = "failed";
+        report.vulkan_failure_reason =
+            "Vulkan instance created, but required entry points are unavailable: " +
+            missing_function;
+        if (dispatch.destroy_instance != nullptr) {
+            dispatch.destroy_instance(instance, nullptr);
+        }
         return;
     }
 
     std::uint32_t device_count = 0U;
-    VkResult result = vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
+    result = dispatch.enumerate_physical_devices(instance, &device_count, nullptr);
     if (result != VK_SUCCESS || device_count == 0U) {
         report.vulkan_status = "failed";
         report.vulkan_failure_reason = result == VK_SUCCESS
             ? "vkEnumeratePhysicalDevices returned zero devices"
             : "vkEnumeratePhysicalDevices(count): " + resultName(result);
-        vkDestroyInstance(instance, nullptr);
+        dispatch.destroy_instance(instance, nullptr);
         return;
     }
 
     std::vector<VkPhysicalDevice> physical_devices(device_count);
-    result = vkEnumeratePhysicalDevices(instance, &device_count, physical_devices.data());
+    result = dispatch.enumerate_physical_devices(
+        instance, &device_count, physical_devices.data());
     if (result != VK_SUCCESS) {
         report.vulkan_status = "failed";
         report.vulkan_failure_reason =
             "vkEnumeratePhysicalDevices(data): " + resultName(result);
-        vkDestroyInstance(instance, nullptr);
+        dispatch.destroy_instance(instance, nullptr);
         return;
     }
     physical_devices.resize(device_count);
@@ -283,7 +521,7 @@ void queryVulkan(DiscoveryReport& report) {
     for (const VkPhysicalDevice physical_device : physical_devices) {
         VulkanDeviceObservation device;
         VkPhysicalDeviceProperties properties{};
-        vkGetPhysicalDeviceProperties(physical_device, &properties);
+        dispatch.get_physical_device_properties(physical_device, &properties);
         device.name = properties.deviceName;
         device.device_type = deviceTypeName(properties.deviceType);
         device.vendor_id_hex = hexValue(properties.vendorID);
@@ -291,42 +529,12 @@ void queryVulkan(DiscoveryReport& report) {
         device.api_version = versionString(properties.apiVersion);
         device.driver_version = properties.driverVersion;
 
-#if defined(VK_KHR_driver_properties)
-        const auto get_properties2 =
-            reinterpret_cast<PFN_vkGetPhysicalDeviceProperties2>(
-                vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceProperties2"));
-        if (get_properties2 != nullptr) {
-            VkPhysicalDeviceDriverProperties driver_properties{};
-            driver_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
-            VkPhysicalDeviceProperties2 properties2{};
-            properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-            properties2.pNext = &driver_properties;
-            get_properties2(physical_device, &properties2);
-            device.driver_name = driver_properties.driverName;
-            device.driver_info = driver_properties.driverInfo;
-        }
-#endif
-
-        std::uint32_t queue_count = 0U;
-        vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_count, nullptr);
-        std::vector<VkQueueFamilyProperties> queues(queue_count);
-        if (queue_count > 0U) {
-            vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_count, queues.data());
-            queues.resize(queue_count);
-        }
-        for (std::uint32_t index = 0U; index < queue_count; ++index) {
-            device.queue_families.push_back({
-                index, queues[index].queueCount,
-                static_cast<unsigned int>(queues[index].queueFlags)
-            });
-        }
-
         std::uint32_t extension_count = 0U;
-        result = vkEnumerateDeviceExtensionProperties(
+        result = dispatch.enumerate_device_extensions(
             physical_device, nullptr, &extension_count, nullptr);
         if (result == VK_SUCCESS && extension_count > 0U) {
             std::vector<VkExtensionProperties> extensions(extension_count);
-            result = vkEnumerateDeviceExtensionProperties(
+            result = dispatch.enumerate_device_extensions(
                 physical_device, nullptr, &extension_count, extensions.data());
             if (result == VK_SUCCESS) {
                 extensions.resize(extension_count);
@@ -337,8 +545,43 @@ void queryVulkan(DiscoveryReport& report) {
             }
         }
 
+#if defined(VK_KHR_driver_properties)
+        const bool supports_driver_properties =
+            properties.apiVersion >= VK_API_VERSION_1_2 ||
+            std::find(device.extensions.begin(), device.extensions.end(),
+                      "VK_KHR_driver_properties") != device.extensions.end();
+        if (dispatch.get_physical_device_properties2 != nullptr &&
+            supports_driver_properties) {
+            VkPhysicalDeviceDriverProperties driver_properties{};
+            driver_properties.sType =
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
+            VkPhysicalDeviceProperties2 properties2{};
+            properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+            properties2.pNext = &driver_properties;
+            dispatch.get_physical_device_properties2(physical_device, &properties2);
+            device.driver_name = driver_properties.driverName;
+            device.driver_info = driver_properties.driverInfo;
+        }
+#endif
+
+        std::uint32_t queue_count = 0U;
+        dispatch.get_queue_family_properties(
+            physical_device, &queue_count, nullptr);
+        std::vector<VkQueueFamilyProperties> queues(queue_count);
+        if (queue_count > 0U) {
+            dispatch.get_queue_family_properties(
+                physical_device, &queue_count, queues.data());
+            queues.resize(queue_count);
+        }
+        for (std::uint32_t index = 0U; index < queue_count; ++index) {
+            device.queue_families.push_back({
+                index, queues[index].queueCount,
+                static_cast<unsigned int>(queues[index].queueFlags)
+            });
+        }
+
         VkPhysicalDeviceMemoryProperties memory{};
-        vkGetPhysicalDeviceMemoryProperties(physical_device, &memory);
+        dispatch.get_memory_properties(physical_device, &memory);
         for (std::uint32_t index = 0U; index < memory.memoryHeapCount; ++index) {
             const auto& heap = memory.memoryHeaps[index];
             device.memory_heaps.push_back({
@@ -356,7 +599,7 @@ void queryVulkan(DiscoveryReport& report) {
         };
         for (const auto& format : formats) {
             VkFormatProperties format_properties{};
-            vkGetPhysicalDeviceFormatProperties(
+            dispatch.get_format_properties(
                 physical_device, format.format, &format_properties);
             device.formats.push_back({
                 format.name,
@@ -370,9 +613,10 @@ void queryVulkan(DiscoveryReport& report) {
 
     report.vulkan_status = report.vulkan_devices.empty() ? "failed" : "success";
     if (report.vulkan_devices.empty()) {
-        report.vulkan_failure_reason = "Vulkan returned no physical-device records";
+        report.vulkan_failure_reason =
+            "Vulkan returned no physical-device records";
     }
-    vkDestroyInstance(instance, nullptr);
+    dispatch.destroy_instance(instance, nullptr);
 }
 #else
 void queryVulkan(DiscoveryReport& report) {
@@ -419,6 +663,15 @@ std::string toJson(const DiscoveryReport& report) {
     out << ",\n    \"loader_api_version\": ";
     if (report.vulkan_loader_api_version.empty()) out << "null";
     else writeQuoted(out, report.vulkan_loader_api_version);
+    out << ",\n    \"loader_library\": ";
+    if (report.vulkan_loader_library.empty()) out << "null";
+    else writeQuoted(out, report.vulkan_loader_library);
+    out << ",\n    \"instance_extensions\": [";
+    for (std::size_t index = 0U; index < report.vulkan_instance_extensions.size(); ++index) {
+        if (index > 0U) out << ", ";
+        writeQuoted(out, report.vulkan_instance_extensions[index]);
+    }
+    out << "]";
     out << ",\n    \"failure_reason\": ";
     if (report.vulkan_failure_reason.empty()) out << "null";
     else writeQuoted(out, report.vulkan_failure_reason);
