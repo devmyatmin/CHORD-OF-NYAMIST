@@ -90,7 +90,13 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     stringField(out, "swapchain_image_query_status", report.swapchain_image_query_status);
     numberField(out, "swapchain_image_count", report.swapchain_image_count);
     stringField(out, "semaphore_create_status", report.semaphore_create_status);
+    stringField(out, "present_semaphore_create_status", report.present_semaphore_create_status);
     stringField(out, "image_acquire_status", report.image_acquire_status);
+    stringField(out, "command_pool_create_status", report.command_pool_create_status);
+    stringField(out, "command_buffer_allocate_status", report.command_buffer_allocate_status);
+    stringField(out, "command_record_status", report.command_record_status);
+    boolField(out, "image_layout_transition_recorded", report.image_layout_transition_recorded);
+    stringField(out, "queue_submit_status", report.queue_submit_status);
     boolField(out, "image_acquired", report.image_acquired);
     numberField(out, "acquired_image_index", report.acquired_image_index);
     stringField(out, "image_present_status", report.image_present_status);
@@ -99,6 +105,9 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     boolField(out, "frame_content_written", report.frame_content_written);
     stringField(out, "cleanup_status", report.cleanup_status);
     stringField(out, "semaphore_destroy_status", report.semaphore_destroy_status);
+    stringField(out, "present_semaphore_destroy_status", report.present_semaphore_destroy_status);
+    stringField(out, "command_buffer_free_status", report.command_buffer_free_status);
+    stringField(out, "command_pool_destroy_status", report.command_pool_destroy_status);
     stringField(out, "swapchain_destroy_status", report.swapchain_destroy_status);
     stringField(out, "device_destroy_status", report.device_destroy_status);
     stringField(out, "surface_destroy_status", report.surface_destroy_status);
