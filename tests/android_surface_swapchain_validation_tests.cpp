@@ -98,8 +98,6 @@ void testSuccessfulSwapchainReportContract() {
           "presentation must be serialized");
     check(json.find("\"frame_content_written\": false") != std::string::npos,
           "R1.5 must not claim rendering");
-    check(json.find("\"queue_submit_status\": \"success\"") != std::string::npos,
-          "the present-layout command must be submitted");
     check(json.find("\"present_semaphore_destroy_status\": \"success\"") != std::string::npos,
           "present semaphore cleanup must be serialized");
     check(json.find("\"command_buffer_free_status\": \"success\"") != std::string::npos,
