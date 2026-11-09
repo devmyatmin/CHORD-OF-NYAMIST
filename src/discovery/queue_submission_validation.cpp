@@ -62,17 +62,6 @@ bool isG925Name(const std::string& name) {
 
 } // namespace
 
-std::optional<std::uint32_t> selectGraphicsQueueFamily(
-    const std::vector<QueueFamilyCandidate>& queue_families) {
-    for (const auto& family : queue_families) {
-        if (family.queue_count > 0U &&
-            (family.flags & kVulkanGraphicsQueueBit) != 0U) {
-            return family.index;
-        }
-    }
-    return std::nullopt;
-}
-
 std::string toJson(const LogicalDeviceValidationReport& report) {
     std::ostringstream out;
     out << "{\n"
@@ -80,84 +69,7 @@ std::string toJson(const LogicalDeviceValidationReport& report) {
         << "  \"project\": \"CHORD OF NYAMIST / NYAMIST G925 R1.2\",\n"
         << "  \"status\": ";
     writeQuoted(out, report.status);
-    out << ",\n  \"vulkan_compiled\": "
-        << (report.vulkan_compiled ? "true" : "false")
-        << ",\n  \"loader_library\": ";
-    if (report.loader_library.empty()) out << "null";
-    else writeQuoted(out, report.loader_library);
-    out << ",\n  \"loader_api_version\": ";
-    if (report.loader_api_version.empty()) out << "null";
-    else writeQuoted(out, report.loader_api_version);
-    out << ",\n  \"platform_scope\": ";
-    writeQuoted(out, report.platform_scope);
-    out << ",\n  \"physical_device\": {\n"
-        << "    \"query_status\": ";
-    writeQuoted(out, report.physical_device_status);
-    out << ",\n    \"name\": ";
-    if (report.device_name.empty()) out << "null";
-    else writeQuoted(out, report.device_name);
-    out << ",\n    \"vendor_id\": ";
-    if (report.vendor_id_hex.empty()) out << "null";
-    else writeQuoted(out, report.vendor_id_hex);
-    out << ",\n    \"device_id\": ";
-    if (report.device_id_hex.empty()) out << "null";
-    else writeQuoted(out, report.device_id_hex);
-    out << ",\n    \"api_version\": ";
-    if (report.physical_device_api_version.empty()) out << "null";
-    else writeQuoted(out, report.physical_device_api_version);
-    out << ",\n    \"target_gpu_name_match\": "
-        << (report.target_gpu_match ? "true" : "false") << "\n  },\n"
-        << "  \"queue_families\": [";
-    if (!report.queue_families.empty()) out << '\n';
-    for (std::size_t i = 0U; i < report.queue_families.size(); ++i) {
-        const auto& family = report.queue_families[i];
-        out << "    {\"index\": " << family.index
-            << ", \"queue_count\": " << family.queue_count
-            << ", \"flags_raw\": " << family.flags << "}"
-            << (i + 1U == report.queue_families.size() ? "\n" : ",\n");
-    }
-    out << "  ],\n  \"queue_selection\": {\n"
-        << "    \"status\": ";
-    writeQuoted(out, report.queue_selection_status);
-    out << ",\n    \"selected\": "
-        << (report.has_selected_queue_family ? "true" : "false")
-        << ",\n    \"family_index\": ";
-    if (report.has_selected_queue_family) out << report.selected_queue_family_index;
-    else out << "null";
-    out << ",\n    \"queue_count\": ";
-    if (report.has_selected_queue_family) out << report.selected_queue_count;
-    else out << "null";
-    out << ",\n    \"flags_raw\": ";
-    if (report.has_selected_queue_family) out << report.selected_queue_flags;
-    else out << "null";
-    out << "\n  },\n  \"logical_device\": {\n    \"create_status\": ";
-    writeQuoted(out, report.logical_device_status);
-    out << ",\n    \"create_result\": ";
-    if (report.logical_device_result.empty()) out << "null";
-    else writeQuoted(out, report.logical_device_result);
-    out << ",\n    \"enabled_device_extension_count\": "
-        << report.enabled_device_extension_count
-        << ",\n    \"enabled_core_features\": ";
-    writeQuoted(out, report.enabled_core_features);
-    out << "\n  },\n  \"queue_retrieval\": {\n    \"status\": ";
-    writeQuoted(out, report.queue_retrieval_status);
-    out << ",\n    \"result\": ";
-    if (report.queue_retrieval_result.empty()) out << "null";
-    else writeQuoted(out, report.queue_retrieval_result);
-    out << ",\n    \"queue_handle_non_null\": "
-        << (report.queue_handle_non_null ? "true" : "false")
-        << "\n  },\n  \"cleanup\": {\n    \"status\": ";
-    writeQuoted(out, report.cleanup_status);
-    out << ",\n    \"logical_device_destroyed\": "
-        << (report.logical_device_destroyed ? "true" : "false")
-        << "\n  },\n  \"failure_reason\": ";
-    if (report.failure_reason.empty()) out << "null";
-    else writeQuoted(out, report.failure_reason);
-    out << "\n}\n";
-    return out.str();
-}
-
-QueueSubmissionValidationReport collectQueueSubmissionValidationReport() {
+    out << ",\n  \"vulkan_QueueSubmissionValidationReport collectQueueSubmissionValidationReport() {
     QueueSubmissionValidationReport report;
 #if !defined(NYAMIST_HAS_VULKAN)
     report.status = "unavailable";
