@@ -28,7 +28,8 @@ The advisor design and safety contract are committed in [Local Lightweight Graph
 - The advisor's role, component boundaries, proposal schema, evidence requirements, safety rules, and acceptance gates are documented.
 - The design requires local/offline inference after the game session, using normalized SessionLogs, DXVK/VKD3D logs, Vulkan/device facts, and performance telemetry.
 - A deterministic policy gate—not the model—has final authority. Model output is untrusted data and recommendations are advisory/dry-run only.
-- CPU-first inference with bounded memory/thread use is the initial implementation direction. GGUF/llama.cpp is an example backend to evaluate, not a confirmed installed runtime or final model choice.
+- The first backend feasibility experiment now targets MediaTek NPU 890 through LiteRT-LM + NeuroPilot for SoC MT6991. Google's guide lists the exact MT6991 Gemma3-1B-IT 4-bit LiteRT-LM model; this is a proof model only, not the final advisor model choice. See [NPU 890 proof-of-execution](docs/npu-890-proof-of-execution.md).
+- A bounded-memory CPU runtime remains the fallback path if the NPU route is unavailable; GGUF/llama.cpp is a candidate only, not a confirmed installed runtime.
 - Tiny and balanced model size tiers are evaluation categories, not selected models.
 
 **Not confirmed / not to be claimed as complete**
@@ -42,9 +43,10 @@ The advisor design and safety contract are committed in [Local Lightweight Graph
 1. Preserve the advisor design and evidence pipeline; do not remove or silently de-scope it.
 2. Inventory existing model files and inference runtimes before downloading, rebuilding, or reinstalling anything.
 3. Complete and validate the D3D11 evidence normalization and provenance checks.
-4. Benchmark a small CPU-first local model after game exit, within measured RAM/CPU/thermal limits.
-5. Add an optional model adapter that emits schema-valid, evidence-linked proposals.
-6. Enforce deterministic policy validation, human approval, rollback, and matched A/B evaluation. Never put inference in the frame/render/Present path.
+4. Prove or disprove MT6991 NPU execution using LiteRT-LM's explicit MediaTek backend after checking free RAM/storage; require backend evidence and no CPU/GPU fallback.
+5. Measure NPU memory, latency, throughput, temperature, and power with the game stopped; evaluate the Android app route separately if Termux is blocked by process-domain restrictions.
+6. Keep a bounded-memory CPU backend as fallback and add an optional advisor adapter that emits schema-valid, evidence-linked proposals.
+7. Enforce deterministic policy validation, human approval, rollback, and matched A/B evaluation. Never put inference in the frame/render/Present path.
 
 The phone previously had about 2 GB free RAM during the discussion of this feature. Treat that as historical context, not a current measurement. Do not run inference concurrently with gameplay until resource contention is measured.
 
@@ -132,7 +134,7 @@ Termux device-side instructions are in [Termux workflow](docs/termux-workflow.md
 - Keep NYAMIST read-only with respect to external graphics components.
 - Keep DXVK, PanVK/Mesa, and vendor-driver caches under their owners' control.
 - Do not replace the stock system driver or request root access for the normal workflow.
-- D3D12/VKD3D-Proton and local AI inference are parked until D3D11 game validation and repeatable performance baselines are established.
+- D3D12/VKD3D-Proton and full advisor integration/optimization remain gated on D3D11 game validation and repeatable performance baselines. The isolated NPU feasibility experiment may proceed separately; it must run with the game stopped and must not alter the graphics runtime.
 - Recommendations remain advisory. Automatic application is disabled.
 
 ## Development documents
@@ -146,3 +148,4 @@ Termux device-side instructions are in [Termux workflow](docs/termux-workflow.md
 - [Session profiles](docs/profile-persistence.md)
 - [A/B regression evaluation](docs/ab-regression-evaluation.md)
 - [Roadmap](docs/roadmap.md)
+- [MediaTek NPU 890 proof-of-execution experiment](docs/npu-890-proof-of-execution.md)
