@@ -388,7 +388,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                 vk.destroy_command_pool == nullptr || vk.allocate_command_buffers == nullptr ||
                 vk.free_command_buffers == nullptr || vk.begin_command_buffer == nullptr ||
                 vk.end_command_buffer == nullptr || vk.cmd_pipeline_barrier == nullptr ||
-                vk.queue_submit == nullptr) {
+                vk.queue_submit == nullptr || vk.device_wait_idle == nullptr) {
                 fail(report, "One or more required Vulkan device entry points are unavailable");
             } else {
                 vk.get_device_queue(device, selected_queue_family, 0U, &queue);
