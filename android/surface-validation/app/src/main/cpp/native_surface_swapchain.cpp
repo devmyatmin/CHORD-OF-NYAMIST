@@ -833,7 +833,6 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                 }
             }
         }
-    }
 
     bool cleanup_ok = true;
     if (device != VK_NULL_HANDLE && vk.device_wait_idle != nullptr) {
