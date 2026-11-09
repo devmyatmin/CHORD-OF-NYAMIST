@@ -16,9 +16,9 @@ void testUnavailableReportIsExplicit() {
     report.native_window_status = "not_available";
     report.failure_reason = "No Android Surface was supplied";
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 3") != std::string::npos,
+    check(json.find("\"schema_version\": 4") != std::string::npos,
           "schema version must be serialized");
-    check(json.find("NYAMIST G925 R1.7") != std::string::npos,
+    check(json.find("NYAMIST G925 R1.8") != std::string::npos,
           "R1.7 identity must be serialized");
     check(json.find("\"status\": \"unavailable\"") != std::string::npos,
           "missing native surface must be reported as unavailable");
@@ -156,6 +156,43 @@ void testSuccessfulSwapchainReportContract() {
           "native-window release must be serialized");
 }
 
+void testMultiFrameTimingSerialization() {
+    nyamist::discovery::AndroidSurfaceSwapchainValidationReport report;
+    report.schema_version = 4U;
+    report.frame_target_count = 16U;
+    report.frame_completed_count = 17U;
+    report.warmup_frame_count = 1U;
+    report.frame_timing_sample_count = 4U;
+    report.frame_timing_valid = true;
+    report.frame_total_cpu_us_samples = {100U, 200U, 300U, 400U};
+    report.gpu_timestamp_status = "success";
+    report.gpu_timestamp_query_pool_create_status = "success";
+    report.gpu_timestamp_query_status = "success";
+    report.gpu_timestamp_sample_count = 4U;
+    report.gpu_frame_time_ns_samples = {800000U, 600000U, 700000U, 900000U};
+    const auto json = nyamist::discovery::toJson(report);
+    check(json.find(R"("frame_target_count": 16)") != std::string::npos,
+          "R1.8 frame target must be serialized");
+    check(json.find(R"("frame_completed_count": 17)") != std::string::npos,
+          "warm-up plus sample count must be serialized");
+    check(json.find(R"("frame_total_cpu_us_samples": [100, 200, 300, 400])") != std::string::npos,
+          "all CPU samples must be serialized");
+    check(json.find(R"("cpu_frame_total_min_us": 100)") != std::string::npos,
+          "CPU minimum must be serialized");
+    check(json.find(R"("cpu_frame_total_median_us": 250)") != std::string::npos,
+          "CPU median must be serialized");
+    check(json.find(R"("cpu_frame_total_p95_us": 400)") != std::string::npos,
+          "CPU p95 must be serialized");
+    check(json.find(R"("cpu_frame_total_max_us": 400)") != std::string::npos,
+          "CPU maximum must be serialized");
+    check(json.find(R"("gpu_timestamp_query_status": "success")") != std::string::npos,
+          "GPU query status must be serialized");
+    check(json.find(R"("gpu_frame_time_ns_samples": [800000, 600000, 700000, 900000])") != std::string::npos,
+          "GPU samples must be serialized");
+    check(json.find(R"("gpu_frame_time_median_ns": 750000)") != std::string::npos,
+          "GPU median must be serialized");
+}
+
 void testJsonEscaping() {
     nyamist::discovery::AndroidSurfaceSwapchainValidationReport report;
     report.failure_reason = "surface \"lost\"\\closed";
@@ -170,6 +207,7 @@ int main() {
     try {
         testUnavailableReportIsExplicit();
         testSuccessfulSwapchainReportContract();
+        testMultiFrameTimingSerialization();
         testJsonEscaping();
         std::cout << "All NYAMIST Android surface/swapchain validation tests passed.\n";
         return 0;
