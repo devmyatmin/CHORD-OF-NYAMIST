@@ -22,6 +22,12 @@ The module does not create a surface, submit work, render, or present. It does n
     ./build/nyamist-cli discover
     ./build/nyamist-cli discover --output nyamist-r1-hardware.json
 
+To compile and test the runtime-loading dispatch path on a non-Android development host:
+
+    cmake -S . -B build-dynamic -DNYAMIST_FORCE_VULKAN_DYNAMIC_LOADING=ON
+    cmake --build build-dynamic --parallel
+    ctest --test-dir build-dynamic --output-on-failure
+
 Android and Android-targeting Termux builds use the Vulkan headers at compile time but resolve the public system loader at runtime with `dlopen()` and resolve Vulkan entry points through `vkGetInstanceProcAddr`. They do not link `libvulkan.so` into the executable as a `DT_NEEDED` dependency. This preserves graceful failure when the loader is unavailable and avoids forcing the platform loader's private dependency chain to resolve during process startup. Non-Android builds continue to use the platform Vulkan SDK/loader link target. A build without Vulkan development headers still produces a discovery executable, but reports Vulkan as unavailable rather than fabricating capabilities.
 
 ## Result interpretation
