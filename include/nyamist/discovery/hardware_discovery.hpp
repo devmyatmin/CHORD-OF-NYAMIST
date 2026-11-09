@@ -16,6 +16,7 @@ struct QueueFamilyObservation {
     unsigned int index{};
     unsigned int queue_count{};
     unsigned int flags{};
+    std::vector<std::string> flag_names;
 };
 
 struct MemoryHeapObservation {
@@ -24,11 +25,37 @@ struct MemoryHeapObservation {
     bool device_local{};
 };
 
+struct MemoryTypeObservation {
+    unsigned int index{};
+    unsigned int heap_index{};
+    unsigned int property_flags{};
+    std::vector<std::string> property_flag_names;
+};
+
 struct FormatObservation {
     std::string name;
     unsigned int linear_tiling_features{};
     unsigned int optimal_tiling_features{};
     unsigned int buffer_features{};
+    std::vector<std::string> linear_tiling_feature_names;
+    std::vector<std::string> optimal_tiling_feature_names;
+    std::vector<std::string> buffer_feature_names;
+};
+
+struct FeatureObservation {
+    std::string name;
+    std::string api_version;
+    bool supported{};
+};
+
+struct NumericLimitObservation {
+    std::string name;
+    unsigned long long value{};
+};
+
+struct FloatingLimitObservation {
+    std::string name;
+    double value{};
 };
 
 struct VulkanDeviceObservation {
@@ -40,14 +67,24 @@ struct VulkanDeviceObservation {
     unsigned int driver_version{};
     std::string driver_name;
     std::string driver_info;
+    std::string extension_query_status{"unavailable"};
+    std::string extension_query_failure_reason;
+    std::string feature_query_status{"unavailable"};
+    std::string feature_query_api_max;
+    std::string feature_query_failure_reason;
+    std::vector<FeatureObservation> features;
+    std::string limits_query_status{"unavailable"};
+    std::vector<NumericLimitObservation> limits;
+    std::vector<FloatingLimitObservation> floating_limits;
     std::vector<QueueFamilyObservation> queue_families;
     std::vector<std::string> extensions;
     std::vector<MemoryHeapObservation> memory_heaps;
+    std::vector<MemoryTypeObservation> memory_types;
     std::vector<FormatObservation> formats;
 };
 
 struct DiscoveryReport {
-    unsigned int schema_version{1};
+    unsigned int schema_version{2};
     std::string captured_at_utc;
     std::string platform;
     std::vector<std::pair<std::string, Observation>> device_fields;
