@@ -326,8 +326,8 @@ LogicalDeviceValidationReport collectLogicalDeviceValidationReport() {
 
     VkPhysicalDevice selected_physical_device = VK_NULL_HANDLE;
     bool selected_target_device = false;
+    bool selected_device_has_graphics = false;
     std::vector<QueueFamilyCandidate> selected_families;
-    bool first_device_seen = false;
 
     for (const VkPhysicalDevice physical_device : physical_devices) {
         VkPhysicalDeviceProperties properties{};
@@ -354,13 +354,15 @@ LogicalDeviceValidationReport collectLogicalDeviceValidationReport() {
 
         const bool target_name = isG925Name(properties.deviceName);
         const bool has_graphics = selectGraphicsQueueFamily(families).has_value();
-        const bool should_select = !first_device_seen ||
-            (target_name && !selected_target_device) ||
-            (has_graphics && selectGraphicsQueueFamily(selected_families) == std::nullopt);
+        const bool should_select = target_name
+            ? (!selected_target_device || (has_graphics && !selected_device_has_graphics))
+            : (!selected_target_device &&
+               (selected_physical_device == VK_NULL_HANDLE ||
+                (has_graphics && !selected_device_has_graphics)));
         if (should_select) {
-            first_device_seen = true;
             selected_physical_device = physical_device;
             selected_target_device = target_name;
+            selected_device_has_graphics = has_graphics;
             selected_families = std::move(families);
             report.device_name = properties.deviceName;
             report.vendor_id_hex = hexValue(properties.vendorID);
