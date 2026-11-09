@@ -6,7 +6,7 @@
 namespace nyamist::discovery {
 
 struct AndroidSurfaceSwapchainValidationReport {
-    std::uint32_t schema_version{2U};
+    std::uint32_t schema_version{3U};
     std::string status{"unavailable"};
     std::string platform{"android"};
     std::string loader_library;
@@ -51,6 +51,10 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::string image_view_create_status{"not_attempted"};
     std::string render_pass_create_status{"not_attempted"};
     std::string framebuffer_create_status{"not_attempted"};
+    std::string vertex_shader_module_create_status{"not_attempted"};
+    std::string fragment_shader_module_create_status{"not_attempted"};
+    std::string pipeline_layout_create_status{"not_attempted"};
+    std::string graphics_pipeline_create_status{"not_attempted"};
     bool image_layout_transition_recorded{};
     std::string queue_submit_status{"not_attempted"};
     bool image_acquired{};
@@ -61,6 +65,9 @@ struct AndroidSurfaceSwapchainValidationReport {
     bool frame_content_written{};
     bool render_pass_begin_recorded{};
     bool render_pass_end_recorded{};
+    bool graphics_pipeline_bind_recorded{};
+    bool draw_call_recorded{};
+    std::uint32_t draw_vertex_count{};
     std::string frame_clear_color_rgba{"0.035,0.14,0.32,1.0"};
     std::string frame_timing_source;
     std::uint64_t acquire_cpu_us{};
@@ -71,6 +78,9 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::uint32_t frame_timing_sample_count{};
     bool frame_timing_valid{};
     std::string gpu_timestamp_status{"not_queried"};
+    std::uint32_t queue_timestamp_valid_bits{};
+    bool timestamp_compute_and_graphics_supported{};
+    double timestamp_period_ns{};
 
     std::string cleanup_status{"not_attempted"};
     std::string semaphore_destroy_status{"not_required"};
@@ -80,6 +90,10 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::string image_view_destroy_status{"not_required"};
     std::string render_pass_destroy_status{"not_required"};
     std::string framebuffer_destroy_status{"not_required"};
+    std::string graphics_pipeline_destroy_status{"not_required"};
+    std::string pipeline_layout_destroy_status{"not_required"};
+    std::string vertex_shader_module_destroy_status{"not_required"};
+    std::string fragment_shader_module_destroy_status{"not_required"};
     std::string swapchain_destroy_status{"not_required"};
     std::string device_destroy_status{"not_required"};
     std::string surface_destroy_status{"not_required"};
