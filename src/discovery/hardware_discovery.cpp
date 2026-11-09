@@ -308,7 +308,7 @@ bool initializeVulkanDispatch(
 
     if (library.handle == nullptr) {
         report.vulkan_failure_reason =
-            "Unable to load Android Vulkan loader: " +
+            "Unable to load Vulkan loader at runtime: " +
             (load_errors.empty() ? std::string("no candidate library loaded") : load_errors);
         return false;
     }
