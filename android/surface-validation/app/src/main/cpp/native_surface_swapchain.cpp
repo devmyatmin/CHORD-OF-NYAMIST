@@ -714,6 +714,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     VkPipeline graphics_pipeline = VK_NULL_HANDLE;
     VkSemaphore acquire_semaphore = VK_NULL_HANDLE;
     VkSemaphore present_semaphore = VK_NULL_HANDLE;
+    VkQueryPool timestamp_query_pool = VK_NULL_HANDLE;
     VkCommandPool command_pool = VK_NULL_HANDLE;
     VkCommandBuffer command_buffer = VK_NULL_HANDLE;
 
@@ -987,6 +988,12 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             LOAD_DEVICE(end_command_buffer, "vkEndCommandBuffer");
             LOAD_DEVICE(cmd_pipeline_barrier, "vkCmdPipelineBarrier");
             LOAD_DEVICE(queue_submit, "vkQueueSubmit");
+            LOAD_DEVICE(reset_command_pool, "vkResetCommandPool");
+            LOAD_DEVICE(create_query_pool, "vkCreateQueryPool");
+            LOAD_DEVICE(destroy_query_pool, "vkDestroyQueryPool");
+            LOAD_DEVICE(cmd_reset_query_pool, "vkCmdResetQueryPool");
+            LOAD_DEVICE(cmd_write_timestamp, "vkCmdWriteTimestamp");
+            LOAD_DEVICE(get_query_pool_results, "vkGetQueryPoolResults");
 #undef LOAD_DEVICE
             if (vk.get_device_queue == nullptr || vk.create_swapchain == nullptr ||
                 vk.destroy_swapchain == nullptr || vk.get_swapchain_images == nullptr ||
@@ -1004,7 +1011,8 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                 vk.destroy_command_pool == nullptr || vk.allocate_command_buffers == nullptr ||
                 vk.free_command_buffers == nullptr || vk.begin_command_buffer == nullptr ||
                 vk.end_command_buffer == nullptr || vk.cmd_pipeline_barrier == nullptr ||
-                vk.queue_submit == nullptr || vk.device_wait_idle == nullptr) {
+                vk.queue_submit == nullptr || vk.device_wait_idle == nullptr ||
+                vk.reset_command_pool == nullptr) {
                 fail(report, "One or more required Vulkan device entry points are unavailable");
             } else {
                 vk.get_device_queue(device, selected_queue_family, 0U, &queue);
@@ -1144,62 +1152,22 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                     fail(report, "Swapchain image enumeration failed: " + resultName(result));
                                 } else {
                                     report.swapchain_image_query_status = "success";
-                                    report.swapchain_image_count = swapchain_image_count;
-                                    VkSemaphoreCreateInfo semaphore_info{
-                                        VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-                                    result = vk.create_semaphore(
-                                        device, &semaphore_info, nullptr, &acquire_semaphore);
-                                    report.semaphore_create_status =
-                                        isUsable(result) ? "success" : "failed";
-                                    if (!isUsable(result)) {
-                                        fail(report, "vkCreateSemaphore failed: " + resultName(result));
-                                    } else {
-                                        std::uint32_t image_index = 0U;
-                                        const auto frame_start = std::chrono::steady_clock::now();
-                                        const auto acquire_start = std::chrono::steady_clock::now();
-                                        result = vk.acquire_next_image(
-                                            device, swapchain, 1000000000ULL,
-                                            acquire_semaphore, VK_NULL_HANDLE, &image_index);
-                                        const auto acquire_end = std::chrono::steady_clock::now();
-                                        report.acquire_cpu_us = static_cast<std::uint64_t>(
-                                            std::chrono::duration_cast<std::chrono::microseconds>(
-                                                acquire_end - acquire_start).count());
-                                        report.image_acquire_status =
-                                            isUsable(result) ? "success" : "failed";
-                                        if (!isUsable(result)) {
-                                            fail(report, "vkAcquireNextImageKHR failed: " + resultName(result));
-                                        } else if (image_index >= images.size()) {
-                                            report.image_acquire_status = "failed";
-                                            fail(report, "vkAcquireNextImageKHR returned an image index outside the enumerated swapchain image range");
-                                        } else {
-                                            report.image_acquired = true;
-                                            report.acquired_image_index = image_index;
-
-                                            result = vk.create_semaphore(
-                                                device, &semaphore_info, nullptr, &present_semaphore);
-                                            report.present_semaphore_create_status =
-                                                result == VK_SUCCESS ? "success" : "failed";
-                                            if (result != VK_SUCCESS) {
-                                                fail(report, "Present semaphore creation failed: " + resultName(result));
-                                            } else {
-                                                if (report.selected_image_usage != "COLOR_ATTACHMENT") {
-                                                    fail(report, "Selected swapchain usage is not COLOR_ATTACHMENT");
-                                                } else {
-                                                    const bool frame_ok = renderAndPresentFrame(
-                                                        vk, report, device, queue, selected_queue_family,
-                                                        swapchain, images[image_index], selected_format.format,
-                                                        extent, image_index, acquire_semaphore, present_semaphore,
-                                                        command_pool, command_buffer, image_view, render_pass,
-                                                        framebuffer, vertex_shader, fragment_shader,
-                                                        pipeline_layout, graphics_pipeline, frame_start);
-                                                    if (!frame_ok && report.failure_reason.empty()) {
-                                                        fail(report, "R1.6 render-and-present frame did not complete");
-                                                    }
-                                                }
-                                            }
-                                            }
+                                    report.swapchain_image_count =
+                                        static_cast<std::uint32_t>(images.size());
+                                    if (report.selected_image_usage != "COLOR_ATTACHMENT") {
+                                        fail(report, "Selected swapchain usage is not COLOR_ATTACHMENT");
+                                    } else if (!runFrameSequence(
+                                        vk, report, device, queue, selected_queue_family,
+                                        swapchain, images, selected_format.format, extent,
+                                        acquire_semaphore, present_semaphore, timestamp_query_pool,
+                                        command_pool, command_buffer, image_view, render_pass,
+                                        framebuffer, vertex_shader, fragment_shader,
+                                        pipeline_layout, graphics_pipeline)) {
+                                        if (report.failure_reason.empty()) {
+                                            fail(report, "R1.8 multi-frame timestamp validation failed");
                                         }
                                     }
+                                }
                                 }
                             }
                         }
@@ -1212,6 +1180,15 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     if (device != VK_NULL_HANDLE && vk.device_wait_idle != nullptr) {
         const VkResult idle_result = vk.device_wait_idle(device);
         if (idle_result != VK_SUCCESS) cleanup_ok = false;
+    }
+    if (timestamp_query_pool != VK_NULL_HANDLE) {
+        if (vk.destroy_query_pool != nullptr) {
+            vk.destroy_query_pool(device, timestamp_query_pool, nullptr);
+            report.gpu_timestamp_query_pool_destroy_status = "success";
+        } else {
+            report.gpu_timestamp_query_pool_destroy_status = "failed";
+            cleanup_ok = false;
+        }
     }
     if (graphics_pipeline != VK_NULL_HANDLE) {
         if (vk.destroy_pipeline != nullptr) {
@@ -1401,6 +1378,14 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         report.vertex_shader_module_destroy_status == "success" &&
         report.fragment_shader_module_destroy_status == "success" &&
         report.frame_content_written && report.frame_timing_valid &&
+        report.frame_target_count == 16U &&
+        report.frame_completed_count == report.frame_target_count + report.warmup_frame_count &&
+        report.frame_timing_sample_count == report.frame_target_count &&
+        report.gpu_timestamp_status == "success" &&
+        report.gpu_timestamp_query_pool_create_status == "success" &&
+        report.gpu_timestamp_query_status == "success" &&
+        report.gpu_timestamp_sample_count == report.frame_target_count &&
+        report.gpu_timestamp_query_pool_destroy_status == "success" &&
         report.image_view_destroy_status == "success" &&
         report.render_pass_destroy_status == "success" &&
         report.framebuffer_destroy_status == "success";
