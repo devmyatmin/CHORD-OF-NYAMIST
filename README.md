@@ -191,6 +191,7 @@ Until these gates pass, the status remains **engineering preview / pre-release**
 - [NYAMIST G925 R1.0 — Hardware Discovery implementation](docs/releases/NYAMIST-G925-R1.0-hardware-discovery.md)
 - [NYAMIST G925 R1.1 — Vulkan Capability Intelligence](docs/releases/NYAMIST-G925-R1.1-capability-intelligence.md)
 - [NYAMIST G925 R1.2 — Vulkan Logical Device & Queue Validation](docs/releases/NYAMIST-G925-R1.2-logical-device-queue-validation.md)
+- [NYAMIST G925 R1.3 — Vulkan Queue Submission & Fence Validation](docs/releases/NYAMIST-G925-R1.3-queue-submission-fence-validation.md)
 - [Architecture and scope](docs/architecture.md)
 - [Module contracts](docs/module-contracts.md)
 - [REDMI K80 Ultra hardware validation](docs/device-validation-redmi-k80-ultra.md)
