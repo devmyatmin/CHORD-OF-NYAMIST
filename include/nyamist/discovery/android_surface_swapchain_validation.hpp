@@ -43,7 +43,13 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::string swapchain_image_query_status{"not_attempted"};
     std::uint32_t swapchain_image_count{};
     std::string semaphore_create_status{"not_attempted"};
+    std::string present_semaphore_create_status{"not_attempted"};
     std::string image_acquire_status{"not_attempted"};
+    std::string command_pool_create_status{"not_attempted"};
+    std::string command_buffer_allocate_status{"not_attempted"};
+    std::string command_record_status{"not_attempted"};
+    bool image_layout_transition_recorded{};
+    std::string queue_submit_status{"not_attempted"};
     bool image_acquired{};
     std::uint32_t acquired_image_index{};
     std::string image_present_status{"not_attempted"};
@@ -53,6 +59,9 @@ struct AndroidSurfaceSwapchainValidationReport {
 
     std::string cleanup_status{"not_attempted"};
     std::string semaphore_destroy_status{"not_required"};
+    std::string present_semaphore_destroy_status{"not_required"};
+    std::string command_buffer_free_status{"not_required"};
+    std::string command_pool_destroy_status{"not_required"};
     std::string swapchain_destroy_status{"not_required"};
     std::string device_destroy_status{"not_required"};
     std::string surface_destroy_status{"not_required"};
