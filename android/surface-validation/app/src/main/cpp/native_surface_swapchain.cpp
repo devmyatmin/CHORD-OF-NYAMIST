@@ -614,6 +614,10 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                                             present_barrier.subresourceRange.levelCount = 1U;
                                                             present_barrier.subresourceRange.baseArrayLayer = 0U;
                                                             present_barrier.subresourceRange.layerCount = 1U;
+                                                            // The acquire semaphore is waited at TOP_OF_PIPE in
+                                                            // the following submission. This barrier transitions
+                                                            // the acquired image to the layout required by present;
+                                                            // no pixel or shader writes are performed.
                                                             vk.cmd_pipeline_barrier(
                                                                 command_buffer,
                                                                 VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -627,6 +631,9 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                                             if (result != VK_SUCCESS) {
                                                                 fail(report, "vkEndCommandBuffer failed: " + resultName(result));
                                                             } else {
+                                                                // Block the command stream until acquisition is
+                                                                // complete; presentation waits on the semaphore
+                                                                // signaled after this layout transition.
                                                                 const VkPipelineStageFlags wait_stage =
                                                                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
                                                                 VkSubmitInfo submit_info{
