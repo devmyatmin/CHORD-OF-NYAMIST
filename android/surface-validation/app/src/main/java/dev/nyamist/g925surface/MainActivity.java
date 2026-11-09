@@ -40,7 +40,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         root.setPadding(pad, pad, pad, pad);
 
         TextView title = new TextView(this);
-        title.setText("CHORD OF NYAMIST — G925 R1.7");
+        title.setText("CHORD OF NYAMIST — G925 R1.8");
         title.setTextSize(20.0f);
         root.addView(title, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -102,10 +102,10 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                 latestReport = result;
                 reportView.setText(result);
                 statusView.setText(result.contains("\"status\": \"success\"")
-                        ? "R1.7 graphics pipeline / triangle draw: SUCCESS"
-                        : "R1.7 validation did not pass; inspect JSON report");
+                        ? "R1.8 graphics pipeline / triangle draw: SUCCESS"
+                        : "R1.8 validation did not pass; inspect JSON report");
             });
-        }, "nyamist-r1.7-validation").start();
+        }, "nyamist-r1.8-validation").start();
     }
 
     @Override
@@ -118,7 +118,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         try {
             File directory = getExternalFilesDir(null);
             if (directory == null) directory = getFilesDir();
-            File output = new File(directory, "nyamist-g925-r1.7-surface-swapchain.json");
+            File output = new File(directory, "nyamist-g925-r1.8-surface-swapchain.json");
             try (FileOutputStream stream = new FileOutputStream(output, false)) {
                 stream.write(json.getBytes(StandardCharsets.UTF_8));
             }
@@ -137,7 +137,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         }
         ClipboardManager clipboard =
                 (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R1.7 JSON", latestReport));
+        clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R1.8 JSON", latestReport));
         statusView.setText("JSON report copied to clipboard.");
     }
 
