@@ -54,6 +54,8 @@ struct DiscoveryReport {
     bool vulkan_compiled{};
     std::string vulkan_status{"unavailable"};
     std::string vulkan_loader_api_version;
+    std::string vulkan_loader_library;
+    std::vector<std::string> vulkan_instance_extensions;
     std::string vulkan_failure_reason;
     std::vector<VulkanDeviceObservation> vulkan_devices;
 };
