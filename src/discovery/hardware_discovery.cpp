@@ -428,78 +428,6 @@ void collectCore13Features(
 }
 #endif
 
-void collectFeatureInventory(
-    VulkanDispatch& dispatch, VkPhysicalDevice physical_device,
-    const VkPhysicalDeviceProperties& properties,
-    std::uint32_t instance_api_version, VulkanDeviceObservation& device) {
-    const std::uint32_t api_version =
-        std::min(properties.apiVersion, instance_api_version);
-    if (api_version < VK_API_VERSION_1_1) {
-        VkPhysicalDeviceFeatures features{};
-        dispatch.get_physical_device_features(physical_device, &features);
-        collectCore10Features(device, features);
-        device.feature_query_api_max = "1.0";
-        device.feature_query_status = "success";
-        return;
-    }
-
-#if defined(VK_VERSION_1_1)
-    if (dispatch.get_physical_device_features2 == nullptr) {
-        device.feature_query_status = "failed";
-        device.feature_query_api_max = "1.0";
-        device.feature_query_failure_reason =
-            "vkGetPhysicalDeviceFeatures2 is unavailable for a Vulkan 1.1+ physical device";
-        return;
-    }
-
-    VkPhysicalDeviceFeatures2 features2{};
-    features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    VkPhysicalDeviceVulkan11Features features11{};
-    features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
-    features2.pNext = &features11;
-
-#if defined(VK_VERSION_1_2)
-    VkPhysicalDeviceVulkan12Features features12{};
-    features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-    if (api_version >= VK_API_VERSION_1_2) features11.pNext = &features12;
-#endif
-#if defined(VK_VERSION_1_3)
-    VkPhysicalDeviceVulkan13Features features13{};
-    features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-#if defined(VK_VERSION_1_2)
-    if (api_version >= VK_API_VERSION_1_3) features12.pNext = &features13;
-#else
-    (void)features13;
-#endif
-#endif
-
-    dispatch.get_physical_device_features2(physical_device, &features2);
-    collectCore10Features(device, features2.features);
-    collectCore11Features(device, features11);
-    device.feature_query_api_max = "1.1";
-#if defined(VK_VERSION_1_2)
-    if (api_version >= VK_API_VERSION_1_2) {
-        collectCore12Features(device, features12);
-        device.feature_query_api_max = "1.2";
-    }
-#endif
-#if defined(VK_VERSION_1_3) && defined(VK_VERSION_1_2)
-    if (api_version >= VK_API_VERSION_1_3) {
-        collectCore13Features(device, features13);
-        device.feature_query_api_max = "1.3";
-    }
-#endif
-    device.feature_query_status = "success";
-#else
-    device.feature_query_status = "partial";
-    device.feature_query_api_max = "1.0";
-    device.feature_query_failure_reason =
-        "Build Vulkan headers do not expose Vulkan 1.1 feature structures";
-    VkPhysicalDeviceFeatures features{};
-    dispatch.get_physical_device_features(physical_device, &features);
-    collectCore10Features(device, features);
-#endif
-}
 
 void addLimit(
     VulkanDeviceObservation& device, const char* name, unsigned long long value) {
@@ -627,6 +555,80 @@ struct VulkanDispatch {
     PFN_vkGetPhysicalDeviceMemoryProperties get_memory_properties{};
     PFN_vkGetPhysicalDeviceFormatProperties get_format_properties{};
 };
+
+void collectFeatureInventory(
+    VulkanDispatch& dispatch, VkPhysicalDevice physical_device,
+    const VkPhysicalDeviceProperties& properties,
+    std::uint32_t instance_api_version, VulkanDeviceObservation& device) {
+    const std::uint32_t api_version =
+        std::min(properties.apiVersion, instance_api_version);
+    if (api_version < VK_API_VERSION_1_1) {
+        VkPhysicalDeviceFeatures features{};
+        dispatch.get_physical_device_features(physical_device, &features);
+        collectCore10Features(device, features);
+        device.feature_query_api_max = "1.0";
+        device.feature_query_status = "success";
+        return;
+    }
+
+#if defined(VK_VERSION_1_1)
+    if (dispatch.get_physical_device_features2 == nullptr) {
+        device.feature_query_status = "failed";
+        device.feature_query_api_max = "1.0";
+        device.feature_query_failure_reason =
+            "vkGetPhysicalDeviceFeatures2 is unavailable for a Vulkan 1.1+ physical device";
+        return;
+    }
+
+    VkPhysicalDeviceFeatures2 features2{};
+    features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    VkPhysicalDeviceVulkan11Features features11{};
+    features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+    features2.pNext = &features11;
+
+#if defined(VK_VERSION_1_2)
+    VkPhysicalDeviceVulkan12Features features12{};
+    features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    if (api_version >= VK_API_VERSION_1_2) features11.pNext = &features12;
+#endif
+#if defined(VK_VERSION_1_3)
+    VkPhysicalDeviceVulkan13Features features13{};
+    features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+#if defined(VK_VERSION_1_2)
+    if (api_version >= VK_API_VERSION_1_3) features12.pNext = &features13;
+#else
+    (void)features13;
+#endif
+#endif
+
+    dispatch.get_physical_device_features2(physical_device, &features2);
+    collectCore10Features(device, features2.features);
+    collectCore11Features(device, features11);
+    device.feature_query_api_max = "1.1";
+#if defined(VK_VERSION_1_2)
+    if (api_version >= VK_API_VERSION_1_2) {
+        collectCore12Features(device, features12);
+        device.feature_query_api_max = "1.2";
+    }
+#endif
+#if defined(VK_VERSION_1_3) && defined(VK_VERSION_1_2)
+    if (api_version >= VK_API_VERSION_1_3) {
+        collectCore13Features(device, features13);
+        device.feature_query_api_max = "1.3";
+    }
+#endif
+    device.feature_query_status = "success";
+#else
+    device.feature_query_status = "partial";
+    device.feature_query_api_max = "1.0";
+    device.feature_query_failure_reason =
+        "Build Vulkan headers do not expose Vulkan 1.1 feature structures";
+    VkPhysicalDeviceFeatures features{};
+    dispatch.get_physical_device_features(physical_device, &features);
+    collectCore10Features(device, features);
+#endif
+}
+
 
 bool initializeVulkanDispatch(
     VulkanDispatch& dispatch,
