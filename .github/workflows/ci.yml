@@ -37,6 +37,25 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+      - name: Configure runtime Vulkan dispatch variant
+        run: |
+          cmake -S . -B build-dynamic -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON -DNYAMIST_ENABLE_VULKAN_DISCOVERY=ON -DNYAMIST_FORCE_VULKAN_DYNAMIC_LOADING=ON
+
+      - name: Build runtime Vulkan dispatch variant
+        run: cmake --build build-dynamic --parallel 2
+
+      - name: Test runtime Vulkan dispatch variant
+        run: ctest --test-dir build-dynamic --output-on-failure
+
+      - name: Verify runtime Vulkan dispatch has no direct loader dependency
+        run: |
+          if readelf -d build-dynamic/nyamist-cli | grep -Eq 'Shared library: \\[libvulkan\\.so(\\.[0-9]+)?\\]'; then
+            echo "Unexpected direct Vulkan loader dependency in DT_NEEDED"
+            exit 1
+          fi
+          ./build-dynamic/nyamist-cli discover --output ./build-dynamic/nyamist-discovery-dynamic.json
+          python3 -m json.tool ./build-dynamic/nyamist-discovery-dynamic.json > /dev/null
+
       - name: CLI and cache smoke tests
         run: |
           ./build/nyamist-cli advice
