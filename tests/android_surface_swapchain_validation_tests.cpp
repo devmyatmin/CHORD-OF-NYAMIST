@@ -16,7 +16,7 @@ void testUnavailableReportIsExplicit() {
     report.native_window_status = "not_available";
     report.failure_reason = "No Android Surface was supplied";
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 1") != std::string::npos,
+    check(json.find("\"schema_version\": 2") != std::string::npos,
           "schema version must be serialized");
     check(json.find("NYAMIST G925 R1.6") != std::string::npos,
           "R1.6 identity must be serialized");
