@@ -22,7 +22,9 @@ jobs:
 
     env:
       LITERT_LM_REF: v0.19.0
-      ANDROID_NDK_VERSION: r28b
+      ANDROID_NDK_RELEASE: r28b
+      ANDROID_NDK_VERSION: "28"
+      ANDROID_NDK_API_LEVEL: "31"
 
     steps:
       - name: Check out NYAMIST-LAYER
@@ -47,13 +49,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ARCHIVE="$RUNNER_TEMP/android-ndk-${ANDROID_NDK_VERSION}-linux.zip"
+          ARCHIVE="$RUNNER_TEMP/android-ndk-${ANDROID_NDK_RELEASE}-linux.zip"
           curl -fL --retry 4 --retry-delay 3 \
-            "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux.zip" \
+            "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_RELEASE}-linux.zip" \
             -o "$ARCHIVE"
           mkdir -p "$RUNNER_TEMP/android-ndk"
           unzip -q "$ARCHIVE" -d "$RUNNER_TEMP/android-ndk"
-          NDK_HOME="$RUNNER_TEMP/android-ndk/android-ndk-${ANDROID_NDK_VERSION}"
+          NDK_HOME="$RUNNER_TEMP/android-ndk/android-ndk-${ANDROID_NDK_RELEASE}"
           test -f "$NDK_HOME/README.md"
           echo "ANDROID_NDK_HOME=$NDK_HOME" >> "$GITHUB_ENV"
           echo "ANDROID_NDK=$NDK_HOME" >> "$GITHUB_ENV"
@@ -124,7 +126,9 @@ jobs:
             echo "Upstream ref: $LITERT_LM_REF"
             echo "Build target: //runtime/engine:litert_lm_main"
             echo "Dispatch target: @litert//litert/vendors/mediatek/dispatch:dispatch_api_so"
-            echo "NDK: $ANDROID_NDK_VERSION"
+            echo "NDK release: $ANDROID_NDK_RELEASE"
+            echo "NDK numeric version: $ANDROID_NDK_VERSION"
+            echo "Android API level: $ANDROID_NDK_API_LEVEL"
             echo "Bazel: $(bazel --version)"
             echo "Build UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo
