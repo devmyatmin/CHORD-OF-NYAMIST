@@ -16,9 +16,13 @@ pretending a Termux CLI process can manufacture a window surface.
 - Device extension: `VK_KHR_swapchain`.
 - A queue family must support both graphics and presentation.
 - Surface capabilities, formats, and present modes are queried.
-- A FIFO swapchain is created, its images enumerated, one image acquired,
-  and one presentation operation submitted.
-- Queue idle is confirmed before teardown.
+- A FIFO swapchain is created and its images enumerated.
+- One image is acquired and transitioned from `UNDEFINED` to
+  `PRESENT_SRC_KHR` with an image memory barrier.
+- A queue submission waits on the acquire semaphore and signals a dedicated
+  present semaphore; `vkQueuePresentKHR` waits on that semaphore.
+- Queue idle is confirmed before command, semaphore, swapchain, device, surface,
+  instance, and native-window teardown.
 - The JSON report records extension, surface, queue, swapchain, acquire,
   present, and cleanup outcomes.
 
@@ -30,7 +34,9 @@ pretending a Termux CLI process can manufacture a window surface.
 - Graphics+present queue family found.
 - Surface capabilities/formats/present modes queried successfully.
 - FIFO swapchain created and at least one image enumerated.
-- Image acquire and queue presentation succeed.
+- Image acquire, present-layout transition, queue submission, and queue
+  presentation all succeed.
+- The present semaphore is consumed before cleanup.
 - Queue idle and complete object cleanup succeed.
 - No device loss.
 
@@ -43,7 +49,7 @@ surface.
 
 ## Deliberate non-claims
 
-This milestone does not render pixels or execute shaders. It submits a
-presentation operation for an acquired swapchain image without writing frame
-content; `frame_content_written` remains false. Rendering, presentation
+This milestone does not render pixels or execute shaders. It records only an
+image layout transition to `PRESENT_SRC_KHR` and submits that transition before
+presentation. It does not write frame content; `frame_content_written` remains false. Rendering, presentation
 timing, FPS, thermal behavior, and game compatibility remain out of scope.
