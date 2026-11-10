@@ -2725,9 +2725,10 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                 device_extensions.push_back(VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME);
             }
             uint8_index_features_enable.indexTypeUint8 = VK_TRUE;
-            report.index_type_uint8_feature_enable_status = "enabled";
+            report.index_type_uint8_feature_enable_status = "requested";
         } else {
-            report.index_type_uint8_feature_enable_status = "not_supported";
+            report.index_type_uint8_feature_enable_status =
+                "not_enabled_" + report.index_type_uint8_feature_support_status;
         }
         VkDeviceCreateInfo device_info{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
         if (maintenance_feature_supported && index_type_uint8_feature_enabled) {
@@ -2747,8 +2748,14 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         const VkResult result = vk.create_device(selected_physical_device, &device_info,
                                                  nullptr, &device);
         if (!isUsable(result)) {
+            if (index_type_uint8_feature_enabled) {
+                report.index_type_uint8_feature_enable_status = "device_create_failed";
+            }
             fail(report, "vkCreateDevice for VK_KHR_swapchain failed: " + resultName(result));
         } else {
+            if (index_type_uint8_feature_enabled) {
+                report.index_type_uint8_feature_enable_status = "enabled";
+            }
 #define LOAD_DEVICE(member, symbol) \
             vk.member = reinterpret_cast<decltype(vk.member)>(vk.get_device_proc_addr(device, symbol))
             LOAD_DEVICE(destroy_device, "vkDestroyDevice");
