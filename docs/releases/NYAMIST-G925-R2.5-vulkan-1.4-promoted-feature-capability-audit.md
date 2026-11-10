@@ -70,4 +70,15 @@ The `queried_count` counts explicit feature-bit queries. `implicitly_supported_c
 
 ## Target-device validation
 
-**Pending.** The R2.5 APK must be installed and run on the target REDMI K80 Ultra / Android 16 / MT6991 / Immortalis-G925 MC12. Hardware status will be updated only from the generated schema-v10 report. The prior R2.4 report is not treated as R2.5 feature-query evidence.
+**PASS — 2026-11-10.** The schema-v10 R2.5 report from the REDMI K80 Ultra / Android 16 / MT6991 / Mali-G925-Immortalis MC12 matched the target GPU and completed the promoted-feature query successfully.
+
+- Physical-device API: 1.3.278; loader and instance API: 1.4.0.
+- Query scope: `advertised_extension_feature_structs_on_pre_1_4_device`.
+- 21 total feature bits: 19 explicitly queried (14 supported, five not supported), one not advertised, and one implicitly supported by the advertised `VK_KHR_push_descriptor` extension.
+- Two promoted extensions with no feature bit (`VK_KHR_load_store_op_none`, `VK_KHR_map_memory2`) were marked not applicable and excluded from the 21-bit total.
+- Query failures: zero; not-queryable bits: zero.
+- Existing swapchain triangle rendering, actual swapchain-image pixel readback, presentation-fence completion, and cleanup also succeeded.
+
+See [R2.5 REDMI K80 Ultra hardware evidence](../evidence/NYAMIST-G925-R2.5-redmi-k80-ultra-2026-11-10.md) for the full result and boundaries.
+
+This is a hardware PASS for the R2.5 capability-query milestone only. It does not establish physical-device Vulkan 1.4 API support (the device reports Vulkan 1.3.278), full Vulkan 1.4 compliance, feature enablement, or functional use of every feature. Actual swapchain resize / OUT_OF_DATE recovery remains not observed.
