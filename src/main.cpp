@@ -7,6 +7,8 @@
 #include "nyamist/runtime/device_probe_adapter.hpp"
 #include "nyamist/runtime/panvk_adapter.hpp"
 #include "nyamist/runtime/translator_adapters.hpp"
+#include "nyamist/runtime/vulkan_loader_adapter.hpp"
+#include "nyamist/runtime/vulkan_backend.hpp"
 
 #include <cstddef>
 #include <fstream>
@@ -170,6 +172,42 @@ int runValidateSubmit(int argc, char** argv) {
     return report.status == "success" ? 0 : 1;
 }
 
+int runRuntimeVulkanSmoke() {
+    nyamist::runtime::VulkanLoaderAdapter loader;
+    std::string error;
+    if (!loader.open(&error)) {
+        std::cerr << "Vulkan loader unavailable: " << error << '\\n';
+        return 1;
+    }
+
+    nyamist::runtime::VulkanBackendSession backend(loader.dispatch());
+    if (!backend.initialize()) {
+        std::cerr << "NYAMIST Vulkan backend initialization failed: "
+                  << backend.status().error << '\\n';
+        backend.shutdown();
+        loader.close();
+        return 1;
+    }
+
+    std::cout << "NYAMIST Vulkan backend initialized\\n"
+              << "Graphics queue family: " << backend.status().graphics_queue_family << '\\n';
+    if (!backend.submit_smoke_command()) {
+        std::cerr << "Vulkan smoke submission failed: "
+                  << backend.status().error << '\\n';
+        backend.shutdown();
+        loader.close();
+        return 1;
+    }
+
+    std::cout << "Empty command submitted and fence-wait completed\\n"
+              << "Completed smoke submissions: "
+              << backend.status().completed_smoke_submissions << '\\n'
+              << "Rendering: not tested by this command\\n";
+    backend.shutdown();
+    loader.close();
+    return 0;
+}
+
 int runAdvice() {
     nyamist::GpuProfile gpu;
     gpu.gpu_name = "REDMI K80 Ultra (target profile; runtime probe pending)";
@@ -319,7 +357,7 @@ int main(int argc, char** argv) {
     if (command == "validate-device") {
         return runValidateDevice(argc, argv);
     }
-    if (command == "validate-submit") {
+    if (command == "runtime-vulkan-smoke" && argc == 2) {\n        return runRuntimeVulkanSmoke();\n    }\n    if (command == "validate-submit") {
         return runValidateSubmit(argc, argv);
     }
     if (command == "inspect-panvk" && argc == 3) {
