@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <dlfcn.h>
 #include <string>
 #include <vector>
@@ -519,7 +520,8 @@ bool renderAndPresentFrame(
 
     if (present_fence_enabled) {
         const auto fence_wait_start = std::chrono::steady_clock::now();
-        result = vk.wait_for_fences(device, 1U, &present_fence, VK_TRUE, 5000000000ULL);
+        result = vk.wait_for_fences(device, 1U, &present_fence, VK_TRUE,
+                                     std::numeric_limits<std::uint64_t>::max());
         const auto fence_wait_end = std::chrono::steady_clock::now();
         report.present_fence_wait_cpu_us = static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::microseconds>(
