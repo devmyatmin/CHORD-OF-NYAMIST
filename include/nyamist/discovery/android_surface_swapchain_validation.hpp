@@ -108,6 +108,7 @@ struct AndroidSurfaceSwapchainValidationReport {
     bool swapchain_recreation_probe_rendered{};
     std::uint32_t swapchain_acquire_suboptimal_count{};
     std::uint32_t swapchain_present_suboptimal_count{};
+    std::uint32_t swapchain_create_out_of_date_count{};
     std::uint32_t swapchain_acquire_out_of_date_count{};
     std::uint32_t swapchain_present_out_of_date_count{};
     std::uint32_t swapchain_out_of_date_recovery_attempt_count{};
