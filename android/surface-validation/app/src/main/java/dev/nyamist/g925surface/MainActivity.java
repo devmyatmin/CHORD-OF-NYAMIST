@@ -129,17 +129,14 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             activityResumed = true;
             activityResumeCount++;
             if (surfaceAvailable && currentHolder != null && nativeSessionCompletedCount > 0
-                    && currentSurfaceWidth > 0 && currentSurfaceHeight > 0
-                    && !(scheduledGeneration == surfaceGeneration
-                    && scheduledWidth == currentSurfaceWidth
-                    && scheduledHeight == currentSurfaceHeight)) {
+                    && currentSurfaceWidth > 0 && currentSurfaceHeight > 0) {
                 holderToRebuild = currentHolder;
                 width = currentSurfaceWidth;
                 height = currentSurfaceHeight;
             }
         }
         if (holderToRebuild != null) {
-            scheduleValidation(holderToRebuild, width, height, "activity_resumed", false);
+            scheduleValidation(holderToRebuild, width, height, "activity_resumed", true);
         }
     }
 
