@@ -74,6 +74,7 @@ add_library(nyamist_runtime
     src/runtime/ab_evaluator.cpp
     src/runtime/translator_adapters.cpp
     src/runtime/vulkan_backend.cpp
+    src/runtime/vulkan_resource_manager.cpp
     src/runtime/vulkan_loader_adapter.cpp
 )
 target_include_directories(nyamist_runtime PUBLIC include)
@@ -128,6 +129,9 @@ if(NYAMIST_BUILD_TESTS)
     add_executable(nyamist-vulkan-backend-tests tests/vulkan_backend_tests.cpp)
     target_link_libraries(nyamist-vulkan-backend-tests PRIVATE nyamist_runtime)
     add_test(NAME nyamist-vulkan-backend-tests COMMAND nyamist-vulkan-backend-tests)
+    add_executable(nyamist-vulkan-resource-manager-tests tests/vulkan_resource_manager_tests.cpp)
+    target_link_libraries(nyamist-vulkan-resource-manager-tests PRIVATE nyamist_runtime)
+    add_test(NAME nyamist-vulkan-resource-manager-tests COMMAND nyamist-vulkan-resource-manager-tests)
     add_executable(nyamist-panvk-tests tests/panvk_adapter_tests.cpp)
     target_link_libraries(nyamist-panvk-tests PRIVATE nyamist_runtime)
     add_test(NAME nyamist-panvk-adapter-tests COMMAND nyamist-panvk-tests)
