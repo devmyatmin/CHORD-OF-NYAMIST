@@ -35,6 +35,15 @@ class R26Uint8IndexFunctionalProbeTests(unittest.TestCase):
         self.assertIn("device_info.pNext = &uint8_index_features_enable", self.native)
         self.assertIn("report.index_type_uint8_feature_enable_status = \"enabled\"", self.native)
 
+    def test_query_failure_is_not_mislabeled_as_unsupported(self):
+        self.assertIn("contains_feature(report.vulkan_1_4_promoted_features_not_supported)", self.native)
+        self.assertIn("contains_feature(report.vulkan_1_4_promoted_features_not_advertised)", self.native)
+        self.assertIn("contains_feature(report.vulkan_1_4_promoted_features_query_failed)", self.native)
+        self.assertIn("contains_feature(report.vulkan_1_4_promoted_features_not_queryable)", self.native)
+        self.assertIn('report.index_type_uint8_feature_support_status = "query_failed"', self.native)
+        self.assertIn('report.index_type_uint8_feature_support_status = "not_queryable"', self.native)
+        self.assertIn('report.index_type_uint8_feature_support_status = "unclassified"', self.native)
+
     def test_uint8_index_buffer_is_uploaded_and_drawn(self):
         self.assertIn("VK_BUFFER_USAGE_INDEX_BUFFER_BIT", self.native)
         self.assertIn("constexpr std::array<std::uint8_t, 3> indices{0U, 1U, 2U}", self.native)
