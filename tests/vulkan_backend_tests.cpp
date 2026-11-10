@@ -83,10 +83,10 @@ int main() {
         testSuccessfulLifetime();
         testRollbackAfterDeviceFailure();
         testRollbackAfterQueueFailure();
-        std::cout << "All NYAMIST Vulkan backend lifecycle tests passed.\\n";
+        std::cout << "All NYAMIST Vulkan backend lifecycle tests passed.\n";
         return 0;
     } catch (const std::exception& error) {
-        std::cerr << "Vulkan backend lifecycle test failure: " << error.what() << '\\n';
+        std::cerr << "Vulkan backend lifecycle test failure: " << error.what() << '\n';
         return 1;
     }
 }
