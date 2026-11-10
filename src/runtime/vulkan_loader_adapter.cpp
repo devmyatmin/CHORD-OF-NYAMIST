@@ -27,6 +27,10 @@ struct VulkanLoaderAdapter::Impl {
         if constexpr (std::is_pointer_v<T>) return reinterpret_cast<NativeHandle>(value);
         else return static_cast<NativeHandle>(value);
     }
+    template <typename T> static T fromNative(NativeHandle value) {
+        if constexpr (std::is_pointer_v<T>) return reinterpret_cast<T>(value);
+        else return static_cast<T>(value);
+    }
     template <typename T> T instanceProc(const char* name) const {
         return reinterpret_cast<T>(get_instance_proc_addr(instance, name));
     }
@@ -104,6 +108,89 @@ struct VulkanLoaderAdapter::Impl {
         if(self.queue==VK_NULL_HANDLE){if(error)*error="vkGetDeviceQueue returned null";return false;}
         *out=toNative(self.queue);return true;
     }
+    static bool createBuffer(void* opaque, std::uint64_t size, std::uint32_t usage,
+                             NativeHandle* out, VulkanBufferMemoryRequirements* requirements,
+                             std::string* error) {
+        auto& self=*static_cast<Impl*>(opaque);
+        auto create=self.deviceProc<PFN_vkCreateBuffer>("vkCreateBuffer");
+        auto getRequirements=self.deviceProc<PFN_vkGetBufferMemoryRequirements>("vkGetBufferMemoryRequirements");
+        if(!create||!getRequirements||!out||!requirements){
+            if(error)*error="Vulkan buffer creation entry points unavailable";
+            return false;
+        }
+        VkBufferCreateInfo info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+        info.size=static_cast<VkDeviceSize>(size);
+        info.usage=static_cast<VkBufferUsageFlags>(usage);
+        info.sharingMode=VK_SHARING_MODE_EXCLUSIVE;
+        VkBuffer buffer=VK_NULL_HANDLE;
+        const VkResult result=create(self.device,&info,nullptr,&buffer);
+        if(result!=VK_SUCCESS){
+            if(error)*error="vkCreateBuffer failed: "+std::to_string(result);
+            return false;
+        }
+        VkMemoryRequirements nativeRequirements{};
+        getRequirements(self.device,buffer,&nativeRequirements);
+        *out=toNative(buffer);
+        requirements->size=nativeRequirements.size;
+        requirements->alignment=nativeRequirements.alignment;
+        requirements->memory_type_bits=nativeRequirements.memoryTypeBits;
+        return true;
+    }
+    static bool allocateBufferMemory(void* opaque, std::uint64_t size, std::uint32_t type,
+                                     NativeHandle* out, std::string* error) {
+        auto& self=*static_cast<Impl*>(opaque);
+        auto allocate=self.deviceProc<PFN_vkAllocateMemory>("vkAllocateMemory");
+        if(!allocate||!out){if(error)*error="vkAllocateMemory unavailable";return false;}
+        VkMemoryAllocateInfo info{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        info.allocationSize=static_cast<VkDeviceSize>(size);
+        info.memoryTypeIndex=type;
+        VkDeviceMemory memory=VK_NULL_HANDLE;
+        const VkResult result=allocate(self.device,&info,nullptr,&memory);
+        if(result!=VK_SUCCESS){
+            if(error)*error="vkAllocateMemory failed: "+std::to_string(result);
+            return false;
+        }
+        *out=toNative(memory);
+        return true;
+    }
+    static bool bindBufferMemory(void* opaque, NativeHandle buffer, NativeHandle memory,
+                                 std::string* error) {
+        auto& self=*static_cast<Impl*>(opaque);
+        auto bind=self.deviceProc<PFN_vkBindBufferMemory>("vkBindBufferMemory");
+        if(!bind){if(error)*error="vkBindBufferMemory unavailable";return false;}
+        const VkResult result=bind(self.device,fromNative<VkBuffer>(buffer),
+                                   fromNative<VkDeviceMemory>(memory),0);
+        if(result!=VK_SUCCESS){
+            if(error)*error="vkBindBufferMemory failed: "+std::to_string(result);
+            return false;
+        }
+        return true;
+    }
+    static void destroyBuffer(void* opaque, NativeHandle buffer) {
+        auto& self=*static_cast<Impl*>(opaque);
+        auto destroy=self.deviceProc<PFN_vkDestroyBuffer>("vkDestroyBuffer");
+        if(destroy&&self.device!=VK_NULL_HANDLE&&buffer!=0U)
+            destroy(self.device,fromNative<VkBuffer>(buffer),nullptr);
+    }
+    static void freeBufferMemory(void* opaque, NativeHandle memory) {
+        auto& self=*static_cast<Impl*>(opaque);
+        auto release=self.deviceProc<PFN_vkFreeMemory>("vkFreeMemory");
+        if(release&&self.device!=VK_NULL_HANDLE&&memory!=0U)
+            release(self.device,fromNative<VkDeviceMemory>(memory),nullptr);
+    }
+    std::vector<VulkanBufferMemoryType> queryMemoryTypes() const {
+        std::vector<VulkanBufferMemoryType> result;
+        if(!physical||!instance||!get_instance_proc_addr)return result;
+        auto get=instanceProc<PFN_vkGetPhysicalDeviceMemoryProperties>("vkGetPhysicalDeviceMemoryProperties");
+        if(!get)return result;
+        VkPhysicalDeviceMemoryProperties properties{};
+        get(physical,&properties);
+        result.reserve(properties.memoryTypeCount);
+        for(std::uint32_t i=0;i<properties.memoryTypeCount;++i)
+            result.push_back({properties.memoryTypes[i].propertyFlags});
+        return result;
+    }
+
     static bool submitEmpty(void* opaque, NativeHandle, NativeHandle, std::string* error) {
         auto& self=*static_cast<Impl*>(opaque);
         auto createPool=self.deviceProc<PFN_vkCreateCommandPool>("vkCreateCommandPool");
@@ -198,6 +285,22 @@ bool VulkanLoaderAdapter::available() const noexcept {
     return impl_&&impl_->library&&impl_->get_instance_proc_addr;
 #else
     return false;
+#endif
+}
+
+VulkanBufferDispatch VulkanLoaderAdapter::buffer_dispatch() noexcept {
+#if defined(NYAMIST_RUNTIME_HAS_VULKAN)
+    return {Impl::createBuffer,Impl::allocateBufferMemory,Impl::bindBufferMemory,
+            Impl::destroyBuffer,Impl::freeBufferMemory,impl_.get()};
+#else
+    return {};
+#endif
+}
+std::vector<VulkanBufferMemoryType> VulkanLoaderAdapter::memory_types() const {
+#if defined(NYAMIST_RUNTIME_HAS_VULKAN)
+    return impl_ ? impl_->queryMemoryTypes() : std::vector<VulkanBufferMemoryType>{};
+#else
+    return {};
 #endif
 }
 VulkanBackendDispatch VulkanLoaderAdapter::dispatch() noexcept {

@@ -1,7 +1,9 @@
 #pragma once
 #include "nyamist/runtime/vulkan_backend.hpp"
+#include "nyamist/runtime/vulkan_resource_manager.hpp"
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace nyamist::runtime {
 
@@ -20,6 +22,8 @@ public:
     void close() noexcept;
     [[nodiscard]] bool available() const noexcept;
     [[nodiscard]] VulkanBackendDispatch dispatch() noexcept;
+    [[nodiscard]] VulkanBufferDispatch buffer_dispatch() noexcept;
+    [[nodiscard]] std::vector<VulkanBufferMemoryType> memory_types() const;
 
 private:
     struct Impl;
