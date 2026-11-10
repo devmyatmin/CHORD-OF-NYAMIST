@@ -101,9 +101,13 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             runOnUiThread(() -> {
                 latestReport = result;
                 reportView.setText(result);
-                statusView.setText(result.contains("\"status\": \"success\"")
-                        ? "R1.9 WSI present-fence validation: SUCCESS"
-                        : "R1.9 validation did not pass; inspect JSON report");
+                if (!result.contains("\"status\": \"success\"")) {
+                    statusView.setText("R1.9 validation did not pass; inspect JSON report");
+                } else if (result.contains("\"present_fence_used\": true")) {
+                    statusView.setText("R1.9 present-fence validation: SUCCESS");
+                } else {
+                    statusView.setText("R1.9 frame validation passed; present fence unsupported (fallback)");
+                }
             });
         }, "nyamist-r1.9-validation").start();
     }
