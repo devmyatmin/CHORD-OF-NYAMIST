@@ -30,6 +30,7 @@ void printUsage() {
         << "  nyamist-cli validate-device [--output <report.json>]\n"
         << "  nyamist-cli validate-submit [--output <report.json>]\n"
         << "  nyamist-cli runtime-vulkan-smoke\n"
+        << "  nyamist-cli runtime-vulkan-buffer-smoke\n"
         << "  nyamist-cli inspect-panvk <report.env>\n"
         << "  nyamist-cli inspect-device <report.env>\n"
         << "  nyamist-cli inspect-dxvk <report.env>\n"
@@ -204,6 +205,56 @@ int runRuntimeVulkanSmoke() {
               << "Completed smoke submissions: "
               << backend.status().completed_smoke_submissions << '\n'
               << "Rendering: not tested by this command\n";
+    backend.shutdown();
+    loader.close();
+    return 0;
+}
+
+int runRuntimeVulkanBufferSmoke() {
+    nyamist::runtime::VulkanLoaderAdapter loader;
+    std::string error;
+    if (!loader.open(&error)) {
+        std::cerr << "Vulkan loader unavailable: " << error << '\\n';
+        return 1;
+    }
+
+    nyamist::runtime::VulkanBackendSession backend(loader.dispatch());
+    if (!backend.initialize()) {
+        std::cerr << "NYAMIST Vulkan backend initialization failed: "
+                  << backend.status().error << '\\n';
+        backend.shutdown();
+        loader.close();
+        return 1;
+    }
+
+    auto memory_types = loader.memory_types();
+    if (memory_types.empty()) {
+        std::cerr << "No Vulkan physical-device memory types were reported\\n";
+        backend.shutdown();
+        loader.close();
+        return 1;
+    }
+
+    nyamist::runtime::VulkanBufferResourceManager resources(
+        loader.buffer_dispatch(), std::move(memory_types));
+    nyamist::runtime::VulkanBufferAllocation allocation{};
+    // Vulkan core flag values: TRANSFER_SRC=0x1, TRANSFER_DST=0x2,
+    // DEVICE_LOCAL=0x1. The adapter forwards these to the Vulkan API.
+    const nyamist::runtime::VulkanBufferRequest request{
+        4096U, 0x00000001U | 0x00000002U, 0U, 0x00000001U};
+    if (!resources.create(request, &allocation, &error)) {
+        std::cerr << "Native Vulkan buffer allocation failed: " << error << '\\n';
+        backend.shutdown();
+        loader.close();
+        return 1;
+    }
+
+    std::cout << "Native Vulkan buffer created and memory bound\\n"
+              << "Buffer size requested: " << request.size << " bytes\\n"
+              << "Memory allocation: " << allocation.allocation_size << " bytes\\n"
+              << "Memory type index: " << allocation.memory_type_index << '\\n';
+    resources.destroy(&allocation);
+    std::cout << "Buffer and device memory released successfully\\n";
     backend.shutdown();
     loader.close();
     return 0;
