@@ -7,7 +7,7 @@
 namespace nyamist::discovery {
 
 struct AndroidSurfaceSwapchainValidationReport {
-    std::uint32_t schema_version{11U};
+    std::uint32_t schema_version{12U};
     std::string status{"unavailable"};
     std::string platform{"android"};
     std::string loader_library;
@@ -185,6 +185,11 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::uint32_t swapchain_out_of_date_recovery_success_count{};
     std::string swapchain_result_policy_status{"not_tested"};
     std::string swapchain_out_of_date_recovery_status{"not_observed"};
+    bool live_resize_window_mode_enabled{};
+    std::uint32_t live_resize_window_pause_ms_per_stage{};
+    std::uint32_t live_resize_window_pre_acquire_pause_count{};
+    std::uint32_t live_resize_window_pre_present_pause_count{};
+    std::uint64_t live_resize_window_pause_total_ms{};
     std::string semaphore_create_status{"not_attempted"};
     std::string present_semaphore_create_status{"not_attempted"};
     std::string image_acquire_status{"not_attempted"};
