@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - feature/g925-r1.5-android-surface-swapchain-validation
+      - feature/g925-r1.6-swapchain-rendering-frame-timing
   workflow_dispatch:
 
 permissions:
@@ -19,6 +20,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Fetch pinned Khronos Vulkan-Headers v1.4.368
+        run: |
+          git clone --depth 1 --branch v1.4.368 https://github.com/KhronosGroup/Vulkan-Headers.git "$RUNNER_TEMP/Vulkan-Headers"
+          grep -q "VK_HEADER_VERSION 368" "$RUNNER_TEMP/Vulkan-Headers/include/vulkan/vulkan_core.h"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v6
         with:
@@ -30,9 +36,11 @@ jobs:
         with:
           packages: ''
 
-      - name: Install Android SDK, NDK and CMake
+      - name: Install Android SDK, NDK, CMake and GLSL compiler
         run: |
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+          sudo apt-get update
+          sudo apt-get install --yes glslang-tools
 
       - name: Install Gradle 9.6.0
         run: |
@@ -42,9 +50,12 @@ jobs:
           unzip -q "$RUNNER_TEMP/gradle-9.6.0-bin.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/gradle-9.6.0/bin" >> "$GITHUB_PATH"
 
+      - name: Validate pinned Vulkan-Headers build contract
+        run: python3 -m unittest tools.tests.test_r1_6_android_build_contract -v
+
       - name: Build arm64 Android APK
         working-directory: android/surface-validation
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
+        run: NYAMIST_VULKAN_HEADERS_ROOT="$RUNNER_TEMP/Vulkan-Headers" gradle --no-daemon --stacktrace :app:assembleDebug
 
       - name: Upload R1.6 debug APK
         uses: actions/upload-artifact@v4
