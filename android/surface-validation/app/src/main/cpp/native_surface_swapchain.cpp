@@ -894,6 +894,15 @@ bool renderAndPresentFrame(
                          graphics_pipeline);
     vk.cmd_set_viewport(command_buffer, 0U, 1U, &render_viewport);
     vk.cmd_set_scissor(command_buffer, 0U, 1U, &render_scissor);
+    report.render_viewport_dynamic_state_enabled = true;
+    report.render_viewport_x = render_viewport_x;
+    report.render_viewport_y = render_viewport_y;
+    report.render_viewport_width = render_viewport.width;
+    report.render_viewport_height = render_viewport.height;
+    ++report.render_viewport_update_count;
+    report.render_scissor_width = render_scissor.extent.width;
+    report.render_scissor_height = render_scissor.extent.height;
+    ++report.render_scissor_update_count;
     report.graphics_pipeline_bind_recorded = true;
     if (uint8_index_probe_enabled && perform_pixel_readback) {
         // Make the first/readback frame an indexed-only draw. Pixel readback
