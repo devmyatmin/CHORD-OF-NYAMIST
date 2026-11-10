@@ -1,6 +1,6 @@
 # NYAMIST G925 R1.9 — WSI Presentation Completion & Present-Fence Validation
 
-**Implementation and hosted CI: PASS. Target-device validation: PENDING.**
+**Implementation, hosted CI, and REDMI K80 Ultra target-device validation: PASS.**
 
 ## Objective
 
@@ -23,11 +23,12 @@ The base `vkQueuePresentKHR` API does not itself provide a completion fence.
 Khronos documents that `vkQueueWaitIdle` / `vkDeviceWaitIdle` alone do not
 formally prove that the presentation engine has finished accessing
 presentation resources. `VK_EXT_swapchain_maintenance1` adds
-`VkSwapchainPresentFenceInfoEXT`. Its fence signals after the queued presentation
-operations complete and the presentation engine has taken references to the
-objects it uses. It is a resource-lifetime signal, not proof that the image has
-finished being displayed. Once all past present fences for a swapchain signal,
-the associated present wait semaphores and the swapchain can be safely destroyed.
+`VkSwapchainPresentFenceInfoEXT`. Its fence signals after the queued
+presentation operations complete and the presentation engine has taken
+references to the objects it uses. It is a resource-lifetime signal, not proof
+that the image has finished being displayed. Once all past present fences for
+a swapchain signal, the associated present wait semaphores and the swapchain
+can be safely destroyed.
 
 ## Implementation design
 
@@ -96,24 +97,56 @@ The present-fence wait uses an infinite Vulkan fence wait rather than
 abandoning a still-pending present fence after a host-side timeout. This
 prevents the cleanup path from treating an unsignaled fence as safe to destroy.
 
-## Target-device validation — PENDING
+## Target-device validation — HARDWARE PASS
 
-No schema-v5 report has yet been returned from the REDMI K80 Ultra. Hosted CI
-proves compilation and packaging, not whether the MT6991 vendor driver exposes
-or executes the maintenance present-fence feature.
+Validated on REDMI K80 Ultra / Android 16 / MT6991 / Mali-G925-Immortalis MC12.
 
-## Acceptance criteria
+Evidence report:
+[`mt6991-redmi-k80-ultra-r1.9-2026-11-10.json`](../hardware-reports/mt6991-redmi-k80-ultra-r1.9-2026-11-10.json)
 
-- Core CI and Android arm64 APK build pass on the validated source head.
-- On the target phone, the report correctly identifies whether the maintenance
-  dependencies, extension, and feature are available.
-- If supported: the report shows 17 fence attaches, 17 successful waits, 16
-  successful intermediate resets, and 16 measured wait samples; the final
-  fence remains signaled; fence/semaphore/swapchain cleanup succeeds; shutdown
-  resource completion is explicitly marked guaranteed.
-- If unsupported: the report records the exact unsupported/dependency state,
-  uses the per-image reacquire fallback, and does not claim a formal
-  presentation-completion guarantee.
+The device report confirms:
+
+- Vulkan loader API 1.4.0 and physical-device API 1.3.278; target GPU match true.
+- `VK_EXT_swapchain_maintenance1` instance dependency, device extension,
+  and feature all enabled/supported.
+- Present-fence path actually used; 17 fence attachments and 17 successful
+  waits across 1 warm-up plus 16 measured frames.
+- 16 intermediate fence resets; the final fence was left signaled, so no
+  reset was required after the final present.
+- 16 measured present-fence wait CPU samples; the final sample was 280 us.
+- `shutdown_presentation_completion_status: present_fence_signaled`.
+- Triangle draw recorded (3 vertices), frame presented, 16 GPU timestamp
+  samples collected, and all listed Vulkan/native cleanup operations succeeded.
+- `failure_reason` is empty.
+
+### Timing observations
+
+| Metric | Result |
+|---|---:|
+| CPU frame-total median | 7.679 ms |
+| CPU frame-total p95 / max | 14.341 ms |
+| GPU timestamp median | 25.846 us |
+| GPU timestamp p95 / max | 78.692 us |
+| GPU timestamp minimum | 15.769 us |
+| Present-fence wait samples | 16 |
+| Present-fence waits | 17 |
+
+The 16 timing samples exclude the single warm-up frame; the lifecycle counters
+include all 17 present operations. The present fence establishes presentation
+resource-completion/lifetime safety, not proof that the image has finished
+being displayed on the physical panel. These measurements do not establish
+FPS, visible-pixel correctness, sustained performance, thermal or battery
+behavior, or game compatibility.
+
+## Acceptance result
+
+- Hosted Core CI and Android arm64 APK build passed.
+- Actual REDMI K80 Ultra schema-v5 report confirms extension and feature support.
+- 17 fence attaches, 17 successful waits, 16 intermediate resets, and 16
+  measured wait samples are present.
+- Final fence remained signaled; fence, semaphore, swapchain, Vulkan device,
+  surface, instance, and native-window cleanup succeeded.
+- Shutdown presentation-resource completion is explicitly marked guaranteed.
 - No FPS, visible-pixel correctness, sustained performance, thermal, battery,
   or game-compatibility claim is inferred from this diagnostic.
 
