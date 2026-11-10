@@ -16,10 +16,10 @@ void testUnavailableReportIsExplicit() {
     report.native_window_status = "not_available";
     report.failure_reason = "No Android Surface was supplied";
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 6") != std::string::npos,
+    check(json.find("\"schema_version\": 7") != std::string::npos,
           "schema version must be serialized");
-    check(json.find("NYAMIST G925 R2.0") != std::string::npos,
-          "R2.0 identity must be serialized");
+    check(json.find("NYAMIST G925 R2.2") != std::string::npos,
+          "R2.2 identity must be serialized");
     check(json.find("\"status\": \"unavailable\"") != std::string::npos,
           "missing native surface must be reported as unavailable");
     check(json.find("\"frame_content_written\": false") != std::string::npos,
@@ -159,10 +159,29 @@ void testSuccessfulSwapchainReportContract() {
     report.present_fence_wait_cpu_us_samples = {40U, 42U, 45U};
     report.present_fence_destroy_status = "success";
     report.shutdown_presentation_completion_status = "present_fence_signaled";
+    report.swapchain_recreation_status = "success";
+    report.swapchain_recreation_attempt_count = 1U;
+    report.swapchain_recreation_success_count = 1U;
+    report.swapchain_old_handle_supplied = true;
+    report.swapchain_old_destroy_status = "success";
+    report.swapchain_recreated_image_query_status = "success";
+    report.swapchain_recreated_image_count = 3U;
+    report.swapchain_extent_before_width = 1080U;
+    report.swapchain_extent_before_height = 2400U;
+    report.swapchain_extent_after_width = 1080U;
+    report.swapchain_extent_after_height = 2400U;
+    report.swapchain_logical_device_reused = true;
+    report.swapchain_recreation_probe_acquire_status = "success";
+    report.swapchain_recreation_probe_submit_status = "success";
+    report.swapchain_recreation_probe_present_status = "success";
+    report.swapchain_recreation_probe_completion_status = "present_fence_signaled";
+    report.swapchain_recreation_probe_present_count = 1U;
+    report.swapchain_result_policy_status = "success";
+    report.swapchain_out_of_date_recovery_status = "not_observed";
 
     const auto json = nyamist::discovery::toJson(report);
     check(json.find("\"schema_version\": 6") != std::string::npos,
-          "R2.0 schema version must be serialized");
+          "R2.2 schema version must be serialized");
     check(json.find(R"("present_fence_used": true)") != std::string::npos,
           "present fence use must be serialized");
     check(json.find(R"("present_fence_attach_count": 17)") != std::string::npos,
@@ -183,6 +202,16 @@ void testSuccessfulSwapchainReportContract() {
           "target GPU match must be serialized");
     check(json.find("\"selected_present_mode\": \"FIFO\"") != std::string::npos,
           "FIFO presentation mode must be serialized");
+    check(json.find(R"("swapchain_recreation_status": "success")") != std::string::npos,
+          "oldSwapchain recreation status must be serialized");
+    check(json.find(R"("swapchain_old_handle_supplied": true)") != std::string::npos,
+          "oldSwapchain handoff must be serialized");
+    check(json.find(R"("swapchain_logical_device_reused": true)") != std::string::npos,
+          "logical device reuse must be serialized");
+    check(json.find(R"("swapchain_recreation_probe_present_status": "success")") != std::string::npos,
+          "replacement swapchain presentation must be serialized");
+    check(json.find(R"("swapchain_out_of_date_recovery_status": "not_observed")") != std::string::npos,
+          "lack of an actual OUT_OF_DATE event must be explicit");
     check(json.find(R"("swapchain_transfer_src_support_status": "supported")") != std::string::npos,
           "swapchain transfer-source support must be serialized");
     check(json.find(R"("pixel_readback_mode": "swapchain_transfer_src")") != std::string::npos,
