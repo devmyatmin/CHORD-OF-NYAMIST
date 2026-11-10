@@ -1,6 +1,6 @@
 # NYAMIST G925 R1.8 — GPU Timestamp Query & Multi-Frame Validation
 
-**Implementation and hosted CI: PASS. Initial target-device measurement: PASS (pre-semaphore-fix). Corrected-build target-device retest: PENDING.**
+**Implementation and hosted CI: PASS. Initial target-device measurement: PASS. Corrected-build target-device retest: PASS.**
 
 ## Objective
 
@@ -30,11 +30,11 @@ delta from TOP_OF_PIPE to BOTTOM_OF_PIPE around the render pass. It is not
 display refresh time and must not be converted into FPS.
 
 The warm-up is excluded from the 16 samples. Queue-idle waits are intentional
-for deterministic command-pool reuse; presentation wait semaphores are now
-associated per swapchain image so they are not reused before that image is
-reacquired. This is a validation harness, not a throughput-optimized renderer.
-The short run does not establish sustained FPS, thermal stability, battery
-impact, or game compatibility.
+for deterministic command-pool reuse; presentation wait semaphores are
+associated per swapchain image and selected by the acquired image index.
+This is a validation harness, not a throughput-optimized renderer. The short
+run does not establish sustained FPS, thermal stability, battery impact, pixel
+readback, or game compatibility.
 
 ## Hosted CI — PASS
 
@@ -54,42 +54,54 @@ The APK ZIP and contained APK passed integrity checks. The APK contains
 
 ## Initial target-device evidence — PASS (pre-semaphore-fix)
 
-The user's REDMI K80 Ultra / MT6991 / Immortalis-G925 MC12 report was captured
-before the per-swapchain-image presentation semaphore correction:
+The first REDMI K80 Ultra / MT6991 / Immortalis-G925 MC12 schema-v4 report was
+captured before the per-swapchain-image presentation semaphore correction:
 
-- Schema version 4, status `success`, target GPU match true.
-- One warm-up plus 16 completed frames.
-- 16 CPU frame samples and 16 GPU timestamp samples.
+- One warm-up plus 16 completed frames; 16 CPU and 16 GPU timestamp samples.
 - GPU timestamp: median 49,423 ns; P95 79,385 ns; min 37,154 ns; max 79,385 ns.
 - CPU acquire-to-idle: median 7,666 us; P95 9,911 us; min 460 us; max 9,911 us.
 - Shader modules, graphics pipeline, three-vertex draw, presentation, timestamp
   query pool, and cleanup all reported success.
-- No sustained FPS, thermal stability, battery impact, pixel readback, or game
-  compatibility claim is made.
 
-Raw user-provided report:
+Raw report:
 `docs/hardware-reports/mt6991-redmi-k80-ultra-r1.8-2026-11-10-pre-semaphore-fix.json`.
 
-## Corrected-build target-device acceptance — PENDING
+## Corrected-build target-device evidence — PASS
 
-Source review found that the initial R1.8 implementation reused a single
-presentation wait semaphore across different swapchain images. The branch now
-allocates one presentation semaphore per swapchain image and selects it using
-the image index returned by `vkAcquireNextImageKHR`.
+After correcting presentation semaphore ownership, the user ran the updated
+R1.8 APK on the actual REDMI K80 Ultra and returned a second successful
+schema-v4 report:
 
-The corrected source passed Core CI and both Android APK workflows listed above.
-A fresh schema-v4 report from the corrected APK on the actual REDMI K80 Ultra is
-still required before final R1.8 hardware sign-off.
+- Target GPU: Mali-G925-Immortalis MC12; Vulkan 1.3.278; target match true.
+- One warm-up plus 16 completed frames; CPU timing 16/16 and GPU timestamp 16/16.
+- GPU timestamp: median 44,038 ns; P95 144,077 ns; min 30,462 ns; max 144,077 ns.
+- CPU acquire-to-idle: median 8,145 us; P95 9,452 us; min 520 us; max 9,452 us.
+- Shader modules, graphics pipeline, three-vertex draw, acquire/submit/present,
+  timestamp query pool and reported object cleanup all succeeded.
+- `failure_reason` is empty.
 
-## Acceptance criteria
+Raw report:
+`docs/hardware-reports/mt6991-redmi-k80-ultra-r1.8-2026-11-10-semaphore-fix.json`.
 
-- One warm-up frame and 16 successful measured frames on the corrected APK.
-- 16 valid CPU frame samples and 16 valid GPU timestamp samples.
-- Successful image acquisition, draw submission, presentation and queue-idle
-  completion for all frames.
-- Query-pool and Vulkan object cleanup succeed.
-- The corrected-build schema-v4 JSON report is committed under
-  `docs/hardware-reports/`.
+The before/after timing values are separate short-run observations. They do not
+prove a performance improvement or establish sustained FPS.
+
+## Scope note — present completion during shutdown
+
+Per-image semaphore indexing makes reuse safe when that swapchain image is
+reacquired. The current base WSI shutdown path still uses device/queue idle
+before destroying presentation resources. Khronos documents that idle waits
+alone do not provide a formal presentation-engine completion guarantee for
+releasing present wait semaphores/swapchain resources; `VK_EXT_swapchain_maintenance1`
+present fences provide that explicit guarantee when supported. This is a
+follow-up WSI hardening item, not a claim that R1.8 has validated the extension.
+
+## Acceptance
+
+R1.8's target-device acceptance criteria are met for this 17-frame diagnostic:
+a corrected-build schema-v4 report from the actual target phone demonstrates
+16 CPU samples, 16 GPU timestamp samples, shader/pipeline/draw/present success,
+and successful reported cleanup.
 
 ## Stack and safety
 
