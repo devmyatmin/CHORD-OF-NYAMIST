@@ -269,7 +269,7 @@ void testSuccessfulSwapchainReportContract() {
 
 void testMultiFrameTimingSerialization() {
     nyamist::discovery::AndroidSurfaceSwapchainValidationReport report;
-    report.schema_version = 6U;
+    report.schema_version = 7U
     report.frame_target_count = 16U;
     report.frame_completed_count = 17U;
     report.warmup_frame_count = 1U;
