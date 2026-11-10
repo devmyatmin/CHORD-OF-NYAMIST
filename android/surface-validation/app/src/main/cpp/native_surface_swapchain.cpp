@@ -2530,7 +2530,25 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         report.pixel_readback_memory_free_status == "success" &&
         report.image_view_destroy_status == "success" &&
         report.render_pass_destroy_status == "success" &&
-        report.framebuffer_destroy_status == "success";
+        report.framebuffer_destroy_status == "success" &&
+        report.swapchain_recreation_status == "success" &&
+        report.swapchain_recreation_mode == "old_swapchain_handoff" &&
+        report.swapchain_recreation_attempt_count >= 1U &&
+        report.swapchain_recreation_success_count >= 1U &&
+        report.swapchain_old_handle_supplied &&
+        report.swapchain_old_destroy_status == "success" &&
+        report.swapchain_recreated_image_query_status == "success" &&
+        report.swapchain_recreated_image_count > 0U &&
+        report.swapchain_logical_device_reused &&
+        report.swapchain_recreation_probe_acquire_status == "success" &&
+        report.swapchain_recreation_probe_submit_status == "success" &&
+        report.swapchain_recreation_probe_present_status == "success" &&
+        (report.swapchain_recreation_probe_completion_status == "present_fence_signaled" ||
+         report.swapchain_recreation_probe_completion_status == "queue_idle_fallback") &&
+        report.swapchain_recreation_probe_present_count >= 1U &&
+        report.swapchain_result_policy_status == "success" &&
+        (report.swapchain_out_of_date_recovery_status == "not_observed" ||
+         report.swapchain_out_of_date_recovery_status == "recovered");
     if (complete && report.failure_reason.empty()) report.status = "success";
     else if (report.status != "failed") report.status = "failed";
     return report;
