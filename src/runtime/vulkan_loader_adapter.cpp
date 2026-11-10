@@ -77,6 +77,12 @@ struct VulkanLoaderAdapter::Impl {
         auto& self=*static_cast<Impl*>(opaque);
         auto create=self.instanceProc<PFN_vkCreateDevice>("vkCreateDevice");
         if(!create){if(error)*error="vkCreateDevice unavailable";return false;}
+        // Resolve device dispatch before creating the device. If this lookup
+        // fails, there is no newly-created VkDevice to leak during rollback.
+        self.get_device_proc_addr=reinterpret_cast<PFN_vkGetDeviceProcAddr>(
+            self.get_instance_proc_addr(self.instance,"vkGetDeviceProcAddr"));
+        if(!self.get_device_proc_addr){if(error)*error="vkGetDeviceProcAddr unavailable";return false;}
+
         const float priority=1.0F;
         VkDeviceQueueCreateInfo queueInfo{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
         queueInfo.queueFamilyIndex=family;queueInfo.queueCount=1;queueInfo.pQueuePriorities=&priority;
@@ -87,9 +93,6 @@ struct VulkanLoaderAdapter::Impl {
         // Publish the handle before loading device dispatch so session rollback
         // can destroy the device if vkGetDeviceProcAddr resolution fails.
         *out=toNative(self.device);
-        self.get_device_proc_addr=reinterpret_cast<PFN_vkGetDeviceProcAddr>(
-            self.get_instance_proc_addr(self.instance,"vkGetDeviceProcAddr"));
-        if(!self.get_device_proc_addr){if(error)*error="vkGetDeviceProcAddr unavailable";return false;}
         return true;
     }
     static bool getQueue(void* opaque, NativeHandle, std::uint32_t family,
