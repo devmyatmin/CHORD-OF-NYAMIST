@@ -29,7 +29,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private final Object lifecycleLock = new Object();
     private final ExecutorService validationExecutor =
             Executors.newSingleThreadExecutor(runnable -> {
-                Thread thread = new Thread(runnable, "nyamist-r2.3-wsi-session");
+                Thread thread = new Thread(runnable, "nyamist-r2.4-wsi-session");
                 thread.setDaemon(false);
                 return thread;
             });
@@ -82,7 +82,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         root.setPadding(pad, pad, pad, pad);
 
         TextView title = new TextView(this);
-        title.setText("CHORD OF NYAMIST — G925 R2.3");
+        title.setText("CHORD OF NYAMIST — G925 R2.4");
         title.setTextSize(20.0f);
         root.addView(title, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -370,11 +370,11 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                     statusView.setText(
                             "A previous Surface session finished. The current Surface session is queued.");
                 } else if (!sessionSuccess) {
-                    statusView.setText("R2.3 WSI session failed; inspect the JSON report.");
+                    statusView.setText("R2.4 WSI session failed; inspect the JSON report.");
                 } else if (result.contains("\"pixel_verification_status\": \"success\"")) {
-                    statusView.setText("R2.3 WSI session SUCCESS — pixel readback also passed.");
+                    statusView.setText("R2.4 WSI session SUCCESS — pixel readback also passed.");
                 } else {
-                    statusView.setText("R2.3 WSI session completed; inspect the validation fields.");
+                    statusView.setText("R2.4 WSI session completed; inspect the validation fields.");
                 }
             });
         }
@@ -444,8 +444,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     }
 
     private String failureJson(String reason) {
-        return "{\n  \"schema_version\": 8,"
-                + "\n  \"project\": \"CHORD OF NYAMIST / NYAMIST G925 R2.3\","
+        return "{\n  \"schema_version\": 9,"
+                + "\n  \"project\": \"CHORD OF NYAMIST / NYAMIST G925 R2.4\","
                 + "\n  \"status\": \"failed\","
                 + "\n  \"failure_reason\": \"" + reason + "\""
                 + "\n}";
@@ -455,15 +455,15 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         try {
             File directory = getExternalFilesDir(null);
             if (directory == null) directory = getFilesDir();
-            File output = new File(directory, "nyamist-g925-r2.3-vulkan-1.4-audit.json");
+            File output = new File(directory, "nyamist-g925-r2.4-vulkan-1.4-audit.json");
             try (FileOutputStream stream = new FileOutputStream(output, false)) {
                 stream.write(json.getBytes(StandardCharsets.UTF_8));
             }
             String digest = sha256(json);
-            android.util.Log.i("NYAMIST_R2_3", "Report: " + output.getAbsolutePath());
-            android.util.Log.i("NYAMIST_R2_3", "SHA-256: " + digest);
+            android.util.Log.i("NYAMIST_R2_4", "Report: " + output.getAbsolutePath());
+            android.util.Log.i("NYAMIST_R2_4", "SHA-256: " + digest);
         } catch (Exception error) {
-            android.util.Log.e("NYAMIST_R2_3", "Could not save report", error);
+            android.util.Log.e("NYAMIST_R2_4", "Could not save report", error);
         }
     }
 
@@ -474,8 +474,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         }
         ClipboardManager clipboard =
                 (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R2.3 JSON", latestReport));
-        statusView.setText("R2.3 JSON report copied to clipboard.");
+        clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R2.4 JSON", latestReport));
+        statusView.setText("R2.4 JSON report copied to clipboard.");
     }
 
     @Override

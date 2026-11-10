@@ -7,7 +7,7 @@
 namespace nyamist::discovery {
 
 struct AndroidSurfaceSwapchainValidationReport {
-    std::uint32_t schema_version{8U};
+    std::uint32_t schema_version{9U};
     std::string status{"unavailable"};
     std::string platform{"android"};
     std::string loader_library;
@@ -46,6 +46,14 @@ struct AndroidSurfaceSwapchainValidationReport {
     bool vulkan_1_4_pipeline_protected_access_supported{};
     bool vulkan_1_4_required_features_supported{};
     std::string vulkan_1_4_required_features_status{"not_queried"};
+    std::string vulkan_1_4_promoted_extension_inventory_status{"not_queried"};
+    std::string vulkan_1_4_promoted_extension_inventory_scope{"not_queried"};
+    std::string vulkan_1_4_promoted_extension_coverage_status{"not_queried"};
+    std::uint32_t vulkan_1_4_promoted_extension_total_count{16U};
+    std::uint32_t vulkan_1_4_promoted_extension_supported_count{};
+    std::uint32_t vulkan_1_4_promoted_extension_not_advertised_count{};
+    std::vector<std::string> vulkan_1_4_promoted_extensions_supported;
+    std::vector<std::string> vulkan_1_4_promoted_extensions_not_advertised;
     bool target_gpu_match{};
 
     std::string swapchain_maintenance_instance_extension_status{"not_queried"};

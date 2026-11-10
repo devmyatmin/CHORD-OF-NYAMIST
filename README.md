@@ -78,3 +78,10 @@ same-device oldSwapchain handoff passed. Extent did not change and no actual
 OUT_OF_DATE/SUBOPTIMAL result was observed; resize and recovery remain
 unvalidated. See
 `docs/evidence/NYAMIST-G925-R2.3-device-audit-2026-11-10.md`.
+
+
+## NYAMIST G925 R2.4 — Vulkan 1.4 promoted-extension inventory
+
+R2.4 adds a device-side inventory of the 16 extension families promoted into Vulkan 1.4. On pre-1.4 physical devices, it records exact extension-name advertisement using `vkEnumerateDeviceExtensionProperties`, separating advertised names from names not advertised by the selected physical device. On Vulkan 1.4-or-newer devices, it identifies the promoted functionality as core rather than falsely reporting absent extension aliases as unsupported.
+
+This is an **extension-name inventory only**. It does not claim the Vulkan 1.4 core API, does not query every extension feature structure, and does not certify Vulkan 1.4 feature/limit compliance. The stock REDMI K80 Ultra physical-device API remains the R2.3-observed 1.3.278 until a new on-device R2.4 report proves otherwise.
