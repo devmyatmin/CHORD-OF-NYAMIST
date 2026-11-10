@@ -7,10 +7,11 @@
 namespace nyamist::discovery {
 
 struct AndroidSurfaceSwapchainValidationReport {
-    std::uint32_t schema_version{4U};
+    std::uint32_t schema_version{5U};
     std::string status{"unavailable"};
     std::string platform{"android"};
     std::string loader_library;
+    std::string loader_api_version;
     std::string loader_status{"not_attempted"};
     std::string instance_create_status{"not_attempted"};
     std::string surface_extension_status{"not_attempted"};
@@ -24,6 +25,23 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::string device_id_hex;
     std::string physical_device_api_version;
     bool target_gpu_match{};
+
+    std::string swapchain_maintenance_instance_extension_status{"not_queried"};
+    std::string swapchain_maintenance_device_extension_status{"not_queried"};
+    std::string swapchain_maintenance_feature_status{"not_queried"};
+    bool swapchain_maintenance_feature_supported{};
+    bool present_fence_used{};
+    bool present_completion_guaranteed{};
+    std::string present_completion_mode{"unavailable"};
+    std::string present_fence_entry_points_status{"not_attempted"};
+    std::string present_fence_create_status{"not_attempted"};
+    std::string present_fence_attach_status{"not_attempted"};
+    std::string present_fence_wait_status{"not_attempted"};
+    std::string present_fence_reset_status{"not_attempted"};
+    std::string present_fence_destroy_status{"not_required"};
+    std::uint64_t present_fence_wait_cpu_us{};
+    std::vector<std::uint64_t> present_fence_wait_cpu_us_samples;
+    std::string shutdown_presentation_completion_status{"not_attempted"};
 
     std::string swapchain_extension_status{"not_attempted"};
     std::string queue_family_status{"not_attempted"};
