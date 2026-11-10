@@ -357,9 +357,7 @@ bool createUint8IndexProbeResources(
         VkDeviceMemory& index_memory) {
     if (report.index_type_uint8_feature_enable_status != "enabled") {
         const support = report.index_type_uint8_feature_support_status;
-        report.index_type_uint8_probe_status =
-            (support == "not_supported" || support == "not_advertised")
-                ? support : support;
+        report.index_type_uint8_probe_status = support;
         report.index_type_uint8_buffer_create_status = "not_required";
         report.index_type_uint8_memory_allocate_status = "not_required";
         report.index_type_uint8_memory_bind_status = "not_required";
