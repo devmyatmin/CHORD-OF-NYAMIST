@@ -1,74 +1,84 @@
-# Roadmap
+# NYAMIST Roadmap
 
 ## Current objective
 
-Establish repeatable D3D11 real-game execution on REDMI K80 Ultra through the existing PanPlay + PanVK + DXVK stack, then use NYAMIST to record and evaluate evidence without taking ownership of the external components.
+Build a NYAMIST-owned graphics runtime for Android, then implement a custom D3D11 compatibility layer on top of NYAMIST's Vulkan backend. The target device is REDMI K80 Ultra (MT6991 / Mali-G925).
 
-## Foundation — implemented
+NYAMIST uses Android's public Vulkan loader and the installed vendor GPU driver as the hardware interface. NYAMIST owns the API translation, runtime state, resource management, command generation, synchronization and presentation orchestration. It does not replace the vendor Vulkan driver.
 
-- [x] Portable C++20 core, deterministic fingerprints, validated NYAMIST cache.
-- [x] Component registry and runtime prerequisite coordinator.
-- [x] Read-only PanVK, DXVK, device-facts and Vulkan capability adapters.
-- [x] PanProbe and PanPlay ZIP importers with bounded parsing and integrity checks.
-- [x] Immutable session snapshot and typed telemetry freshness checks.
-- [x] Pipeline Gate and versioned profile persistence.
-- [x] Conservative game-session evidence checker.
-- [x] Deterministic A/B evaluator and bounded advisory policy.
-- [x] Unit tests, importer tests, and hosted Core CI.
+See [Standalone Runtime Architecture](standalone-runtime-architecture.md) for the ownership contract.
 
-## Milestone 1 — controlled D3D11 game validation
+## Verified foundation
 
-- [x] REDMI K80 Ultra PanVK RC5 load and one-device enumeration reported.
-- [x] PanProbe 41/41 reported.
-- [x] DXVK D3D11 ARM64EC feature-level test reported through FL11_1.
-- [x] Synthetic D3D11 Cube test completed.
-- [ ] Match a real game session to the exact PanVK binary/build identity.
-- [ ] Run representative gameplay for at least 300 seconds.
-- [ ] Confirm correct visible rendering, surface presentation, scene transitions, and clean exit.
-- [ ] Capture authoritative Present success/failure and device-loss evidence.
-- [ ] Repeat a cold and a warm run without changing the workload.
+- [x] Portable C++20 core, deterministic fingerprints and validated cache.
+- [x] Runtime diagnostics, device capability discovery and evidence/reporting framework.
+- [x] Android Vulkan dynamic-loader path in the R1.1 branch.
+- [x] Logical-device and graphics-queue validation in the R1.2 branch.
+- [x] Empty command-buffer submission and fence validation in the R1.3 branch.
+- [x] Android Surface/WSI validation harness exists in the R2.x PR stack.
+- [ ] Integrate the stacked R1.1–R1.3 work into the owned-runtime development line.
+- [ ] Turn one-off Vulkan probes into a reusable backend with explicit lifetime and dispatch ownership.
 
-## Milestone 2 — performance baseline
+These checks establish Vulkan plumbing only. They do not establish a complete renderer, D3D11 compatibility or game support.
 
-- [ ] Collect p50/p95/p99 frame time, memory, CPU/GPU load and thermal data where accessible.
-- [ ] Run at least three sustained baseline sessions under matched conditions.
-- [ ] Verify that profile invalidation works after driver, translator, or device identity changes.
-- [ ] Keep all upstream shader/pipeline caches under upstream ownership.
+## Milestone 1 — reusable NYAMIST Vulkan backend
 
-## Milestone 3 — measured optimization
+- [ ] Reuse one process-local Vulkan loader/dispatch implementation.
+- [ ] Own instance, physical-device selection, logical device and queue lifetimes.
+- [ ] Add explicit backend state, error propagation and deterministic teardown.
+- [ ] Add backend contract tests and keep Android dynamic loading covered in CI.
 
-- [ ] Select one bounded NYAMIST advisory policy at a time.
-- [ ] Run at least three matched baseline and candidate sessions, each at least 300 seconds.
-- [ ] Compare median p95 frame time and stability evidence.
-- [ ] Retain a one-step rollback to the unmodified runtime profile.
-- [ ] Keep automatic application disabled until repeatable evidence justifies a separately reviewed design.
+**Acceptance:** backend initializes and shuts down cleanly on the target device; failures are reported accurately.
 
-## Milestone 4 — local lightweight graphics advisor
+## Milestone 2 — resources and render core
 
-- [x] Define the offline/post-session model boundary and safety contract.
-- [ ] Audit and normalize PerfRecorder typed CSV streams and metadata consistency.
-- [ ] **NPU feasibility:** build LiteRT-LM Android ARM64 runtime and MediaTek dispatch for MT6991.
-- [ ] **NPU feasibility:** run the MT6991-specific Gemma3-1B-IT LiteRT-LM model with explicit `--backend=npu`; prove there is no CPU/GPU fallback.
-- [ ] Measure NPU inference memory, latency, generation rate, temperature and power after the game exits.
-- [ ] If the NPU path is inaccessible to Termux, distinguish process-domain restrictions from actual SoC/runtime incompatibility; evaluate the documented Android app route separately.
-- [ ] Keep a bounded-memory CPU inference path as fallback, not as an assumption that NPU is unavailable.
-- [ ] Add an optional model adapter that emits schema-validated, evidence-linked proposals.
-- [ ] Keep deterministic policy validation and A/B evaluation as final authority.
-- [ ] Evaluate PanVK Vulkan compute separately; GPU compute and NPU execution are not interchangeable.
-- [ ] Keep model inference out of the game frame/render/present path.
+- [ ] Implement memory-type selection and buffer/image allocation.
+- [ ] Implement buffer/image views, upload paths and resource lifetime tracking.
+- [ ] Implement shader-module ingestion and pipeline/layout creation.
+- [ ] Implement command recording, barriers and descriptor management.
+- [ ] Render a NYAMIST-native triangle and verify output by readback.
 
-## Milestone 5 — separate D3D12/VKD3D-Proton validation
+**Acceptance:** a repeatable native render/readback pass on REDMI K80 Ultra. This is not yet a D3D11 pass.
 
-- [ ] Pin and record the exact VKD3D-Proton and Vulkan driver identities.
-- [ ] Validate D3D12 capability requirements against the actual PanVK feature set.
-- [ ] Prove D3D12 device creation, swapchain presentation, scene rendering, clean exit, and sustained gameplay.
-- [ ] Establish repeated D3D12 baselines before any tuning.
+## Milestone 3 — Android presentation
 
-## Explicitly excluded
+- [ ] Integrate ANativeWindow surface creation and swapchain ownership.
+- [ ] Implement acquire → submit → present synchronization.
+- [ ] Handle Surface recreation, resize, SUBOPTIMAL and OUT_OF_DATE recovery.
+- [ ] Validate portrait/landscape and repeated lifecycle changes on-device.
 
-- Custom PanVK/DXVK/VKD3D packaging or rebuilding upstream graphics components as a shortcut.
-- Broad device support beyond the REDMI K80 Ultra target.
+**Acceptance:** rendered native frames remain correct across Surface changes and recovery.
 
-## Release gate
+## Milestone 4 — custom D3D11 compatibility slice
 
-Do not call the project game-compatible or production-ready until a named game has repeatable sustained rendering evidence on the target device, the exact runtime identities are recorded, and failures/limitations are documented.
+- [ ] Define NYAMIST-owned D3D11 device and immediate-context interfaces.
+- [ ] Add a bounded DXBC-to-SPIR-V shader path; document unsupported bytecode/features.
+- [ ] Map one vertex buffer, a basic vertex/pixel shader pair and one draw call.
+- [ ] Map D3D11 Present to NYAMIST's swapchain.
+- [ ] Build a small D3D11 test application that uses only the NYAMIST implementation.
+
+**Acceptance:** D3D11 calls create a NYAMIST device/context, draw the expected triangle and present it. A native Vulkan triangle alone does not count.
+
+## Milestone 5 — D3D11 feature expansion
+
+- [ ] Constant buffers and resource bindings.
+- [ ] Textures, shader-resource/render-target views and samplers.
+- [ ] Input layouts and common blend/raster/depth-stencil states.
+- [ ] Pipeline/descriptor caching and synchronization correctness.
+- [ ] Expand feature-level coverage based on tests, not assumptions.
+
+## Milestone 6 — real application validation
+
+- [ ] Run named D3D11 applications through the NYAMIST implementation.
+- [ ] Verify visible rendering, scene transitions, input, clean exit and device-loss handling.
+- [ ] Run repeatable sustained sessions and capture frame-time/thermal data.
+- [ ] Publish supported/unsupported feature lists and known limitations.
+
+**Release gate:** do not claim game compatibility or production readiness until named applications have repeatable sustained rendering evidence on the target device.
+
+## Explicit exclusions
+
+- PanPlay, PanVK and DXVK are not NYAMIST runtime dependencies.
+- No custom Vulkan ICD/HAL or replacement GPU driver in this project scope.
+- No root, vendor partition, kernel, SELinux or direct GPU device-node modifications.
+- No automatic tuning in the rendering path without separately reviewed evidence.
