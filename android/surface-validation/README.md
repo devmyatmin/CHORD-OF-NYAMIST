@@ -1,4 +1,4 @@
-# NYAMIST G925 R2.1 — Surface Lifecycle and WSI Session Recreation
+# NYAMIST G925 R2.2 — Swapchain Resize and OUT_OF_DATE Recovery
 
 R2.1 extends the R2.0 pixel-readback validation with Android Surface lifecycle
 tracking and serialized Vulkan WSI session reconstruction.
@@ -104,3 +104,37 @@ behavior, physical-panel scanout, or game-engine compatibility.
 Stock Android public Vulkan loader and vendor driver only. No root, direct GPU
 device-node access, SELinux/kernel changes, vendor partition writes, or
 driver replacement.
+
+
+## R2.2 — same-device swapchain handoff
+
+R2.2 creates a replacement VkSwapchainKHR using oldSwapchain while retaining
+the same VkDevice and Android VkSurfaceKHR. It re-queries surface capabilities,
+format support, present modes and extent before building the replacement.
+
+The replacement chain is then exercised with a real acquire, command-buffer
+layout transition from UNDEFINED to PRESENT_SRC_KHR, queue submit, queue
+present, and presentation completion wait. This probe intentionally does not
+draw scene content; the R2.0 five-pixel draw/readback test continues on the
+new swapchain immediately afterward.
+
+OUT_OF_DATE is retried up to two times (three total replacement attempts).
+SUBOPTIMAL causes a handoff after the current operation. Actual driver
+OUT_OF_DATE/SUBOPTIMAL counts are reported separately from the deterministic
+policy self-test. A run that observes neither result reports
+swapchain_out_of_date_recovery_status = not_observed; this is not evidence that
+the driver returned OUT_OF_DATE.
+
+## R2.2 device test procedure
+
+1. Install NYAMIST G925 R2.2 and run the first validation.
+2. Rotate the device once so Android can change or recreate the Surface size.
+3. Wait for the latest WSI session to complete and copy the full JSON report.
+4. Confirm swapchain_recreation_status=success, old handle supplied and
+   destroyed, logical device reused, replacement probe presentation success,
+   plus the existing pixel-readback/present-fence evidence.
+5. Record whether swapchain_extent_changed is true. A zero change is valid
+   when Android reports a fixed/current extent; it must not be called a resize
+   pass. Actual OUT_OF_DATE recovery is claimed only when the corresponding
+   device result count is nonzero and recovery success is recorded.
+

@@ -348,7 +348,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                 } else if (!sessionSuccess) {
                     statusView.setText("R2.2 WSI session failed; inspect the JSON report.");
                 } else if (result.contains("\"pixel_verification_status\": \"success\"")) {
-                    statusView.setText("R2.1 WSI session SUCCESS — pixel readback also passed.");
+                    statusView.setText("R2.2 WSI session SUCCESS — pixel readback also passed.");
                 } else {
                     statusView.setText("R2.1 WSI session completed; inspect the validation fields.");
                 }
@@ -445,7 +445,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         ClipboardManager clipboard =
                 (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R2.2 JSON", latestReport));
-        statusView.setText("R2.1 JSON report copied to clipboard.");
+        statusView.setText("R2.2 JSON report copied to clipboard.");
     }
 
     @Override

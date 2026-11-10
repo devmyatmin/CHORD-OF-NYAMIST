@@ -306,7 +306,7 @@ void testMultiFrameTimingSerialization() {
 
 void testFallbackDoesNotClaimPresentationCompletion() {
     nyamist::discovery::AndroidSurfaceSwapchainValidationReport report;
-    report.schema_version = 6U;
+    report.schema_version = 7U;
     report.present_fence_used = false;
     report.present_completion_guaranteed = false;
     report.present_completion_mode = "per_image_reacquire_fallback";
