@@ -356,7 +356,7 @@ bool createUint8IndexProbeResources(
         VkBuffer& index_buffer,
         VkDeviceMemory& index_memory) {
     if (report.index_type_uint8_feature_enable_status != "enabled") {
-        const support = report.index_type_uint8_feature_support_status;
+        const std::string support = report.index_type_uint8_feature_support_status;
         report.index_type_uint8_probe_status = support;
         report.index_type_uint8_buffer_create_status = "not_required";
         report.index_type_uint8_memory_allocate_status = "not_required";
