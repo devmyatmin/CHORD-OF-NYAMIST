@@ -1314,7 +1314,7 @@ bool recreateSwapchainAndProbe(
         VkSwapchainKHR replacement = VK_NULL_HANDLE;
         result = vk.create_swapchain(device, &create_info, nullptr, &replacement);
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-            ++report.swapchain_acquire_out_of_date_count;
+            ++report.swapchain_create_out_of_date_count;
             ++report.swapchain_out_of_date_recovery_attempt_count;
             report.swapchain_out_of_date_recovery_status = "retrying_after_create_out_of_date";
             if (attempt + 1U < 3U) continue;
@@ -1381,6 +1381,7 @@ bool recreateSwapchainAndProbe(
         VkCommandBuffer probe_command = VK_NULL_HANDLE;
         bool probe_ok = false;
         bool retry_out_of_date = false;
+        bool retry_after_suboptimal = false;
 
         VkSemaphoreCreateInfo semaphore_info{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
         result = vk.create_semaphore(device, &semaphore_info, nullptr, &acquire_semaphore);
@@ -1436,6 +1437,7 @@ bool recreateSwapchainAndProbe(
                     } else {
                         if (result == VK_SUBOPTIMAL_KHR) {
                             ++report.swapchain_acquire_suboptimal_count;
+                            retry_after_suboptimal = true;
                         }
                         report.swapchain_recreation_probe_acquire_status = "success";
                         VkCommandBufferBeginInfo begin_info{
@@ -1508,6 +1510,7 @@ bool recreateSwapchainAndProbe(
                             } else {
                                 if (result == VK_SUBOPTIMAL_KHR) {
                                     ++report.swapchain_present_suboptimal_count;
+                                    retry_after_suboptimal = true;
                                 }
                                 report.swapchain_recreation_probe_present_status = "success";
                                 if (present_fence_enabled) {
@@ -1567,18 +1570,34 @@ bool recreateSwapchainAndProbe(
         if (probe_ok) {
             ++report.swapchain_recreation_probe_present_count;
             report.swapchain_recreation_probe_rendered = false;
+            if (retry_after_suboptimal && attempt + 1U < 3U) {
+                continue;
+            }
+            if (retry_after_suboptimal) {
+                fail(report, "Replacement swapchain remained SUBOPTIMAL after recreation retries");
+                report.swapchain_recreation_status = "suboptimal_retry_exhausted";
+                return false;
+            }
+            if (report.swapchain_out_of_date_recovery_attempt_count > 0U) {
+                ++report.swapchain_out_of_date_recovery_success_count;
+            }
             report.swapchain_recreation_status = "success";
             report.swapchain_out_of_date_recovery_status =
                 report.swapchain_out_of_date_recovery_attempt_count > 0U
                     ? "recovered" : "not_observed";
             return true;
         }
-        if (retry_out_of_date && attempt + 1U < 3U) {
+        if ((retry_out_of_date || retry_after_suboptimal) && attempt + 1U < 3U) {
             continue;
         }
         if (retry_out_of_date) {
             fail(report, "Replacement swapchain remained OUT_OF_DATE after recovery retries");
             report.swapchain_recreation_status = "out_of_date_retry_exhausted";
+            return false;
+        }
+        if (retry_after_suboptimal) {
+            fail(report, "Replacement swapchain remained SUBOPTIMAL after recovery retries");
+            report.swapchain_recreation_status = "suboptimal_retry_exhausted";
             return false;
         }
         report.swapchain_recreation_status = "probe_failed";
