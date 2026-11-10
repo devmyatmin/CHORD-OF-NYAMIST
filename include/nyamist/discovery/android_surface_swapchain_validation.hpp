@@ -2,14 +2,16 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace nyamist::discovery {
 
 struct AndroidSurfaceSwapchainValidationReport {
-    std::uint32_t schema_version{1U};
+    std::uint32_t schema_version{11U};
     std::string status{"unavailable"};
     std::string platform{"android"};
     std::string loader_library;
+    std::string loader_api_version;
     std::string loader_status{"not_attempted"};
     std::string instance_create_status{"not_attempted"};
     std::string surface_extension_status{"not_attempted"};
@@ -22,7 +24,97 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::string vendor_id_hex;
     std::string device_id_hex;
     std::string physical_device_api_version;
+    std::string instance_api_version;
+    std::string physical_device_properties2_query_status{"not_attempted"};
+    std::string driver_properties_query_status{"not_attempted"};
+    std::uint32_t driver_id{};
+    std::string driver_id_name{"unknown"};
+    std::string driver_name;
+    std::string driver_info;
+    std::uint32_t driver_version_raw{};
+    std::string driver_version_hex;
+    std::string driver_conformance_version;
+    std::string physical_device_uuid_hex;
+    bool vulkan_1_4_device_api_supported{};
+    std::string vulkan_1_4_support_status{"not_queried"};
+    std::string vulkan_1_4_features_query_status{"not_queried"};
+    bool vulkan_1_4_bresenham_lines_supported{};
+    bool vulkan_1_4_shader_subgroup_rotate_clustered_supported{};
+    bool vulkan_1_4_push_descriptor_supported{};
+    bool vulkan_1_4_protected_memory_supported{};
+    bool vulkan_1_4_pipeline_protected_access_required{};
+    bool vulkan_1_4_pipeline_protected_access_supported{};
+    bool vulkan_1_4_required_features_supported{};
+    std::string vulkan_1_4_required_features_status{"not_queried"};
+    std::string vulkan_1_4_promoted_extension_inventory_status{"not_queried"};
+    std::string vulkan_1_4_promoted_extension_inventory_scope{"not_queried"};
+    std::string vulkan_1_4_promoted_extension_coverage_status{"not_queried"};
+    std::uint32_t vulkan_1_4_promoted_extension_total_count{16U};
+    std::uint32_t vulkan_1_4_promoted_extension_supported_count{};
+    std::uint32_t vulkan_1_4_promoted_extension_not_advertised_count{};
+    std::vector<std::string> vulkan_1_4_promoted_extensions_supported;
+    std::vector<std::string> vulkan_1_4_promoted_extensions_not_advertised;
+
+    // R2.5 records feature-bit query results separately from extension-name
+    // advertisement. Vulkan 1.3 devices use only advertised extension feature
+    // structs; the Vulkan 1.4 aggregate feature struct is never chained on them.
+    std::string vulkan_1_4_promoted_feature_query_status{"not_queried"};
+    std::string vulkan_1_4_promoted_feature_query_scope{"not_queried"};
+    std::uint32_t vulkan_1_4_promoted_feature_total_count{21U};
+    std::uint32_t vulkan_1_4_promoted_feature_queried_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_supported_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_not_supported_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_not_advertised_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_implicitly_supported_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_query_failed_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_not_queryable_count{};
+    std::vector<std::string> vulkan_1_4_promoted_features_supported;
+    std::vector<std::string> vulkan_1_4_promoted_features_not_supported;
+    std::vector<std::string> vulkan_1_4_promoted_features_not_advertised;
+    std::vector<std::string> vulkan_1_4_promoted_features_implicitly_supported;
+    std::vector<std::string> vulkan_1_4_promoted_features_query_failed;
+    std::vector<std::string> vulkan_1_4_promoted_features_not_queryable;
+    std::vector<std::string> vulkan_1_4_promoted_features_not_applicable;
     bool target_gpu_match{};
+
+    // R2.6 enables and functionally probes VK_KHR_index_type_uint8 only when
+    // the selected device reported the feature bit as supported in R2.5.
+    std::string index_type_uint8_extension_status{"not_queried"};
+    std::string index_type_uint8_feature_support_status{"not_queried"};
+    std::string index_type_uint8_feature_enable_status{"not_attempted"};
+    std::string index_type_uint8_buffer_create_status{"not_attempted"};
+    std::string index_type_uint8_memory_allocate_status{"not_attempted"};
+    std::string index_type_uint8_memory_bind_status{"not_attempted"};
+    std::string index_type_uint8_memory_map_status{"not_attempted"};
+    std::string index_type_uint8_upload_status{"not_attempted"};
+    std::string index_type_uint8_memory_unmap_status{"not_attempted"};
+    std::string index_type_uint8_draw_entry_points_status{"not_attempted"};
+    std::string index_type_uint8_draw_record_status{"not_attempted"};
+    bool index_type_uint8_draw_recorded{};
+    std::uint32_t index_type_uint8_draw_index_count{};
+    std::string index_type_uint8_probe_status{"not_attempted"};
+    std::string index_type_uint8_buffer_destroy_status{"not_required"};
+    std::string index_type_uint8_memory_free_status{"not_required"};
+
+    std::string swapchain_maintenance_instance_extension_status{"not_queried"};
+    std::string swapchain_maintenance_device_extension_status{"not_queried"};
+    std::string swapchain_maintenance_feature_status{"not_queried"};
+    bool swapchain_maintenance_feature_supported{};
+    bool present_fence_used{};
+    bool present_completion_guaranteed{};
+    std::string present_completion_mode{"unavailable"};
+    std::string present_fence_entry_points_status{"not_attempted"};
+    std::string present_fence_create_status{"not_attempted"};
+    std::string present_fence_attach_status{"not_attempted"};
+    std::string present_fence_wait_status{"not_attempted"};
+    std::string present_fence_reset_status{"not_attempted"};
+    std::uint32_t present_fence_attach_count{};
+    std::uint32_t present_fence_wait_count{};
+    std::uint32_t present_fence_reset_count{};
+    std::string present_fence_destroy_status{"not_required"};
+    std::uint64_t present_fence_wait_cpu_us{};
+    std::vector<std::uint64_t> present_fence_wait_cpu_us_samples;
+    std::string shutdown_presentation_completion_status{"not_attempted"};
 
     std::string swapchain_extension_status{"not_attempted"};
     std::string queue_family_status{"not_attempted"};
@@ -36,18 +128,76 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::string selected_surface_format;
     std::string selected_present_mode;
     std::string selected_image_usage;
+    std::string swapchain_transfer_src_support_status{"not_queried"};
+    std::string pixel_readback_mode{"not_attempted"};
+    std::string pixel_readback_source{"not_attempted"};
+    std::string pixel_readback_buffer_create_status{"not_attempted"};
+    std::string pixel_readback_memory_allocate_status{"not_attempted"};
+    std::string pixel_readback_bind_status{"not_attempted"};
+    std::string pixel_readback_memory_type{"not_selected"};
+    std::uint64_t pixel_readback_allocation_size{};
+    std::uint64_t pixel_readback_byte_count{};
+    bool pixel_readback_recorded{};
+    std::string pixel_readback_copy_status{"not_attempted"};
+    std::string pixel_readback_map_status{"not_attempted"};
+    std::string pixel_readback_invalidate_status{"not_required"};
+    std::string pixel_readback_unmap_status{"not_attempted"};
+    std::uint32_t pixel_readback_sample_count{};
+    std::string pixel_readback_sample_labels;
+    std::vector<std::uint64_t> pixel_expected_clear_rgba8;
+    std::vector<std::uint64_t> pixel_rgba8_samples;
+    bool pixel_background_samples_match_clear{};
+    bool pixel_triangle_center_detected{};
+    std::string pixel_verification_status{"not_attempted"};
     std::uint32_t extent_width{};
     std::uint32_t extent_height{};
 
     std::string swapchain_create_status{"not_attempted"};
     std::string swapchain_image_query_status{"not_attempted"};
     std::uint32_t swapchain_image_count{};
+
+    std::string swapchain_recreation_status{"not_attempted"};
+    std::string swapchain_recreation_mode{"old_swapchain_handoff"};
+    std::uint32_t swapchain_recreation_attempt_count{};
+    std::uint32_t swapchain_recreation_success_count{};
+    bool swapchain_old_handle_supplied{};
+    std::string swapchain_old_destroy_status{"not_required"};
+    std::string swapchain_recreated_image_query_status{"not_attempted"};
+    std::uint32_t swapchain_recreated_image_count{};
+    std::uint32_t swapchain_extent_before_width{};
+    std::uint32_t swapchain_extent_before_height{};
+    std::uint32_t swapchain_extent_after_width{};
+    std::uint32_t swapchain_extent_after_height{};
+    bool swapchain_extent_changed{};
+    bool swapchain_logical_device_reused{};
+    std::string swapchain_recreation_probe_acquire_status{"not_attempted"};
+    std::string swapchain_recreation_probe_submit_status{"not_attempted"};
+    std::string swapchain_recreation_probe_present_status{"not_attempted"};
+    std::string swapchain_recreation_probe_completion_status{"not_attempted"};
+    std::uint32_t swapchain_recreation_probe_present_count{};
+    bool swapchain_recreation_probe_rendered{};
+    std::uint32_t swapchain_acquire_suboptimal_count{};
+    std::uint32_t swapchain_present_suboptimal_count{};
+    std::uint32_t swapchain_create_out_of_date_count{};
+    std::uint32_t swapchain_acquire_out_of_date_count{};
+    std::uint32_t swapchain_present_out_of_date_count{};
+    std::uint32_t swapchain_out_of_date_recovery_attempt_count{};
+    std::uint32_t swapchain_out_of_date_recovery_success_count{};
+    std::string swapchain_result_policy_status{"not_tested"};
+    std::string swapchain_out_of_date_recovery_status{"not_observed"};
     std::string semaphore_create_status{"not_attempted"};
     std::string present_semaphore_create_status{"not_attempted"};
     std::string image_acquire_status{"not_attempted"};
     std::string command_pool_create_status{"not_attempted"};
     std::string command_buffer_allocate_status{"not_attempted"};
     std::string command_record_status{"not_attempted"};
+    std::string image_view_create_status{"not_attempted"};
+    std::string render_pass_create_status{"not_attempted"};
+    std::string framebuffer_create_status{"not_attempted"};
+    std::string vertex_shader_module_create_status{"not_attempted"};
+    std::string fragment_shader_module_create_status{"not_attempted"};
+    std::string pipeline_layout_create_status{"not_attempted"};
+    std::string graphics_pipeline_create_status{"not_attempted"};
     bool image_layout_transition_recorded{};
     std::string queue_submit_status{"not_attempted"};
     bool image_acquired{};
@@ -56,12 +206,52 @@ struct AndroidSurfaceSwapchainValidationReport {
     bool image_presented{};
     std::string queue_idle_status{"not_attempted"};
     bool frame_content_written{};
+    bool render_pass_begin_recorded{};
+    bool render_pass_end_recorded{};
+    bool graphics_pipeline_bind_recorded{};
+    bool draw_call_recorded{};
+    std::uint32_t draw_vertex_count{};
+    std::string frame_clear_color_rgba{"0.035,0.14,0.32,1.0"};
+    std::string frame_timing_source;
+    std::uint64_t acquire_cpu_us{};
+    std::uint64_t queue_submit_cpu_us{};
+    std::uint64_t present_call_cpu_us{};
+    std::uint64_t queue_idle_wait_cpu_us{};
+    std::uint64_t frame_total_cpu_us{};
+    std::uint32_t frame_timing_sample_count{};
+    bool frame_timing_valid{};
+    std::uint32_t frame_target_count{16U};
+    std::uint32_t frame_completed_count{};
+    std::uint32_t warmup_frame_count{1U};
+    std::vector<std::uint64_t> acquire_cpu_us_samples;
+    std::vector<std::uint64_t> queue_submit_cpu_us_samples;
+    std::vector<std::uint64_t> present_call_cpu_us_samples;
+    std::vector<std::uint64_t> queue_idle_wait_cpu_us_samples;
+    std::vector<std::uint64_t> frame_total_cpu_us_samples;
+    std::string gpu_timestamp_status{"not_queried"};
+    std::string gpu_timestamp_query_pool_create_status{"not_attempted"};
+    std::string gpu_timestamp_query_status{"not_queried"};
+    std::string gpu_timestamp_query_pool_destroy_status{"not_required"};
+    std::uint32_t gpu_timestamp_sample_count{};
+    std::vector<std::uint64_t> gpu_frame_time_ns_samples;
+    std::uint32_t queue_timestamp_valid_bits{};
+    bool timestamp_compute_and_graphics_supported{};
+    double timestamp_period_ns{};
 
     std::string cleanup_status{"not_attempted"};
+    std::string pixel_readback_buffer_destroy_status{"not_required"};
+    std::string pixel_readback_memory_free_status{"not_required"};
     std::string semaphore_destroy_status{"not_required"};
     std::string present_semaphore_destroy_status{"not_required"};
     std::string command_buffer_free_status{"not_required"};
     std::string command_pool_destroy_status{"not_required"};
+    std::string image_view_destroy_status{"not_required"};
+    std::string render_pass_destroy_status{"not_required"};
+    std::string framebuffer_destroy_status{"not_required"};
+    std::string graphics_pipeline_destroy_status{"not_required"};
+    std::string pipeline_layout_destroy_status{"not_required"};
+    std::string vertex_shader_module_destroy_status{"not_required"};
+    std::string fragment_shader_module_destroy_status{"not_required"};
     std::string swapchain_destroy_status{"not_required"};
     std::string device_destroy_status{"not_required"};
     std::string surface_destroy_status{"not_required"};
