@@ -47,8 +47,10 @@ the associated present wait semaphores and the swapchain can be safely destroyed
 - Leave the final present fence signaled; only then release presentation wait
   semaphores and destroy the swapchain.
 - Record extension/feature states, whether the fence path was actually used,
-  every fence lifecycle status, per-frame fence wait CPU samples, and the
-  shutdown completion method in schema-v5 JSON.
+  fence lifecycle statuses, explicit attach/wait/reset operation counters,
+  measured fence wait CPU samples, and the shutdown completion method in
+  schema-v5 JSON. A complete 17-frame run expects 17 attaches, 17 successful
+  waits, 16 intermediate resets, and 16 measured wait samples.
 
 ## Fallback behavior
 
@@ -99,15 +101,42 @@ compilation and packaging, not that the MT6991 vendor driver exposes or executes
 between the explicit present-fence path and the honest per-image-reacquire
 fallback.
 
+## Hosted CI — PASS
+
+Validated source head: `b6ed640af6fc7a0703004d42581799b3d258f63b`.
+
+- NYAMIST Core CI Run #331 (42742094562): SUCCESS.
+- R1.9 Android push workflow Run #15 (42742094790): SUCCESS.
+- R1.9 Android PR workflow Run #16 (42742100724): SUCCESS.
+- APK artifact: `nyamist-g925-r1.9-debug-apk`, ID `13728884325`, size 1,211,575 bytes.
+- APK ZIP SHA-256: `49bce5e9b4d96e01b1cdcc4a464c24542404e66f2c9d2b239d4b318e47d75a90`.
+- Extracted APK SHA-256: `256aa31f3bfede7079187e9b299082093c635044daee5c01719350b65bd1052e`.
+- [Core CI Run #331](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42742094562)
+- [Android build Run #15](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42742094790)
+- [Android PR validation Run #16](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42742100724)
+
+The artifact ZIP and contained APK passed integrity checks. The APK contains
+`lib/arm64-v8a/libnyamist_surface_validation.so`.
+
+The present-fence wait uses an infinite Vulkan fence wait rather than
+abandoning a still-pending present fence after a host-side timeout. This
+prevents the cleanup path from treating an unsignaled fence as safe to destroy.
+
+## Target-device validation — PENDING
+
+No schema-v5 report has yet been returned from the REDMI K80 Ultra. Hosted CI
+proves compilation and packaging, not whether the MT6991 vendor driver exposes
+or executes the maintenance present-fence feature.
+
 ## Acceptance criteria
 
-- Core CI and Android arm64 APK build pass.
+- Core CI and Android arm64 APK build pass on the validated source head.
 - On the target phone, the report correctly identifies whether the maintenance
   dependencies, extension, and feature are available.
-- If supported: all 17 present operations use a fence; 16 measured fence-wait
-  samples are recorded; every wait succeeds; intermediate fence resets succeed;
-  the final fence remains signaled; fence/semaphore/swapchain cleanup succeeds;
-  shutdown completion is explicitly marked guaranteed.
+- If supported: the report shows 17 fence attaches, 17 successful waits, 16
+  successful intermediate resets, and 16 measured wait samples; the final
+  fence remains signaled; fence/semaphore/swapchain cleanup succeeds; shutdown
+  resource completion is explicitly marked guaranteed.
 - If unsupported: the report records the exact unsupported/dependency state,
   uses the per-image reacquire fallback, and does not claim a formal
   presentation-completion guarantee.
