@@ -78,6 +78,19 @@ those lifecycle events.
 
 See [R2.1 REDMI K80 Ultra evidence](../../docs/evidence/NYAMIST-G925-R2.1-redmi-k80-ultra-2026-11-10.md).
 
+## R2.1 REDMI K80 Ultra hardware result — PASS
+
+The latest supplied device report confirms six Surface creations, five
+destructions and five recreations, plus five Activity pauses and six resumes.
+It completed 16/16 native WSI sessions with zero skips, zero active sessions
+at report time, and max_concurrent_native_sessions=1. The latest session
+retained successful R2.0 pixel readback, 17/17 present-fence attaches/waits,
+and successful Vulkan cleanup.
+
+This is a Surface lifecycle and serialized WSI session HARDWARE PASS.
+The report observed zero Surface resize events; resize remains separately
+unvalidated. See [R2.1 hardware evidence](../../docs/evidence/NYAMIST-G925-R2.1-redmi-k80-ultra-2026-11-10.md).
+
 ## Validation boundaries
 
 Hosted CI checks the Java/native build, shader compilation, APK packaging and

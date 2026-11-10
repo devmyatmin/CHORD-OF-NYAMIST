@@ -1,134 +1,113 @@
 # NYAMIST G925 R2.1 — Surface Lifecycle and WSI Session Recreation
 
-**Hosted validation: PASS. Target-device validation: PARTIAL PASS — serialized WSI session rebuild proven; Android Surface destroy/recreate still pending.**
+**Hosted validation: PASS. Target-device validation: HARDWARE PASS.**
 
 ## Objective
 
-Prove that the Android app can observe Surface lifecycle transitions and
-reconstruct a fresh Vulkan WSI session after a Surface generation, size, or
-Activity-resume event without overlapping native validation calls.
+Verify Android Surface lifecycle transitions and reconstruct fresh Vulkan WSI
+sessions after Surface destruction/recreation, size changes, and Activity
+resume events without overlapping native validation sessions.
 
-R2.1 builds on the R2.0 hardware pass. It retains the R2.0 native pixel
-readback, present-fence path, GPU timestamp collection and cleanup logic.
+R2.1 builds on the R2.0 hardware pass. It preserves swapchain pixel readback,
+the VK_EXT_swapchain_maintenance1 present-fence path, GPU timestamp
+collection, and orderly Vulkan cleanup.
 
 ## Implementation
 
 - Record SurfaceHolder surfaceCreated, surfaceChanged and surfaceDestroyed.
-- Count real surface recreation separately from resize and Activity
+- Count actual Surface recreation separately from resize and Activity
   pause/resume events.
-- Record Activity onPause/onResume. On resume, queue a new WSI session when a
-  previously validated Surface is still available.
-- Provide an explicit rebuild control for deterministic repeat-session tests.
-- Retain a strong Java reference to the framework-owned Surface object
-  while a request is queued or running; do not attempt to call a nonexistent
-  Surface(Surface) copy constructor. JNI obtains its own ANativeWindow
-  reference with ANativeWindow_fromSurface and releases it during native cleanup.
+- Record Activity onPause/onResume and queue a new WSI session when the
+  Activity resumes with a valid Surface.
+- Provide an explicit rebuild control for repeat-session validation.
+- Retain a strong Java reference to the framework-owned Surface while the
+  request is queued or running. JNI obtains its own ANativeWindow reference
+  with ANativeWindow_fromSurface and releases it during native cleanup.
 - Run all native sessions through one single-thread executor. Requests for
   stale Surface generations are skipped before entering JNI. If
   surfaceDestroyed arrives during native work, that callback waits until the
-  active JNI session has completed cleanup and released its ANativeWindow.
-  The next queued generation can begin only after that callback boundary.
-- Every native invocation recreates the Vulkan instance, Android surface,
-  device and swapchain, then destroys them in order. This is a fresh WSI
-  session per request, not an in-place oldSwapchain handoff.
-- Preserve native report schema v6 and append android_surface_lifecycle
-  schema v1 as a top-level JSON object.
+  active JNI session has completed Vulkan cleanup and released its
+  ANativeWindow before returning.
+- Every native invocation creates a fresh Vulkan instance, Android surface,
+  logical device and swapchain, then destroys them in order. This is a fresh
+  WSI session per request, not an in-place oldSwapchain handoff.
+- Preserve the native report schema v6 and append an
+  android_surface_lifecycle object with nested schema v1.
 
-## Target-device evidence — serialized WSI session PASS
+## Target-device validation — HARDWARE PASS
 
-The REDMI K80 Ultra returned a complete R2.1 app report. The native render
-payload retains its R2.0 identity and schema-v6 fields; the R2.1 Android
-wrapper appends the schema-v1 android_surface_lifecycle object. This is
-intentional in the current implementation and the outer lifecycle object is
-the R2.1-specific evidence.
+Validated on the REDMI K80 Ultra / Android 16 / MediaTek MT6991 /
+Mali-G925-Immortalis MC12. The user supplied the complete R2.1 report.
 
-- Device/GPU match: Mali-G925-Immortalis MC12, vendor 0x13b5, device
-  0xd8300010, Vulkan device API 1.3.278; target_gpu_match=true.
-- Latest request: 7, reason manual_rebuild, generation 1, extent 1202×715.
-- Native WSI sessions: 7 started, 7 completed, 7 successful, 0 skipped.
-- Native sessions active at report time: 0; maximum concurrent sessions: 1.
-- All seven requests completed in the same Android Surface generation.
-- Latest native session retained R2.0 pixel-readback success: four background
-  samples exactly [53,105,153,255], triangle center [200,180,180,255].
-- Present-fence path remained successful: 17 attaches, 17 waits, 16 resets;
-  shutdown completion was present_fence_signaled.
-- Latest native session reported successful cleanup for the readback buffer
-  and memory, swapchain, device, Vulkan surface, instance and native window.
-- Diagnostic GPU frame-time median: 92,538 ns; p95: 218,769 ns. Diagnostic
-  CPU frame-total median: 7,074 µs; p95: 19,822 µs. These are not FPS or
-  sustained-performance measurements.
+- Target GPU match: true; vendor 0x13b5, device 0xd8300010,
+  Vulkan device API 1.3.278; loader API 1.4.0.
+- Android Surface generations: 6 created, 5 destroyed, 5 recreated.
+- Activity lifecycle: 5 pauses, 6 resumes; Activity resumed at report time.
+- Surface changes: 6; resize events: 0. No display-size change was observed
+  in this run; Surface destruction/recreation was independently observed.
+- Native WSI sessions: 16 started, 16 completed, 16 successful, 0 skipped.
+- Native sessions active at report time: 0; maximum concurrent native
+  sessions: 1.
+- Manual rebuild requests: 10. Latest report was request ID 21 on generation
+  6 at 1202×715, reason manual_rebuild.
+- Latest native WSI session retained R2.0 pixel readback: four background
+  samples exactly [53,105,153,255], triangle center [200,180,180,255];
+  pixel_verification_status=success.
+- Latest native session's present-fence validation completed 17 attaches,
+  17 waits and 16 intermediate resets; shutdown reported
+  present_fence_signaled.
+- Latest native session completed 16 GPU timestamp samples. GPU frame-time
+  median was 86,000 ns and p95 was 126,154 ns. CPU diagnostic frame-total
+  median was 8,139 µs and p95 was 16,663 µs.
+- Latest native session cleanup, including swapchain, device, surface,
+  instance, pixel readback resources and native window, reported success.
 
-**Lifecycle boundary:** surface_created_count=1, surface_destroyed_count=0,
-surface_recreated_count=0, surface_resize_count=0, activity_pause_count=0,
-activity_resume_count=1. Therefore this report proves repeated fresh WSI
-session reconstruction and single-session serialization, but it does not
-prove an Android Surface destroy/create cycle or an Activity pause/resume
-cycle. The six explicit manual rebuild requests produced six additional
-successful native sessions without overlap.
-
-The next device check is to press Home and return to the app, then rotate the
-device once. A formal Surface recreation pass still requires a report with
-surface_destroyed_count >= 1 and surface_recreated_count >= 1. A pause/resume
-pass requires activity_pause_count to increase and a subsequent
-activity_resume_count to be recorded. Do not infer either event from manual
-rebuilds.
-
-See [R2.1 REDMI K80 Ultra evidence](../evidence/NYAMIST-G925-R2.1-redmi-k80-ultra-2026-11-10.md).
-
-## Lifecycle evidence fields
-
-The nested object includes session generation/request/reason/dimensions,
-current-at-completion status, Surface create/recreate/change/destroy/resize
-counts, Activity pause/resume counts, manual rebuild requests, native session
-started/completed/success/skipped counts, active/max concurrency, and the
-rebuild policy string.
+The lifecycle counts establish actual Surface destruction and recreation,
+not just explicit manual WSI rebuilds. The 16/16 native sessions and
+max_concurrent_native_sessions=1 establish successful serialized execution
+across the recorded lifecycle sequence.
 
 ## Hosted validation — PASS
 
-On code head 193e10625f3c93da00c12e6a6055f40c587842f3:
+Validated source head for the R2.1 APK and current implementation:
+0277684cbf4a7b46eb14887c7d9d7f3db756b3a7.
 
-- NYAMIST Core CI push Run #365: SUCCESS.
-- NYAMIST Core CI PR Run #366: SUCCESS.
-- R2.1 Android push workflow Run #9: SUCCESS.
-- R2.1 Android PR workflow Run #10: SUCCESS.
-- APK artifact from PR Run #10: id 13732041949,
-  name nyamist-g925-r2.1-surface-lifecycle-apk, ZIP size 1,222,569 bytes.
-- [Core CI PR Run #366](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42747556739)
-- [R2.1 Android PR Run #10](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42747556448)
+- NYAMIST Core CI PR Run #371: SUCCESS.
+- R2.1 Android PR workflow Run #15: SUCCESS.
+- NYAMIST Core CI push Run #370: SUCCESS.
+- R2.1 Android push workflow Run #14: SUCCESS.
+- [Core CI PR Run #371](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42750071943)
+- [R2.1 Android PR Run #15](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42750072083)
+
+Hosted CI validates Java/native compilation, lifecycle contract tests, shader
+compilation, APK packaging and core C++ tests. The Surface lifecycle counters
+above are independent target-device evidence.
 
 ## Acceptance criteria
 
 - Hosted core tests, Android Java compilation, native arm64 compilation,
   shader compilation and APK packaging pass.
-- Device report includes the nested lifecycle object and valid JSON.
+- Device report contains valid native schema-v6 and Android lifecycle schema-v1
+  evidence.
 - At least two native WSI sessions complete; maximum concurrent native
-  sessions is exactly one. This sub-criterion is now hardware-verified (7/7
-  completed, maximum concurrency 1).
-- Each accepted session shows successful Android surface creation,
-  swapchain creation, present-fence completion, R2.0 pixel verification and
-  orderly cleanup.
-- For a formal Surface recreation claim, device evidence must show at least
-  one surface destruction followed by a new Surface generation. This remains
-  pending; the current device report records zero destroys and zero recreates. An Activity
-  resume or manual session rebuild alone is not labeled Surface recreation.
-- Surface resize events are counted separately and cause a fresh WSI session.
-
-## Device test procedure
-
-Install the R2.1 APK, wait for the first SUCCESS, tap the rebuild button once,
-then press Home and reopen the app. Rotate once to exercise resize handling.
-Wait for the newest session, copy the complete JSON report and return it for
-hardware review.
-
-The OS may retain the Surface while the Activity is paused. In that case the
-report must show Activity pause/resume and the explicitly requested session,
-without asserting that surfaceDestroyed/surfaceCreated occurred.
+  sessions is exactly one. **Verified: 16/16, concurrency 1.**
+- Successful pixel readback, present-fence completion and orderly cleanup
+  remain present in the latest session. **Verified.**
+- At least one Surface destruction followed by a new Surface generation is
+  required for a Surface recreation claim. **Verified: 5 destroys / 5 recreates.**
+- Activity pause/resume is recorded separately. **Verified: 5 pauses / 6 resumes.**
+- Surface resize is counted separately; this run observed zero resize events.
 
 ## Measurement boundaries
 
-R2.1 repeats the R2.0 validation workload. It is not a sustained benchmark and
-does not establish FPS, thermal/battery behavior, physical-panel scanout,
-full-frame correctness or game compatibility.
+R2.1 repeats the controlled triangle validation workload. GPU timestamps and
+CPU durations are diagnostic samples; they do not establish game FPS,
+sustained performance, thermal/battery behavior, or full-scene correctness.
+
+Pixel verification reads the acquired swapchain image before presentation;
+it is not physical-panel scanout. Fresh WSI session reconstruction is not
+an in-place oldSwapchain handoff and does not establish game-engine
+compatibility or that Stranded Deep runs on Android.
 
 ## Safety
 
