@@ -66,6 +66,7 @@ class R25PromotedFeatureCapabilityContractTests(unittest.TestCase):
             "vulkan_1_4_promoted_features_supported",
             "vulkan_1_4_promoted_features_not_supported",
             "vulkan_1_4_promoted_features_not_advertised",
+            "vulkan_1_4_promoted_features_implicitly_supported",
             "vulkan_1_4_promoted_features_query_failed",
             "vulkan_1_4_promoted_features_not_queryable",
             "vulkan_1_4_promoted_features_not_applicable",
@@ -97,6 +98,8 @@ class R25PromotedFeatureCapabilityContractTests(unittest.TestCase):
         self.assertIn("VK_KHR_load_store_op_none (no feature bit)", self.native)
         self.assertIn("VK_KHR_map_memory2 (no feature bit)", self.native)
         self.assertIn("VK_KHR_push_descriptor.pushDescriptor", self.native)
+        self.assertIn("implicit via VK_KHR_push_descriptor", self.native)
+        self.assertIn("vulkan_1_4_promoted_feature_implicitly_supported_count", self.native)
         self.assertIn("vulkan_1_4_promoted_feature_query_failed_count", self.native)
         self.assertIn("vulkan_1_4_promoted_features_not_queryable", self.serializer)
 
