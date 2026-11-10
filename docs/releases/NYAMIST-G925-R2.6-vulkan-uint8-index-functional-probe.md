@@ -42,14 +42,28 @@ The report records extension advertisement/core status, feature support and enab
 - It does not claim Vulkan 1.4 physical-device API support or full Vulkan 1.4 compliance.
 - It does not replace or modify the Android Vulkan loader or the ARM vendor driver.
 - No root, private GPU device-node access, kernel/SELinux change, vendor-partition write, or custom ICD is used.
-- Target-device validation is pending until a schema-v11 report confirms that the R2.6 indexed-only frame passed pixel readback on the REDMI K80 Ultra.
+- Target-device validation: **PASS — 2026-11-10**. The schema-v11 report confirms feature enablement, indexed-only draw execution, acquired-swapchain-image pixel verification, and successful resource cleanup on the REDMI K80 Ultra. Full evidence: [R2.6 REDMI K80 Ultra hardware evidence](../evidence/NYAMIST-G925-R2.6-redmi-k80-ultra-2026-11-10.md).
 
 ## Hosted validation
 
 **PASS — 2026-11-10.** Core CI passed on R2.6 head `0bb310aa2fa7fe80e031e61fea529e9a04a8d551` (run [42772752854](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42772752854)). The R2.2–R2.6 contract-test suite passed, the arm64 Android APK build passed, and the APK artifact was uploaded by the R2.6 Android workflow (run [42772282941](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42772282941)). The build used pinned Khronos Vulkan-Headers v1.4.368, Android SDK 36 and NDK 28.2.13676358.
 
-This is hosted CI/build evidence only; it does not establish target-device execution.
+This paragraph records hosted CI/build evidence only. Target-device execution is independently established by the schema-v11 hardware report summarized below.
 
 ## Target-device validation
 
-**Pending.** A target-device schema-v11 report must show `index_type_uint8_feature_enable_status=enabled`, successful index-buffer setup, `index_type_uint8_draw_recorded=true`, `index_type_uint8_draw_index_count=3`, `index_type_uint8_probe_status=success`, successful pixel verification, and successful buffer/memory destruction.
+**PASS — 2026-11-10.** The schema-v11 report from REDMI K80 Ultra / Android 16 / MT6991 / Mali-G925-Immortalis MC12 matched the target GPU and completed the uint8 indexed-draw functional probe successfully.
+
+- Physical-device API: **1.3.278**; Android loader and instance API: 1.4.0. The device does not expose Vulkan 1.4 as its physical-device API.
+- `VK_KHR_index_type_uint8`: advertised; `indexTypeUint8`: supported by the R2.5 capability query and enabled successfully at device creation.
+- Three-byte index buffer: create, allocate, bind, map, upload `[0, 1, 2]`, and unmap all succeeded.
+- Indexed-draw entry points and command recording: success; `index_type_uint8_draw_recorded=true`; index count: **3**.
+- Functional probe: **`index_type_uint8_probe_status=success`**.
+- Acquired swapchain-image pixel verification: **success**; four corner samples matched `[53, 105, 153, 255]`, and the triangle-center sample was `[200, 180, 180, 255]`.
+- Index buffer destruction, index memory free, and overall cleanup: success.
+- Repeated manual rebuild observations: 56 manual rebuild requests; 59 native sessions started, 59 completed, 59 successful, zero skipped, zero active at report time, maximum concurrent native sessions **1**. Requests were serialized in this run; this is not a long-duration concurrency/soak test.
+- GPU timestamp samples: 16; minimum **35,692 ns**, median **51,807 ns**, p95 / maximum **84,692 ns**. CPU frame-total samples: 16; minimum **438 us**, median **8,114 us**, p95 / maximum **15,337 us**. These short samples are not sustained performance or thermal benchmarks.
+
+See [R2.6 REDMI K80 Ultra hardware evidence](../evidence/NYAMIST-G925-R2.6-redmi-k80-ultra-2026-11-10.md) for the full result and evidence boundaries.
+
+This is a hardware PASS for the R2.6 uint8 index-feature enablement and indexed-draw functional probe only. It does **not** establish physical-device Vulkan 1.4 API support (the device reports Vulkan 1.3.278), full Vulkan 1.4 compliance, or functional use of every promoted feature. Actual swapchain resize / OUT_OF_DATE recovery remains not observed.
