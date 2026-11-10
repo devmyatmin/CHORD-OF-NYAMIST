@@ -17,6 +17,11 @@ class R16AndroidBuildContractTests(unittest.TestCase):
             workflow,
         )
 
+    def test_workflow_installs_required_shader_compiler(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("glslang-tools", workflow)
+        self.assertIn("sudo apt-get install --yes glslang-tools", workflow)
+
     def test_workflow_runs_for_r16_branch_and_r15_integration_prs(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("feature/g925-r1.6-swapchain-rendering-frame-timing", workflow)
