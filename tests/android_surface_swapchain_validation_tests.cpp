@@ -180,7 +180,7 @@ void testSuccessfulSwapchainReportContract() {
     report.swapchain_out_of_date_recovery_status = "not_observed";
 
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 6") != std::string::npos,
+    check(json.find("\"schema_version\": 7") != std::string::npos,
           "R2.2 schema version must be serialized");
     check(json.find(R"("present_fence_used": true)") != std::string::npos,
           "present fence use must be serialized");
