@@ -48,9 +48,12 @@ For a deterministic Surface resize and live-WSI event test:
    the real Vulkan acquire/present calls while the existing device and
    swapchain probe remain active.
 6. Allow the live native session and any serialized follow-up Surface session
-   to finish. Tap **COPY JSON REPORT**; it preferentially copies the dedicated
-   live-window report, not a later normal session report.
-7. Preserve the copied JSON and the separate app file
+   to finish. Use **COPY LIVE WSI REPORT** for the dedicated probe result and
+   **COPY LATEST SESSION REPORT** for the newest Surface session. If the Live
+   WSI report says `session_current_at_completion=false`, it is a preserved
+   snapshot from the session superseded during the resize; use the latest-session
+   report to inspect the final rendered frame.
+7. Preserve both JSON reports and the separate app file
    `nyamist-g925-r2.2-live-wsi-resize-window.json`.
 
 Part 1 acceptance requires a nonzero `surface_resize_count`, a true
@@ -66,7 +69,7 @@ The live-window mode records both pause points and their total duration. A real 
 
 ## Live WSI Resize Window mode
 
-The live-window control is designed to expose the actual WSI operation to a Surface change while the same VkDevice and oldSwapchain probe are active. It opens two 2-second windows: before image acquire, and after queue submit but before present. Tap the Surface size control once in each window. This is an observation harness, not an event injector; the driver is free to return VK_SUCCESS, VK_SUBOPTIMAL_KHR or VK_ERROR_OUT_OF_DATE_KHR. The report includes the mode flag, pause counts, total pause duration, real acquire/present result counters, and bounded recovery counts. The live report is stored separately and is the report copied by the clipboard action when present.
+The live-window control is designed to expose the actual WSI operation to a Surface change while the same VkDevice and oldSwapchain probe are active. It opens two 2-second windows: before image acquire, and after queue submit but before present. Tap the Surface size control once in each window. This is an observation harness, not an event injector; the driver is free to return VK_SUCCESS, VK_SUBOPTIMAL_KHR or VK_ERROR_OUT_OF_DATE_KHR. The report includes the mode flag, pause counts, total pause duration, real acquire/present result counters, and bounded recovery counts. The live report is stored separately and exported by its dedicated copy action; it does not replace the latest-session report.
 
 ## Aspect-preserving triangle rendering — Part 1
 
