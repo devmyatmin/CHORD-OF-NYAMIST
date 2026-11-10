@@ -65,11 +65,13 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::uint32_t vulkan_1_4_promoted_feature_supported_count{};
     std::uint32_t vulkan_1_4_promoted_feature_not_supported_count{};
     std::uint32_t vulkan_1_4_promoted_feature_not_advertised_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_implicitly_supported_count{};
     std::uint32_t vulkan_1_4_promoted_feature_query_failed_count{};
     std::uint32_t vulkan_1_4_promoted_feature_not_queryable_count{};
     std::vector<std::string> vulkan_1_4_promoted_features_supported;
     std::vector<std::string> vulkan_1_4_promoted_features_not_supported;
     std::vector<std::string> vulkan_1_4_promoted_features_not_advertised;
+    std::vector<std::string> vulkan_1_4_promoted_features_implicitly_supported;
     std::vector<std::string> vulkan_1_4_promoted_features_query_failed;
     std::vector<std::string> vulkan_1_4_promoted_features_not_queryable;
     std::vector<std::string> vulkan_1_4_promoted_features_not_applicable;
