@@ -28,11 +28,13 @@ struct VulkanDispatch {
     PFN_vkGetInstanceProcAddr get_instance_proc_addr{};
 
     PFN_vkEnumerateInstanceExtensionProperties enumerate_instance_extensions{};
+    PFN_vkEnumerateInstanceVersion enumerate_instance_version{};
     PFN_vkCreateInstance create_instance{};
 
     PFN_vkDestroyInstance destroy_instance{};
     PFN_vkEnumeratePhysicalDevices enumerate_physical_devices{};
     PFN_vkGetPhysicalDeviceProperties get_physical_device_properties{};
+    PFN_vkGetPhysicalDeviceFeatures2 get_physical_device_features2{};
     PFN_vkGetPhysicalDeviceQueueFamilyProperties get_queue_families{};
     PFN_vkEnumerateDeviceExtensionProperties enumerate_device_extensions{};
     PFN_vkGetPhysicalDeviceSurfaceSupportKHR get_surface_support{};
@@ -67,6 +69,10 @@ struct VulkanDispatch {
     PFN_vkGetSwapchainImagesKHR get_swapchain_images{};
     PFN_vkCreateSemaphore create_semaphore{};
     PFN_vkDestroySemaphore destroy_semaphore{};
+    PFN_vkCreateFence create_fence{};
+    PFN_vkDestroyFence destroy_fence{};
+    PFN_vkWaitForFences wait_for_fences{};
+    PFN_vkResetFences reset_fences{};
     PFN_vkAcquireNextImageKHR acquire_next_image{};
     PFN_vkQueuePresentKHR queue_present{};
     PFN_vkQueueWaitIdle queue_wait_idle{};
@@ -171,6 +177,8 @@ bool renderAndPresentFrame(
         VkPipeline& graphics_pipeline,
         VkQueryPool timestamp_query_pool,
         std::uint32_t timestamp_query_base,
+        VkFence present_fence,
+        bool present_fence_enabled,
         bool collect_frame_sample,
         std::chrono::steady_clock::time_point frame_start) {
     VkImageViewCreateInfo image_view_info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
@@ -486,6 +494,16 @@ bool renderAndPresentFrame(
     present_info.swapchainCount = 1U;
     present_info.pSwapchains = &swapchain;
     present_info.pImageIndices = &image_index;
+    VkSwapchainPresentFenceInfoEXT present_fence_info{
+        VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT};
+    present_fence_info.swapchainCount = 1U;
+    present_fence_info.pFences = &present_fence;
+    if (present_fence_enabled) {
+        present_info.pNext = &present_fence_info;
+        report.present_fence_attach_status = "success";
+    } else {
+        report.present_fence_attach_status = "not_supported";
+    }
     const auto present_start = std::chrono::steady_clock::now();
     result = vk.queue_present(queue, &present_info);
     const auto present_end = std::chrono::steady_clock::now();
@@ -497,6 +515,28 @@ bool renderAndPresentFrame(
     if (!isUsable(result)) {
         fail(report, "vkQueuePresentKHR failed: " + resultName(result));
         return false;
+    }
+
+    if (present_fence_enabled) {
+        const auto fence_wait_start = std::chrono::steady_clock::now();
+        result = vk.wait_for_fences(device, 1U, &present_fence, VK_TRUE, 5000000000ULL);
+        const auto fence_wait_end = std::chrono::steady_clock::now();
+        report.present_fence_wait_cpu_us = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                fence_wait_end - fence_wait_start).count());
+        report.present_fence_wait_status =
+            result == VK_SUCCESS ? "success" : "failed";
+        if (result != VK_SUCCESS) {
+            fail(report, "vkWaitForFences(present) failed: " + resultName(result));
+            return false;
+        }
+        report.present_fence_used = true;
+        report.present_completion_guaranteed = true;
+        report.present_completion_mode = "VK_EXT_swapchain_maintenance1";
+        if (collect_frame_sample) {
+            report.present_fence_wait_cpu_us_samples.push_back(
+                report.present_fence_wait_cpu_us);
+        }
     }
 
     const auto idle_start = std::chrono::steady_clock::now();
@@ -567,6 +607,8 @@ bool runFrameSequence(
         VkExtent2D extent,
         VkSemaphore& acquire_semaphore,
         std::vector<VkSemaphore>& present_semaphores,
+        VkFence& present_fence,
+        bool present_fence_enabled,
         VkQueryPool& timestamp_query_pool,
         VkCommandPool& command_pool,
         VkCommandBuffer& command_buffer,
@@ -605,6 +647,29 @@ bool runFrameSequence(
         }
     }
     report.present_semaphore_create_status = "success";
+
+    if (present_fence_enabled) {
+        VkFenceCreateInfo present_fence_create_info{
+            VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+        result = vk.create_fence(
+            device, &present_fence_create_info, nullptr, &present_fence);
+        report.present_fence_create_status =
+            result == VK_SUCCESS ? "success" : "failed";
+        if (result != VK_SUCCESS) {
+            fail(report, "vkCreateFence(present) failed: " + resultName(result));
+            return false;
+        }
+        report.present_fence_entry_points_status = "success";
+        report.present_completion_mode = "VK_EXT_swapchain_maintenance1";
+    } else {
+        report.present_fence_create_status = "not_supported";
+        report.present_fence_entry_points_status = "not_supported";
+        report.present_fence_attach_status = "not_supported";
+        report.present_fence_wait_status = "not_supported";
+        report.present_fence_reset_status = "not_required";
+        report.present_completion_mode = "per_image_reacquire_fallback";
+        report.present_completion_guaranteed = false;
+    }
 
     const bool timestamp_supported =
         report.queue_timestamp_valid_bits > 0U &&
@@ -670,9 +735,22 @@ bool runFrameSequence(
             command_pool, command_buffer, image_view, render_pass, framebuffer,
             vertex_shader, fragment_shader, pipeline_layout, graphics_pipeline,
             collect_sample ? timestamp_query_pool : VK_NULL_HANDLE,
-            sample_index * 2U, collect_sample, frame_start);
+            sample_index * 2U, present_fence, present_fence_enabled,
+            collect_sample, frame_start);
         if (!frame_ok) return false;
         ++report.frame_completed_count;
+
+        if (present_fence_enabled && frame_index + 1U < total_frames) {
+            result = vk.reset_fences(device, 1U, &present_fence);
+            report.present_fence_reset_status =
+                result == VK_SUCCESS ? "success" : "failed";
+            if (result != VK_SUCCESS) {
+                fail(report, "vkResetFences(present) failed: " + resultName(result));
+                return false;
+            }
+        } else if (present_fence_enabled) {
+            report.present_fence_reset_status = "not_required_after_final_present";
+        }
 
         // A framebuffer is tied to the particular swapchain image acquired above.
         if (framebuffer != VK_NULL_HANDLE) {
@@ -700,6 +778,13 @@ bool runFrameSequence(
     }
     report.gpu_timestamp_query_status = "success";
     report.gpu_timestamp_status = "success";
+    if (present_fence_enabled && report.present_fence_wait_status == "success") {
+        report.shutdown_presentation_completion_status = "present_fence_signaled";
+        report.present_completion_guaranteed = true;
+    } else {
+        report.shutdown_presentation_completion_status =
+            "not_guaranteed_without_present_fence";
+    }
     return true;
 }
 
@@ -722,7 +807,13 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     VkPipeline graphics_pipeline = VK_NULL_HANDLE;
     VkSemaphore acquire_semaphore = VK_NULL_HANDLE;
     std::vector<VkSemaphore> present_semaphores;
+    VkFence present_fence = VK_NULL_HANDLE;
     VkQueryPool timestamp_query_pool = VK_NULL_HANDLE;
+    bool maintenance_instance_extensions_enabled = false;
+    bool maintenance_device_extension_supported = false;
+    bool maintenance_feature_supported = false;
+    std::uint32_t loader_api_version = VK_API_VERSION_1_0;
+    std::uint32_t instance_api_version = VK_API_VERSION_1_0;
     VkCommandPool command_pool = VK_NULL_HANDLE;
     VkCommandBuffer command_buffer = VK_NULL_HANDLE;
 
@@ -756,10 +847,15 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         vk.member = reinterpret_cast<decltype(vk.member)>( \
             vk.get_instance_proc_addr(VK_NULL_HANDLE, symbol))
         LOAD_GLOBAL(enumerate_instance_extensions, "vkEnumerateInstanceExtensionProperties");
+        LOAD_GLOBAL(enumerate_instance_version, "vkEnumerateInstanceVersion");
         LOAD_GLOBAL(create_instance, "vkCreateInstance");
 #undef LOAD_GLOBAL
         if (vk.enumerate_instance_extensions == nullptr || vk.create_instance == nullptr) {
             fail(report, "Required Vulkan global entry points are unavailable");
+        } else if (vk.enumerate_instance_version != nullptr) {
+            std::uint32_t version = VK_API_VERSION_1_0;
+            const VkResult version_result = vk.enumerate_instance_version(&version);
+            if (version_result == VK_SUCCESS) loader_api_version = version;
         }
     }
 
@@ -778,6 +874,24 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                 hasInstanceExtension(extensions, VK_KHR_SURFACE_EXTENSION_NAME) ? "success" : "missing";
             report.android_surface_extension_status =
                 hasInstanceExtension(extensions, VK_KHR_ANDROID_SURFACE_EXTENSION_NAME) ? "success" : "missing";
+            const bool surface_maintenance_available =
+                hasInstanceExtension(extensions, VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
+            const bool surface_capabilities2_available =
+                hasInstanceExtension(extensions, VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+            const bool properties2_available =
+                hasInstanceExtension(extensions, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+            const bool core_features2_available =
+                VK_VERSION_MAJOR(loader_api_version) > 1U ||
+                VK_VERSION_MINOR(loader_api_version) >= 1U;
+            const bool features2_available =
+                core_features2_available || properties2_available;
+            maintenance_instance_extensions_enabled =
+                surface_maintenance_available && surface_capabilities2_available &&
+                features2_available;
+            report.swapchain_maintenance_instance_extension_status =
+                maintenance_instance_extensions_enabled
+                    ? "available_for_enablement"
+                    : "unsupported_or_dependency_missing";
             if (report.surface_extension_status != "success" ||
                 report.android_surface_extension_status != "success") {
                 fail(report, "Required VK_KHR_surface or VK_KHR_android_surface extension is missing");
@@ -786,21 +900,39 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     }
 
     if (report.failure_reason.empty()) {
-        const char* instance_extensions[] = {
+        std::vector<const char*> instance_extensions = {
             VK_KHR_SURFACE_EXTENSION_NAME,
             VK_KHR_ANDROID_SURFACE_EXTENSION_NAME
         };
+        const bool properties2_available =
+            maintenance_instance_extensions_enabled &&
+            VK_VERSION_MAJOR(loader_api_version) == 1U &&
+            VK_VERSION_MINOR(loader_api_version) < 1U;
+        if (maintenance_instance_extensions_enabled) {
+            instance_extensions.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+            instance_extensions.push_back(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
+            if (properties2_available) {
+                instance_extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+            }
+        }
         VkApplicationInfo app_info{VK_STRUCTURE_TYPE_APPLICATION_INFO};
-        app_info.pApplicationName = "NYAMIST G925 R1.8";
-        app_info.applicationVersion = VK_MAKE_VERSION(1, 7, 0);
+        app_info.pApplicationName = "NYAMIST G925 R1.9";
+        app_info.applicationVersion = VK_MAKE_VERSION(1, 9, 0);
         app_info.pEngineName = "CHORD OF NYAMIST";
         app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-        app_info.apiVersion = VK_API_VERSION_1_0;
+        const bool core_features2_available =
+            VK_VERSION_MAJOR(loader_api_version) > 1U ||
+            VK_VERSION_MINOR(loader_api_version) >= 1U;
+        instance_api_version = core_features2_available
+            ? VK_API_VERSION_1_1 : VK_API_VERSION_1_0;
+        app_info.apiVersion = instance_api_version;
+        report.loader_api_version = versionString(loader_api_version);
 
         VkInstanceCreateInfo create_info{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
         create_info.pApplicationInfo = &app_info;
-        create_info.enabledExtensionCount = 2U;
-        create_info.ppEnabledExtensionNames = instance_extensions;
+        create_info.enabledExtensionCount =
+            static_cast<std::uint32_t>(instance_extensions.size());
+        create_info.ppEnabledExtensionNames = instance_extensions.data();
 
         const VkResult result = vk.create_instance(&create_info, nullptr, &instance);
         report.instance_create_status = isUsable(result) ? "success" : "failed";
@@ -813,6 +945,12 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         LOAD_INSTANCE(destroy_instance, "vkDestroyInstance");
         LOAD_INSTANCE(enumerate_physical_devices, "vkEnumeratePhysicalDevices");
         LOAD_INSTANCE(get_physical_device_properties, "vkGetPhysicalDeviceProperties");
+        LOAD_INSTANCE(get_physical_device_features2, "vkGetPhysicalDeviceFeatures2");
+        if (vk.get_physical_device_features2 == nullptr) {
+            vk.get_physical_device_features2 =
+                reinterpret_cast<PFN_vkGetPhysicalDeviceFeatures2>(
+                    vk.get_instance_proc_addr(instance, "vkGetPhysicalDeviceFeatures2KHR"));
+        }
         LOAD_INSTANCE(get_queue_families, "vkGetPhysicalDeviceQueueFamilyProperties");
         LOAD_INSTANCE(enumerate_device_extensions, "vkEnumerateDeviceExtensionProperties");
         LOAD_INSTANCE(get_surface_support, "vkGetPhysicalDeviceSurfaceSupportKHR");
@@ -937,6 +1075,44 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                 if (!report.target_gpu_match) {
                     fail(report, "The selected physical device is not identified as Immortalis-G925");
                 }
+
+                std::uint32_t maintenance_extension_count = 0U;
+                VkResult maintenance_result = vk.enumerate_device_extensions(
+                    selected_physical_device, nullptr, &maintenance_extension_count, nullptr);
+                std::vector<VkExtensionProperties> selected_device_extensions;
+                if (maintenance_result == VK_SUCCESS && maintenance_extension_count > 0U) {
+                    selected_device_extensions.resize(maintenance_extension_count);
+                    maintenance_result = vk.enumerate_device_extensions(
+                        selected_physical_device, nullptr, &maintenance_extension_count,
+                        selected_device_extensions.data());
+                }
+                maintenance_device_extension_supported =
+                    maintenance_result == VK_SUCCESS &&
+                    hasDeviceExtension(selected_device_extensions,
+                                       VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+                report.swapchain_maintenance_device_extension_status =
+                    maintenance_device_extension_supported ? "supported" :
+                    (maintenance_result == VK_SUCCESS ? "not_supported" : "query_failed");
+
+                if (maintenance_device_extension_supported &&
+                    maintenance_instance_extensions_enabled &&
+                    vk.get_physical_device_features2 != nullptr) {
+                    VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT maintenance_features{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT};
+                    VkPhysicalDeviceFeatures2 device_features{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+                    device_features.pNext = &maintenance_features;
+                    vk.get_physical_device_features2(selected_physical_device, &device_features);
+                    maintenance_feature_supported =
+                        maintenance_features.swapchainMaintenance1 == VK_TRUE;
+                    report.swapchain_maintenance_feature_supported =
+                        maintenance_feature_supported;
+                    report.swapchain_maintenance_feature_status =
+                        maintenance_feature_supported ? "supported" : "unsupported";
+                } else {
+                    report.swapchain_maintenance_feature_status =
+                        "not_queryable_or_extension_missing";
+                }
             }
         }
     }
@@ -947,12 +1123,21 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         queue_info.queueFamilyIndex = selected_queue_family;
         queue_info.queueCount = 1U;
         queue_info.pQueuePriorities = &priority;
-        const char* device_extensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+        std::vector<const char*> device_extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+        VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT maintenance_features_enable{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT};
+        if (maintenance_feature_supported) {
+            device_extensions.push_back(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+            maintenance_features_enable.swapchainMaintenance1 = VK_TRUE;
+            report.swapchain_maintenance_feature_status = "enabled";
+        }
         VkDeviceCreateInfo device_info{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+        device_info.pNext = maintenance_feature_supported ? &maintenance_features_enable : nullptr;
         device_info.queueCreateInfoCount = 1U;
         device_info.pQueueCreateInfos = &queue_info;
-        device_info.enabledExtensionCount = 1U;
-        device_info.ppEnabledExtensionNames = device_extensions;
+        device_info.enabledExtensionCount =
+            static_cast<std::uint32_t>(device_extensions.size());
+        device_info.ppEnabledExtensionNames = device_extensions.data();
 
         const VkResult result = vk.create_device(selected_physical_device, &device_info,
                                                  nullptr, &device);
@@ -984,6 +1169,10 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             LOAD_DEVICE(get_swapchain_images, "vkGetSwapchainImagesKHR");
             LOAD_DEVICE(create_semaphore, "vkCreateSemaphore");
             LOAD_DEVICE(destroy_semaphore, "vkDestroySemaphore");
+            LOAD_DEVICE(create_fence, "vkCreateFence");
+            LOAD_DEVICE(destroy_fence, "vkDestroyFence");
+            LOAD_DEVICE(wait_for_fences, "vkWaitForFences");
+            LOAD_DEVICE(reset_fences, "vkResetFences");
             LOAD_DEVICE(acquire_next_image, "vkAcquireNextImageKHR");
             LOAD_DEVICE(queue_present, "vkQueuePresentKHR");
             LOAD_DEVICE(queue_wait_idle, "vkQueueWaitIdle");
@@ -1014,6 +1203,8 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                 vk.cmd_begin_render_pass == nullptr || vk.cmd_end_render_pass == nullptr ||
                 vk.cmd_bind_pipeline == nullptr || vk.cmd_draw == nullptr ||
                 vk.create_semaphore == nullptr || vk.destroy_semaphore == nullptr ||
+                vk.create_fence == nullptr || vk.destroy_fence == nullptr ||
+                vk.wait_for_fences == nullptr || vk.reset_fences == nullptr ||
                 vk.acquire_next_image == nullptr || vk.queue_present == nullptr ||
                 vk.queue_wait_idle == nullptr || vk.create_command_pool == nullptr ||
                 vk.destroy_command_pool == nullptr || vk.allocate_command_buffers == nullptr ||
@@ -1025,6 +1216,9 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             } else {
                 vk.get_device_queue(device, selected_queue_family, 0U, &queue);
                 if (queue == VK_NULL_HANDLE) fail(report, "vkGetDeviceQueue returned a null queue");
+                else if (maintenance_feature_supported) {
+                    report.present_fence_entry_points_status = "success";
+                }
             }
         }
     }
@@ -1167,7 +1361,9 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                     } else if (!runFrameSequence(
                                         vk, report, device, queue, selected_queue_family,
                                         swapchain, images, selected_format.format, extent,
-                                        acquire_semaphore, present_semaphores, timestamp_query_pool,
+                                        acquire_semaphore, present_semaphores,
+                                        present_fence, maintenance_feature_supported,
+                                        timestamp_query_pool,
                                         command_pool, command_buffer, image_view, render_pass,
                                         framebuffer, vertex_shader, fragment_shader,
                                         pipeline_layout, graphics_pipeline)) {
@@ -1188,6 +1384,23 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     if (device != VK_NULL_HANDLE && vk.device_wait_idle != nullptr) {
         const VkResult idle_result = vk.device_wait_idle(device);
         if (idle_result != VK_SUCCESS) cleanup_ok = false;
+    }
+    if (maintenance_feature_supported && report.present_fence_wait_status == "success") {
+        report.shutdown_presentation_completion_status = "present_fence_signaled";
+        report.present_completion_guaranteed = true;
+    } else if (!maintenance_feature_supported &&
+               report.present_completion_mode == "per_image_reacquire_fallback") {
+        report.shutdown_presentation_completion_status =
+            "not_guaranteed_without_present_fence";
+    }
+    if (present_fence != VK_NULL_HANDLE) {
+        if (vk.destroy_fence != nullptr) {
+            vk.destroy_fence(device, present_fence, nullptr);
+            report.present_fence_destroy_status = "success";
+        } else {
+            report.present_fence_destroy_status = "failed";
+            cleanup_ok = false;
+        }
     }
     if (timestamp_query_pool != VK_NULL_HANDLE) {
         if (vk.destroy_query_pool != nullptr) {
@@ -1349,7 +1562,17 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     if (!cleanup_ok) fail(report, "One or more Vulkan objects could not be confirmed destroyed");
     if (vk.library != nullptr) dlclose(vk.library);
 
-    const bool complete = report.loader_status == "success" &&
+    const bool presentation_completion_valid =
+        !maintenance_feature_supported ||
+        (report.present_fence_used && report.present_completion_guaranteed &&
+         report.present_fence_entry_points_status == "success" &&
+         report.present_fence_create_status == "success" &&
+         report.present_fence_attach_status == "success" &&
+         report.present_fence_wait_status == "success" &&
+         report.present_fence_destroy_status == "success" &&
+         report.shutdown_presentation_completion_status == "present_fence_signaled");
+    const bool complete = presentation_completion_valid &&
+        report.loader_status == "success" &&
         report.instance_create_status == "success" &&
         report.surface_extension_status == "success" &&
         report.android_surface_extension_status == "success" &&
