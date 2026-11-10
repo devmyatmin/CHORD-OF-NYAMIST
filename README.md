@@ -15,12 +15,12 @@ CHORD OF NYAMIST is an Android-first hardware and graphics engineering project. 
 
 ## Current engineering evidence
 
-- **Vulkan:** G925 physical-device discovery, logical-device/queue creation, and queue-submit/fence validation have passed on the reference device.
-- **G925 rendering:** R1.8 passed a corrected-build 17-frame triangle-draw and GPU timestamp retest; R1.9 passed on-device WSI present-fence validation (17 fence attaches / waits, 16 intermediate resets, 16 GPU timestamp samples). R2.0 is implementing swapchain-image pixel readback; device validation is pending.
+- **Vulkan:** G925 physical-device discovery, logical-device/queue creation, queue submission/fence validation, and GPU resource-transfer validation have passed on the reference device.
+- **G925 rendering:** R1.8 passed a corrected-build 17-frame triangle-draw and GPU timestamp retest. R1.9 passed on-device WSI present-fence validation (17 fence attaches / waits, 16 intermediate resets, 16 GPU timestamp samples). **R2.0 passed on the REDMI K80 Ultra:** five real swapchain-image pixels were copied to host memory and verified (four exact clear-color matches plus triangle-center detection). R2.1 is the next lifecycle/recreation validation step.
 - **Graphics stack:** Mali userspace libraries, Android graphics HAL declarations, and MediaTek GPU services have been inventoried.
 - **NPU:** MediaTek NeuroPilot NNAPI services are present and the Neuron HAL is running; actual NPU inference is not yet validated.
 
-Queue submission is not rendering. Surface presentation, sustained game workloads, FPS, and NPU inference remain separate validation steps.
+Queue submission is not rendering. Pixel readback is not physical-panel scanout. Sustained game workloads, FPS, and NPU inference remain separate validation steps.
 
 ## How the project is organized
 
@@ -43,5 +43,6 @@ The shared runtime stays separate from device-specific capabilities. Platform co
 - [Vulkan release plan](docs/releases/NYAMIST-G925-R1.md)
 - [R1.9 present-fence hardware evidence](docs/releases/NYAMIST-G925-R1.9-wsi-present-fence-validation.md)
 - [R2.0 pixel readback validation](docs/releases/NYAMIST-G925-R2.0-pixel-readback-verification.md)
+- [R2.0 REDMI K80 Ultra hardware evidence](docs/evidence/NYAMIST-G925-R2.0-redmi-k80-ultra-2026-11-10.md)
 
 **Created by AMGNYA**
