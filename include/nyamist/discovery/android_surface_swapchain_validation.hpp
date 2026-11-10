@@ -151,6 +151,15 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::string pixel_verification_status{"not_attempted"};
     std::uint32_t extent_width{};
     std::uint32_t extent_height{};
+    bool render_viewport_dynamic_state_enabled{};
+    std::uint32_t render_viewport_x{};
+    std::uint32_t render_viewport_y{};
+    std::uint32_t render_viewport_width{};
+    std::uint32_t render_viewport_height{};
+    std::uint32_t render_viewport_update_count{};
+    std::uint32_t render_scissor_width{};
+    std::uint32_t render_scissor_height{};
+    std::uint32_t render_scissor_update_count{};
 
     std::string swapchain_create_status{"not_attempted"};
     std::string swapchain_image_query_status{"not_attempted"};
