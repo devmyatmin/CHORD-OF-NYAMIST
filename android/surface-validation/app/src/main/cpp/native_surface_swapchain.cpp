@@ -19,6 +19,7 @@
 #include <limits>
 #include <dlfcn.h>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -1366,6 +1367,23 @@ bool runFrameSequence(
     return true;
 }
 
+void pauseForLiveResizeWindow(
+        AndroidSurfaceSwapchainValidationReport& report,
+        std::uint32_t pause_ms,
+        bool before_present) {
+    if (pause_ms == 0U) return;
+    if (before_present) {
+        ++report.live_resize_window_pre_present_pause_count;
+    } else {
+        ++report.live_resize_window_pre_acquire_pause_count;
+    }
+    const auto pause_start = std::chrono::steady_clock::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds(pause_ms));
+    const auto pause_end = std::chrono::steady_clock::now();
+    report.live_resize_window_pause_total_ms += static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(pause_end - pause_start).count());
+}
+
 bool recreateSwapchainAndProbe(
         VulkanDispatch& vk,
         AndroidSurfaceSwapchainValidationReport& report,
@@ -1384,7 +1402,8 @@ bool recreateSwapchainAndProbe(
         std::vector<VkImage>& images,
         VkExtent2D& extent,
         VkPipeline& graphics_pipeline,
-        bool present_fence_enabled) {
+        bool present_fence_enabled,
+        std::uint32_t live_resize_pause_ms) {
     report.swapchain_recreation_status = "pending";
     report.swapchain_recreation_mode = "old_swapchain_handoff";
     report.swapchain_old_handle_supplied = swapchain != VK_NULL_HANDLE;
@@ -1398,6 +1417,8 @@ bool recreateSwapchainAndProbe(
         return false;
     }
     report.swapchain_result_policy_status = "success";
+    bool live_resize_pre_acquire_pause_used = false;
+    bool live_resize_pre_present_pause_used = false;
 
     for (std::uint32_t attempt = 0U; attempt < 3U; ++attempt) {
         ++report.swapchain_recreation_attempt_count;
@@ -1637,6 +1658,10 @@ bool recreateSwapchainAndProbe(
                                  resultName(result));
                     report.swapchain_recreation_probe_completion_status = "fence_create_failed";
                 } else {
+                    if (live_resize_pause_ms > 0U && !live_resize_pre_acquire_pause_used) {
+                        live_resize_pre_acquire_pause_used = true;
+                        pauseForLiveResizeWindow(report, live_resize_pause_ms, false);
+                    }
                     std::uint32_t image_index = 0U;
                     result = vk.acquire_next_image(
                         device, swapchain, 1000000000ULL,
@@ -1700,6 +1725,10 @@ bool recreateSwapchainAndProbe(
                         }
                         if (result == VK_SUCCESS) {
                             report.swapchain_recreation_probe_submit_status = "success";
+                            if (live_resize_pause_ms > 0U && !live_resize_pre_present_pause_used) {
+                                live_resize_pre_present_pause_used = true;
+                                pauseForLiveResizeWindow(report, live_resize_pause_ms, true);
+                            }
                             VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
                             present_info.waitSemaphoreCount = 1U;
                             present_info.pWaitSemaphores = &render_semaphore;
@@ -1827,8 +1856,12 @@ bool recreateSwapchainAndProbe(
 }
 
 AndroidSurfaceSwapchainValidationReport runValidation(
-        JNIEnv* env, jobject java_surface, jint requested_width, jint requested_height) {
+        JNIEnv* env, jobject java_surface, jint requested_width, jint requested_height,
+        jint live_resize_window_mode) {
     AndroidSurfaceSwapchainValidationReport report;
+    report.live_resize_window_mode_enabled = live_resize_window_mode != 0;
+    report.live_resize_window_pause_ms_per_stage =
+        report.live_resize_window_mode_enabled ? 2000U : 0U;
     VulkanDispatch vk;
     ANativeWindow* window = nullptr;
     VkInstance instance = VK_NULL_HANDLE;
@@ -3006,7 +3039,8 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                         static_cast<std::uint32_t>(requested_width),
                                         static_cast<std::uint32_t>(requested_height),
                                         swapchain, images, extent, graphics_pipeline,
-                                        maintenance_feature_supported)) {
+                                        maintenance_feature_supported,
+                                        report.live_resize_window_pause_ms_per_stage)) {
                                         if (report.failure_reason.empty()) {
                                             fail(report, "R2.2 oldSwapchain recreation/probe failed");
                                         }
@@ -3047,7 +3081,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                         static_cast<std::uint32_t>(requested_width),
                                         static_cast<std::uint32_t>(requested_height),
                                         swapchain, images, extent, graphics_pipeline,
-                                        maintenance_feature_supported)) {
+                                        maintenance_feature_supported, 0U)) {
                                         if (report.failure_reason.empty()) {
                                             fail(report, "R2.2 SUBOPTIMAL swapchain handoff did not recover");
                                         }
@@ -3408,8 +3442,9 @@ AndroidSurfaceSwapchainValidationReport runValidation(
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_dev_nyamist_g925surface_MainActivity_validateSurfaceNative(
-        JNIEnv* env, jclass, jobject surface, jint width, jint height) {
-    const auto report = runValidation(env, surface, width, height);
+        JNIEnv* env, jclass, jobject surface, jint width, jint height,
+        jint live_resize_window_mode) {
+    const auto report = runValidation(env, surface, width, height, live_resize_window_mode);
     const std::string json = nyamist::discovery::toJson(report);
     return env->NewStringUTF(json.c_str());
 }
