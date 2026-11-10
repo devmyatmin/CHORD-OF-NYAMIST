@@ -31,16 +31,27 @@ Surface dimensions across Surface destruction/recreation, records the first
 and latest dimensions, and reports the last observed resize from/to values.
 The Activity also records orientation configuration changes.
 
-For a deterministic size-change check:
+For a deterministic Surface resize and live-WSI event test:
 
 1. Install the Part 1 arm64 debug APK and open the app.
 2. Wait for the initial R2.6 WSI session to finish successfully.
-3. Tap **INCREASE SURFACE SIZE (WSI RESIZE TEST)**. The SurfaceView height
-   changes from 220dp to 320dp; wait for the resulting session.
-4. Tap **RESTORE SURFACE SIZE (220dp)** and wait for that session too.
-5. Enable Android auto-rotate, rotate portrait → landscape → portrait, and
-   wait for the latest Surface session to finish.
-6. Tap **COPY JSON REPORT** and preserve the complete JSON.
+3. Tap **INCREASE SURFACE SIZE (WSI RESIZE TEST)**, then
+   **RESTORE SURFACE SIZE (220dp)** once. Confirm Android reports a nonzero
+   Surface resize count and distinct from/to dimensions.
+4. Enable Android auto-rotate, rotate portrait → landscape → portrait, and
+   wait for the Surface session to finish.
+5. Tap **START LIVE WSI RESIZE WINDOW**. The native same-device oldSwapchain
+   probe pauses for two seconds immediately before image acquire, then for
+   two seconds after queue submit but before present. During the first pause,
+   tap the Surface size button to increase the SurfaceView to 320dp. During
+   the second pause, tap it again to restore 220dp. The Surface changes race
+   the real Vulkan acquire/present calls while the existing device and
+   swapchain probe remain active.
+6. Allow the live native session and any serialized follow-up Surface session
+   to finish. Tap **COPY JSON REPORT**; it preferentially copies the dedicated
+   live-window report, not a later normal session report.
+7. Preserve the copied JSON and the separate app file
+   `nyamist-g925-r2.2-live-wsi-resize-window.json`.
 
 Part 1 acceptance requires a nonzero `surface_resize_count`, a true
 `surface_resize_observed`, differing last-resize from/to dimensions, and
@@ -51,8 +62,11 @@ confirms Android delivered orientation changes.
 If Android destroys/recreates the Surface during rotation, the prior valid
 dimensions are retained so a real size change is not lost when the new
 Surface first reports its dimensions. Surface recreation alone is not a
-resize pass. This test proves an Android Surface dimension change only; it
-does not by itself prove a Vulkan OUT_OF_DATE result or recovery.
+The live-window mode records both pause points and their total duration. A real Vulkan VK_SUBOPTIMAL_KHR or VK_ERROR_OUT_OF_DATE_KHR result is proven only when the corresponding driver-result counter is nonzero. For OUT_OF_DATE, also require a nonzero recovery-success count and final same-device handoff success. A Surface resize with zero WSI result counters remains a resize PASS but WSI-event status is not_observed.
+
+## Live WSI Resize Window mode
+
+The live-window control is designed to expose the actual WSI operation to a Surface change while the same VkDevice and oldSwapchain probe are active. It opens two 2-second windows: before image acquire, and after queue submit but before present. Tap the Surface size control once in each window. This is an observation harness, not an event injector; the driver is free to return VK_SUCCESS, VK_SUBOPTIMAL_KHR or VK_ERROR_OUT_OF_DATE_KHR. The report includes the mode flag, pause counts, total pause duration, real acquire/present result counters, and bounded recovery counts. The live report is stored separately and is the report copied by the clipboard action when present.
 
 ## WSI result policy
 
