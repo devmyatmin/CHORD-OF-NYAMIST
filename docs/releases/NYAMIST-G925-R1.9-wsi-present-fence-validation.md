@@ -1,6 +1,6 @@
 # NYAMIST G925 R1.9 — WSI Presentation Completion & Present-Fence Validation
 
-**Implementation: IN PROGRESS. Hosted CI and target-device validation: PENDING.**
+**Implementation and hosted CI: PASS. Target-device validation: PENDING.**
 
 ## Objective
 
@@ -23,8 +23,11 @@ The base `vkQueuePresentKHR` API does not itself provide a completion fence.
 Khronos documents that `vkQueueWaitIdle` / `vkDeviceWaitIdle` alone do not
 formally prove that the presentation engine has finished accessing
 presentation resources. `VK_EXT_swapchain_maintenance1` adds
-`VkSwapchainPresentFenceInfoEXT`, allowing an application to wait for the
-present operation's references and semaphore payload use to be released.
+`VkSwapchainPresentFenceInfoEXT`. Its fence signals after the queued presentation
+operations complete and the presentation engine has taken references to the
+objects it uses. It is a resource-lifetime signal, not proof that the image has
+finished being displayed. Once all past present fences for a swapchain signal,
+the associated present wait semaphores and the swapchain can be safely destroyed.
 
 ## Implementation design
 
@@ -69,6 +72,32 @@ instance/device extension status, feature-query result, present-fence
 create/attach/wait/reset/destroy status, wait CPU timings, selected completion
 mode, a boolean completion guarantee, and shutdown presentation-completion
 status.
+
+## Hosted CI — PASS
+
+Tested branch head: `87b9ad4919ec2d7ad491add36eedc7b6ef366401`.
+
+- NYAMIST Core CI Run #324 (42741470642): SUCCESS.
+- R1.9 Android push workflow Run #3 (42741470588): SUCCESS.
+- R1.9 Android PR workflow Run #4 (42741544909): SUCCESS.
+- APK artifact: `nyamist-g925-r1.9-debug-apk`, ID `13729183079`, size 1,211,244 bytes.
+- APK ZIP SHA-256: `b37bf8bf19903f49673ad18728e8277f6c9dd1315cb0edc62911eb1e2a81f59a`.
+- Extracted APK SHA-256: `27bd5968842739a8569c97300c9b742cf814aa220cd35d3fb4ed7a5191bc2c8c`.
+- [Core CI Run #324](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42741470642)
+- [Android build Run #3](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42741470588)
+- [Android PR validation Run #4](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42741544909)
+
+The artifact ZIP and contained APK both passed ZIP integrity checks. The APK
+contains the arm64-v8a native library
+`lib/arm64-v8a/libnyamist_surface_validation.so`.
+
+## Target-device validation — PENDING
+
+No schema-v5 report has yet been returned from the REDMI K80 Ultra. CI proves
+compilation and packaging, not that the MT6991 vendor driver exposes or executes
+`VK_EXT_swapchain_maintenance1` present fences. The phone report must decide
+between the explicit present-fence path and the honest per-image-reacquire
+fallback.
 
 ## Acceptance criteria
 
