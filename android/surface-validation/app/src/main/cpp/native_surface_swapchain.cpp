@@ -1781,6 +1781,24 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             cleanup_ok = false;
         }
     }
+    if (pixel_readback_buffer != VK_NULL_HANDLE) {
+        if (vk.destroy_buffer != nullptr) {
+            vk.destroy_buffer(device, pixel_readback_buffer, nullptr);
+            report.pixel_readback_buffer_destroy_status = "success";
+        } else {
+            report.pixel_readback_buffer_destroy_status = "failed";
+            cleanup_ok = false;
+        }
+    }
+    if (pixel_readback_memory != VK_NULL_HANDLE) {
+        if (vk.free_memory != nullptr) {
+            vk.free_memory(device, pixel_readback_memory, nullptr);
+            report.pixel_readback_memory_free_status = "success";
+        } else {
+            report.pixel_readback_memory_free_status = "failed";
+            cleanup_ok = false;
+        }
+    }
     if (timestamp_query_pool != VK_NULL_HANDLE) {
         if (vk.destroy_query_pool != nullptr) {
             vk.destroy_query_pool(device, timestamp_query_pool, nullptr);
@@ -2006,6 +2024,22 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         report.gpu_timestamp_query_status == "success" &&
         report.gpu_timestamp_sample_count == report.frame_target_count &&
         report.gpu_timestamp_query_pool_destroy_status == "success" &&
+        report.swapchain_transfer_src_support_status == "supported" &&
+        report.pixel_readback_buffer_create_status == "success" &&
+        report.pixel_readback_memory_allocate_status == "success" &&
+        report.pixel_readback_bind_status == "success" &&
+        report.pixel_readback_recorded &&
+        report.pixel_readback_copy_status == "success" &&
+        report.pixel_readback_map_status == "success" &&
+        (report.pixel_readback_invalidate_status == "success" ||
+         report.pixel_readback_invalidate_status == "not_required_host_coherent") &&
+        report.pixel_readback_unmap_status == "success" &&
+        report.pixel_readback_sample_count == 5U &&
+        report.pixel_background_samples_match_clear &&
+        report.pixel_triangle_center_detected &&
+        report.pixel_verification_status == "success" &&
+        report.pixel_readback_buffer_destroy_status == "success" &&
+        report.pixel_readback_memory_free_status == "success" &&
         report.image_view_destroy_status == "success" &&
         report.render_pass_destroy_status == "success" &&
         report.framebuffer_destroy_status == "success";
