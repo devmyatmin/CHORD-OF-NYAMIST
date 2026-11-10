@@ -16,7 +16,7 @@ void testUnavailableReportIsExplicit() {
     report.native_window_status = "not_available";
     report.failure_reason = "No Android Surface was supplied";
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 11") != std::string::npos,
+    check(json.find("\"schema_version\": 12") != std::string::npos,
           "schema version must be serialized");
     check(json.find("NYAMIST G925 R2.6") != std::string::npos,
           "R2.2 identity must be serialized");
@@ -242,7 +242,7 @@ void testSuccessfulSwapchainReportContract() {
     report.swapchain_out_of_date_recovery_status = "not_observed";
 
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 11") != std::string::npos,
+    check(json.find("\"schema_version\": 12") != std::string::npos,
           "R2.6 schema version must be serialized");
     check(json.find(R"("present_fence_used": true)") != std::string::npos,
           "present fence use must be serialized");
