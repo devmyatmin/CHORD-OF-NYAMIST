@@ -86,7 +86,7 @@ class R26Uint8IndexFunctionalProbeTests(unittest.TestCase):
     def test_feature_not_supported_is_a_nonfatal_skip(self):
         self.assertIn('report.index_type_uint8_feature_support_status = "not_supported"', self.native)
         self.assertIn("report.index_type_uint8_probe_status = support", self.native)
-        self.assertIn('(report.index_type_uint8_probe_status == "not_supported")', self.native)
+        self.assertIn('report.index_type_uint8_probe_status == "not_supported"', self.native)
 
 
 if __name__ == "__main__":
