@@ -1,6 +1,6 @@
 # NYAMIST G925 R1.8 — GPU Timestamp Query & Multi-Frame Validation
 
-**Implementation and hosted CI: PASS. Target-device hardware validation: PENDING.**
+**Implementation and hosted CI: PASS. Initial target-device measurement: PASS (pre-semaphore-fix). Corrected-build target-device retest: PENDING.**
 
 ## Objective
 
@@ -30,34 +30,69 @@ delta from TOP_OF_PIPE to BOTTOM_OF_PIPE around the render pass. It is not
 display refresh time and must not be converted into FPS.
 
 The warm-up is excluded from the 16 samples. Queue-idle waits are intentional
-for deterministic semaphore and command-pool reuse; this is a validation harness,
-not a throughput-optimized renderer. The short run does not establish sustained
-FPS, thermal stability, battery impact, or game compatibility.
-
-## Report schema
-
-Schema version 4 adds warm-up/target/completed counts, raw CPU timing arrays,
-CPU full-frame min/median/P95/max, query-pool create/read/destroy statuses,
-and raw GPU timestamp-derived nanosecond samples with min/median/P95/max.
+for deterministic command-pool reuse; presentation wait semaphores are now
+associated per swapchain image so they are not reused before that image is
+reacquired. This is a validation harness, not a throughput-optimized renderer.
+The short run does not establish sustained FPS, thermal stability, battery
+impact, or game compatibility.
 
 ## Hosted CI — PASS
 
-Latest tested PR head: 6d3cb47b537ed864dbc1a99f738937f61b207a50.
+Semaphore-corrected source commit: `ac529ddaf11465c59a4d69398f473fd3b09fe7d0`.
 
-- NYAMIST Core CI Run #303 (42644880960): SUCCESS.
-- R1.8 Android workflow Run #3 (42644881179): SUCCESS.
-- R1.8 Android PR workflow Run #4 (42644914757): SUCCESS.
-- APK artifact: nyamist-g925-r1.8-debug-apk, ID 13686123977, size 1,203,156 bytes.
-- APK ZIP SHA-256: b7ba6d6e235cd9c0dc478dc93bc21551705dc743dbad4b638efc131cdc5a1658.
-- Android workflow: https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42644914757
-- Core CI: https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42644880960
+- NYAMIST Core CI Run #305 (42736979839): SUCCESS.
+- R1.8 Android workflow Run #7 (42736980112): SUCCESS.
+- R1.8 Android PR workflow Run #8 (42736987213): SUCCESS.
+- APK artifact: `nyamist-g925-r1.8-debug-apk`, ID `13727816427`, size 1,204,937 bytes.
+- APK ZIP SHA-256: `2ff0629199b38e2bdb6bbdcce5d778033ecd8c9323a94b74d0da1adc393e0160`.
+- Extracted APK SHA-256: `db605c12252489cd035903eb01d78dcdba491d3e3eb2cc385441252a4f9206f0`.
+- [Android workflow Run #8](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42736987213)
+- [Core CI Run #305](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42736979839)
 
-## Target-device acceptance — PENDING
+The APK ZIP and contained APK passed integrity checks. The APK contains
+`lib/arm64-v8a/libnyamist_surface_validation.so`.
 
-Hosted CI proves compilation, tests, shader compilation and APK packaging only.
-It cannot establish that the REDMI K80 Ultra vendor driver executed the GPU
-queries. A schema-v4 report captured on the actual phone is mandatory before
-R1.8 can be called a hardware pass.
+## Initial target-device evidence — PASS (pre-semaphore-fix)
 
-No root, direct device-node access, SELinux/kernel changes, vendor partition
-writes, or driver replacement are used.
+The user's REDMI K80 Ultra / MT6991 / Immortalis-G925 MC12 report was captured
+before the per-swapchain-image presentation semaphore correction:
+
+- Schema version 4, status `success`, target GPU match true.
+- One warm-up plus 16 completed frames.
+- 16 CPU frame samples and 16 GPU timestamp samples.
+- GPU timestamp: median 49,423 ns; P95 79,385 ns; min 37,154 ns; max 79,385 ns.
+- CPU acquire-to-idle: median 7,666 us; P95 9,911 us; min 460 us; max 9,911 us.
+- Shader modules, graphics pipeline, three-vertex draw, presentation, timestamp
+  query pool, and cleanup all reported success.
+- No sustained FPS, thermal stability, battery impact, pixel readback, or game
+  compatibility claim is made.
+
+Raw user-provided report:
+`docs/hardware-reports/mt6991-redmi-k80-ultra-r1.8-2026-11-10-pre-semaphore-fix.json`.
+
+## Corrected-build target-device acceptance — PENDING
+
+Source review found that the initial R1.8 implementation reused a single
+presentation wait semaphore across different swapchain images. The branch now
+allocates one presentation semaphore per swapchain image and selects it using
+the image index returned by `vkAcquireNextImageKHR`.
+
+The corrected source passed Core CI and both Android APK workflows listed above.
+A fresh schema-v4 report from the corrected APK on the actual REDMI K80 Ultra is
+still required before final R1.8 hardware sign-off.
+
+## Acceptance criteria
+
+- One warm-up frame and 16 successful measured frames on the corrected APK.
+- 16 valid CPU frame samples and 16 valid GPU timestamp samples.
+- Successful image acquisition, draw submission, presentation and queue-idle
+  completion for all frames.
+- Query-pool and Vulkan object cleanup succeed.
+- The corrected-build schema-v4 JSON report is committed under
+  `docs/hardware-reports/`.
+
+## Stack and safety
+
+Draft PR #22 is stacked on R1.7 and remains unmerged. Stock Android Vulkan
+loader/vendor driver only; no root, direct device-node access, SELinux/kernel
+modifications, vendor partition writes, or driver replacement.
