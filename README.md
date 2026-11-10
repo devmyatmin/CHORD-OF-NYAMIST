@@ -45,5 +45,6 @@ The shared runtime stays separate from device-specific capabilities. Platform co
 - [R2.0 pixel readback validation](docs/releases/NYAMIST-G925-R2.0-pixel-readback-verification.md)
 - [R2.0 REDMI K80 Ultra hardware evidence](docs/evidence/NYAMIST-G925-R2.0-redmi-k80-ultra-2026-11-10.md)
 - [R2.1 REDMI K80 Ultra hardware evidence](docs/evidence/NYAMIST-G925-R2.1-redmi-k80-ultra-2026-11-10.md)
+- [R2.2 swapchain recovery validation](docs/releases/NYAMIST-G925-R2.2-swapchain-resize-out-of-date-recovery.md)
 
 **Created by AMGNYA**

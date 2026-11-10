@@ -65,6 +65,9 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
     def test_app_build_identity_is_r22(self):
         self.assertIn("R2.2 WSI session", self.activity)
         self.assertIn("nyamist-g925-r2.2-swapchain-recovery.json", self.activity)
+        self.assertIn("out_of_date_full_session_retry_count", self.activity)
+        self.assertIn("out_of_date_full_wsi_session_retry", self.activity)
+
 
 
 if __name__ == "__main__":
