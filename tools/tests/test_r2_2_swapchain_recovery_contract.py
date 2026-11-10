@@ -28,7 +28,7 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
     def test_r22_report_contract_is_preserved_in_schema_v8(self):
         # R2.3 extends the native report schema while retaining the R2.2
         # oldSwapchain and OUT_OF_DATE evidence fields.
-        self.assertIn("schema_version{11U}", self.header)
+        self.assertIn("schema_version{12U}", self.header)
         self.assertIn("NYAMIST G925 R2.6", self.serializer)
         self.assertIn("swapchain_recreation_status", self.header)
         self.assertIn("swapchain_out_of_date_recovery_status", self.header)
@@ -80,6 +80,18 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
         self.assertIn("surface_last_resize_to_width", self.activity)
         self.assertIn("feature/g925-r2.2-actual-surface-resize-instrumentation", self.workflow)
         self.assertIn("nyamist-g925-r2.2-actual-resize-validation-apk", self.workflow)
+
+    def test_live_resize_window_pauses_before_acquire_and_present(self):
+        self.assertIn("#include <thread>", self.native)
+        self.assertIn("live_resize_window_mode_enabled", self.header)
+        self.assertIn("live_resize_window_pre_acquire_pause_count", self.header)
+        self.assertIn("live_resize_window_pre_present_pause_count", self.header)
+        self.assertIn("pauseForLiveResizeWindow(report, live_resize_pause_ms, false)", self.native)
+        self.assertIn("pauseForLiveResizeWindow(report, live_resize_pause_ms, true)", self.native)
+        self.assertIn("std::this_thread::sleep_for(std::chrono::milliseconds(pause_ms))", self.native)
+        self.assertIn("report.live_resize_window_mode_enabled ? 2000U : 0U", self.native)
+        self.assertIn("live_resize_window_pause_total_ms", self.serializer)
+        self.assertIn("latestLiveResizeReport", self.activity)
 
     def test_app_build_identity_is_r23_with_r22_recovery_fields(self):
         self.assertIn("R2.6 WSI session", self.activity)
