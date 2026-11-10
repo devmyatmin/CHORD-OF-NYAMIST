@@ -574,7 +574,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         try {
             File directory = getExternalFilesDir(null);
             if (directory == null) directory = getFilesDir();
-            boolean liveResizeReport = json.contains("\\\"live_resize_window_mode_enabled\\\": true");
+            boolean liveResizeReport = json.contains("\"live_resize_window_mode_enabled\": true");
             File output = new File(directory, liveResizeReport
                     ? "nyamist-g925-r2.2-live-wsi-resize-window.json"
                     : "nyamist-g925-r2.6-uint8-index-probe.json");
