@@ -28,7 +28,7 @@ class R26Uint8IndexFunctionalProbeTests(unittest.TestCase):
 
     def test_only_previously_supported_uint8_feature_is_enabled(self):
         self.assertIn('"VK_KHR_index_type_uint8.indexTypeUint8"', self.native)
-        self.assertIn("uint8_index_bit_supported", self.native)
+        self.assertIn("contains_feature(report.vulkan_1_4_promoted_features_supported)", self.native)
         self.assertIn("hasDeviceExtension(selected_physical_device_extensions", self.native)
         self.assertIn("VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME", self.native)
         self.assertIn("uint8_index_features_enable.indexTypeUint8 = VK_TRUE", self.native)
@@ -82,7 +82,8 @@ class R26Uint8IndexFunctionalProbeTests(unittest.TestCase):
             self.assertIn(field, self.serializer)
 
     def test_feature_not_supported_is_a_nonfatal_skip(self):
-        self.assertIn('report.index_type_uint8_probe_status = "not_supported"', self.native)
+        self.assertIn('report.index_type_uint8_feature_support_status = "not_supported"', self.native)
+        self.assertIn("report.index_type_uint8_probe_status = support", self.native)
         self.assertIn('(report.index_type_uint8_probe_status == "not_supported")', self.native)
 
 
