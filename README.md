@@ -16,6 +16,7 @@ CHORD OF NYAMIST is an Android-first hardware and graphics engineering project. 
 ## Current engineering evidence
 
 - **Vulkan:** G925 physical-device discovery, logical-device/queue creation, and queue-submit/fence validation have passed on the reference device.
+- **G925 rendering:** R1.8 passed a corrected-build 17-frame triangle-draw and GPU timestamp retest on the reference device (16 CPU and 16 GPU timestamp samples). R1.9 is adding WSI present-fence capability detection and shutdown completion evidence.
 - **Graphics stack:** Mali userspace libraries, Android graphics HAL declarations, and MediaTek GPU services have been inventoried.
 - **NPU:** MediaTek NeuroPilot NNAPI services are present and the Neuron HAL is running; actual NPU inference is not yet validated.
 
