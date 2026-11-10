@@ -33,7 +33,9 @@ class R26Uint8IndexFunctionalProbeTests(unittest.TestCase):
         self.assertIn("VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME", self.native)
         self.assertIn("uint8_index_features_enable.indexTypeUint8 = VK_TRUE", self.native)
         self.assertIn("device_info.pNext = &uint8_index_features_enable", self.native)
+        self.assertIn("report.index_type_uint8_feature_enable_status = \"requested\"", self.native)
         self.assertIn("report.index_type_uint8_feature_enable_status = \"enabled\"", self.native)
+        self.assertIn("report.index_type_uint8_feature_enable_status = \"device_create_failed\"", self.native)
 
     def test_query_failure_is_not_mislabeled_as_unsupported(self):
         self.assertIn("contains_feature(report.vulkan_1_4_promoted_features_not_supported)", self.native)
