@@ -201,6 +201,7 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     boolField(out, "swapchain_recreation_probe_rendered", report.swapchain_recreation_probe_rendered);
     numberField(out, "swapchain_acquire_suboptimal_count", report.swapchain_acquire_suboptimal_count);
     numberField(out, "swapchain_present_suboptimal_count", report.swapchain_present_suboptimal_count);
+    numberField(out, "swapchain_create_out_of_date_count", report.swapchain_create_out_of_date_count);
     numberField(out, "swapchain_acquire_out_of_date_count", report.swapchain_acquire_out_of_date_count);
     numberField(out, "swapchain_present_out_of_date_count", report.swapchain_present_out_of_date_count);
     numberField(out, "swapchain_out_of_date_recovery_attempt_count", report.swapchain_out_of_date_recovery_attempt_count);
