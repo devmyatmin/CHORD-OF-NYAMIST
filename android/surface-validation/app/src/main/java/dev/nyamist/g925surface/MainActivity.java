@@ -80,7 +80,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         root.setPadding(pad, pad, pad, pad);
 
         TextView title = new TextView(this);
-        title.setText("CHORD OF NYAMIST — G925 R2.1");
+        title.setText("CHORD OF NYAMIST — G925 R2.2");
         title.setTextSize(20.0f);
         root.addView(title, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -346,7 +346,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                     statusView.setText(
                             "A previous Surface session finished. The current Surface session is queued.");
                 } else if (!sessionSuccess) {
-                    statusView.setText("R2.1 WSI session failed; inspect the JSON report.");
+                    statusView.setText("R2.2 WSI session failed; inspect the JSON report.");
                 } else if (result.contains("\"pixel_verification_status\": \"success\"")) {
                     statusView.setText("R2.1 WSI session SUCCESS — pixel readback also passed.");
                 } else {
@@ -415,7 +415,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
 
     private String failureJson(String reason) {
         return "{\n  \"schema_version\": 6,"
-                + "\n  \"project\": \"CHORD OF NYAMIST / NYAMIST G925 R2.1\","
+                + "\n  \"project\": \"CHORD OF NYAMIST / NYAMIST G925 R2.2\","
                 + "\n  \"status\": \"failed\","
                 + "\n  \"failure_reason\": \"" + reason + "\""
                 + "\n}";
@@ -425,7 +425,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         try {
             File directory = getExternalFilesDir(null);
             if (directory == null) directory = getFilesDir();
-            File output = new File(directory, "nyamist-g925-r2.1-surface-lifecycle.json");
+            File output = new File(directory, "nyamist-g925-r2.2-swapchain-recovery.json");
             try (FileOutputStream stream = new FileOutputStream(output, false)) {
                 stream.write(json.getBytes(StandardCharsets.UTF_8));
             }
@@ -444,7 +444,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         }
         ClipboardManager clipboard =
                 (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R2.1 JSON", latestReport));
+        clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R2.2 JSON", latestReport));
         statusView.setText("R2.1 JSON report copied to clipboard.");
     }
 
