@@ -1,6 +1,12 @@
 # NYAMIST G925 R2.2 — Swapchain Resize and OUT_OF_DATE Recovery
 
-**Hosted validation: PASS. Target-device validation: pending REDMI K80 Ultra schema-v7 report.**
+**CHORD OF NYAMIST Completion Roadmap — Part 1 of 5: WSI Final Validation.** This is the first top-level project phase; it is not subdivided into separate roadmap Parts.
+
+**Report-version note:** the previously committed REDMI K80 Ultra hardware evidence is the original schema-v11 report. The updated Part 1 app emits native schema v12, which adds live-resize-window timing fields while preserving the existing R2.2–R2.6 evidence fields. Historical schema-v11 evidence is retained as-is; new device evidence must identify schema v12.
+
+The native C++ JSON serialization regression test and the R2.3/R2.4 historical contract tests now assert the current schema-v12 envelope; the original committed device evidence remains schema v11 and is not rewritten.
+
+**Hosted validation: PASS. Target-device same-device oldSwapchain handoff: HARDWARE PASS (2026-11-10). Actual extent change and real SUBOPTIMAL / OUT_OF_DATE emission/recovery: NOT OBSERVED.**
 
 ## Objective
 
@@ -60,6 +66,42 @@ R2.2 APK artifact from Android PR Run #13:
 The artifact ZIP and the contained APK both passed ZIP integrity tests. Hosted
 validation proves compilation, tests and packaging. It does not prove that
 the MT6991 driver has emitted a real SUBOPTIMAL or OUT_OF_DATE result.
+
+## Target-device follow-up — same-device handoff PASS
+
+The schema-v11 REDMI K80 Ultra follow-up report confirms one successful
+same-device `oldSwapchain` handoff: old handle supplied and destroyed,
+replacement images enumerated, replacement image acquired/submitted/presented,
+and present-fence completion observed. The physical extent remained
+1202×715, Android Surface resize events were zero, and acquire/present
+SUBOPTIMAL plus create/acquire/present OUT_OF_DATE counters were all zero.
+This is a hardware PASS for same-device handoff only, not for actual resize
+or event-triggered recovery. See
+[the device evidence](../evidence/NYAMIST-G925-R2.2-redmi-k80-ultra-2026-11-10.md).
+
+## Part 1 — actual Surface resize instrumentation
+
+The Android lifecycle report is schema version 2. It retains the last valid
+Surface dimensions across Surface recreation and records initial/latest
+dimensions, resize from/to dimensions, and orientation changes. A controlled
+220dp ↔ 320dp SurfaceView control verifies Android Surface dimension changes.
+The native validation report is schema version 12 and includes a dedicated
+Live WSI Resize Window mode: two timed pauses, one immediately before
+swapchain-image acquire and one after queue submit but before present, while
+the original VkDevice and swapchain probe remain active. This lets a Surface
+resize race the real acquire/present operations. The app stores and copies
+the live-window report separately from later queued sessions.
+
+Hosted tests and an arm64 Android build cover this harness. **Target-device
+resize, rotation and driver-result evidence remain pending** until a device
+report proves them. SUBOPTIMAL / OUT_OF_DATE claims require nonzero respective
+driver-result counters. OUT_OF_DATE recovery additionally requires an
+explicit recovery-success count. The timed pause and policy self-test alone
+are not hardware evidence.
+
+## Part 1 live WSI resize-window harness
+
+The dedicated Part 1 APK holds the same-device oldSwapchain probe at two points while the Android SurfaceView dimensions change: before vkAcquireNextImageKHR, then after vkQueueSubmit and before vkQueuePresentKHR. The report records whether the mode was enabled, the number of pauses at each point, and total pause duration. Java preserves the live-window report separately from the subsequently queued normal Surface session. This improves the chance of observing driver-returned WSI status codes; it cannot force the driver to return them.
 
 ## Device acceptance criteria
 

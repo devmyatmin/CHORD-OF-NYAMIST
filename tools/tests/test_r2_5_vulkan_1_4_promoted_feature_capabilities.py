@@ -59,7 +59,7 @@ class R25PromotedFeatureCapabilityContractTests(unittest.TestCase):
         cls.gradle = GRADLE.read_text(encoding="utf-8")
 
     def test_report_schema_tracks_r25_and_all_21_feature_bits(self):
-        self.assertIn("schema_version{11U}", self.header)
+        self.assertIn("schema_version{12U}", self.header)
         self.assertIn("vulkan_1_4_promoted_feature_total_count{21U}", self.header)
         self.assertIn('"vulkan_1_4_promoted_feature_total_count"', self.serializer)
         for field in (
@@ -104,7 +104,7 @@ class R25PromotedFeatureCapabilityContractTests(unittest.TestCase):
         self.assertIn("vulkan_1_4_promoted_features_not_queryable", self.serializer)
 
     def test_app_identity_is_r26(self):
-        self.assertIn('schema_version\\": 11', self.activity)
+        self.assertIn('schema_version\\": 12', self.activity)
         self.assertIn("nyamist-g925-r2.6-uint8-index-probe.json", self.activity)
         self.assertIn("versionCode = 260", self.gradle)
         self.assertIn('versionName = "2.6.0"', self.gradle)

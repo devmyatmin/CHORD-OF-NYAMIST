@@ -24,6 +24,77 @@ replacement image. Its purpose is to prove the new chain can be acquired,
 submitted and presented while retaining the same logical device. The following
 normal frame sequence performs the actual triangle draw and pixel readback.
 
+## Actual Surface resize test — Part 1
+
+The Android lifecycle report is schema version 2. It preserves the last valid
+Surface dimensions across Surface destruction/recreation, records the first
+and latest dimensions, and reports the last observed resize from/to values.
+The Activity also records orientation configuration changes.
+
+For a deterministic Surface resize and live-WSI event test:
+
+1. Install the Part 1 arm64 debug APK and open the app.
+2. Wait for the initial R2.6 WSI session to finish successfully.
+3. Tap **INCREASE SURFACE SIZE (WSI RESIZE TEST)**, then
+   **RESTORE SURFACE SIZE (220dp)** once. Confirm Android reports a nonzero
+   Surface resize count and distinct from/to dimensions.
+4. Enable Android auto-rotate, rotate portrait → landscape → portrait, and
+   wait for the Surface session to finish.
+5. Tap **START LIVE WSI RESIZE WINDOW**. The native same-device oldSwapchain
+   probe pauses for two seconds immediately before image acquire, then for
+   two seconds after queue submit but before present. During the first pause,
+   tap the Surface size button to increase the SurfaceView to 320dp. During
+   the second pause, tap it again to restore 220dp. The Surface changes race
+   the real Vulkan acquire/present calls while the existing device and
+   swapchain probe remain active.
+6. Allow the live native session and any serialized follow-up Surface session
+   to finish. Use **COPY LIVE WSI REPORT** for the dedicated probe result and
+   **COPY LATEST SESSION REPORT** for the newest Surface session. If the Live
+   WSI report says `session_current_at_completion=false`, it is a preserved
+   snapshot from the session superseded during the resize; use the latest-session
+   report to inspect the final rendered frame.
+7. Preserve both JSON reports and the separate app file
+   `nyamist-g925-r2.2-live-wsi-resize-window.json`.
+
+Part 1 acceptance requires a nonzero `surface_resize_count`, a true
+`surface_resize_observed`, differing last-resize from/to dimensions, and
+session dimensions matching the latest Surface callback. The controlled
+toggle count should be at least two. A nonzero configuration-change count
+confirms Android delivered orientation changes.
+
+If Android destroys/recreates the Surface during rotation, the prior valid
+dimensions are retained so a real size change is not lost when the new
+Surface first reports its dimensions. Surface recreation alone is not a
+The live-window mode records both pause points and their total duration. A real Vulkan VK_SUBOPTIMAL_KHR or VK_ERROR_OUT_OF_DATE_KHR result is proven only when the corresponding driver-result counter is nonzero. For OUT_OF_DATE, also require a nonzero recovery-success count and final same-device handoff success. A Surface resize with zero WSI result counters remains a resize PASS but WSI-event status is not_observed.
+
+## Live WSI Resize Window mode
+
+The live-window control is designed to expose the actual WSI operation to a Surface change while the same VkDevice and oldSwapchain probe are active. It opens two 2-second windows: before image acquire, and after queue submit but before present. Tap the Surface size control once in each window. This is an observation harness, not an event injector; the driver is free to return VK_SUCCESS, VK_SUBOPTIMAL_KHR or VK_ERROR_OUT_OF_DATE_KHR. The report includes the mode flag, pause counts, total pause duration, real acquire/present result counters, and bounded recovery counts. The live report is stored separately and exported by its dedicated copy action; it does not replace the latest-session report.
+
+## Surface transform and aspect-preserving rendering — Part 1
+
+The renderer uses the current Android Surface dimensions and does not pre-rotate
+its clip-space geometry. Accordingly, swapchain creation prefers
+`VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR` whenever the Surface advertises it;
+the presentation engine then applies the Surface's current orientation exactly
+once. Selecting `currentTransform` while also rendering for the already-oriented
+extent mixes the pre-rotation path with the no-pre-rotation path and can
+rotate/stretch the displayed triangle.
+
+The report records `surface_current_transform`,
+`surface_supported_transforms`, `swapchain_pre_transform`,
+`swapchain_pre_transform_identity_selected`, and
+`swapchain_pre_transform_policy` for both the initial chain and replacement
+handoffs. If IDENTITY is not supported, the report explicitly records
+`current_transform_fallback_requires_mvp_prerotation`; that fallback is not a
+visual PASS until the matching MVP pre-rotation is implemented and verified.
+
+The graphics pipeline uses a centered square viewport whose side is the
+smaller swapchain dimension. The render pass still clears and presents the
+complete Surface. Validate portrait and landscape screenshots: the triangle
+should retain the same proportions while the Surface background continues to
+fill the full swapchain image.
+
 ## WSI result policy
 
 - VK_SUCCESS continues the current operation.

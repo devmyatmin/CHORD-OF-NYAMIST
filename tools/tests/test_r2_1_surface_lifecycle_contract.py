@@ -26,6 +26,14 @@ NATIVE = (
     / "cpp"
     / "native_surface_swapchain.cpp"
 )
+REPORT_HEADER = (
+    ROOT
+    / "include"
+    / "nyamist"
+    / "discovery"
+    / "android_surface_swapchain_validation.hpp"
+)
+REPORT_SERIALIZER = ROOT / "src" / "discovery" / "android_surface_swapchain_validation.cpp"
 
 
 class R21SurfaceLifecycleContractTests(unittest.TestCase):
@@ -33,6 +41,8 @@ class R21SurfaceLifecycleContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.activity = ACTIVITY.read_text(encoding="utf-8")
         cls.native = NATIVE.read_text(encoding="utf-8")
+        cls.report_header = REPORT_HEADER.read_text(encoding="utf-8")
+        cls.report_serializer = REPORT_SERIALIZER.read_text(encoding="utf-8")
 
     def test_android_lifecycle_callbacks_are_registered(self):
         self.assertIn("implements SurfaceHolder.Callback", self.activity)
@@ -60,6 +70,20 @@ class R21SurfaceLifecycleContractTests(unittest.TestCase):
             "surface_changed_count",
             "surface_destroyed_count",
             "surface_resize_count",
+            "surface_resize_observed",
+            "surface_initial_width",
+            "surface_initial_height",
+            "surface_last_known_width",
+            "surface_last_known_height",
+            "surface_last_resize_from_width",
+            "surface_last_resize_from_height",
+            "surface_last_resize_to_width",
+            "surface_last_resize_to_height",
+            "surface_resize_test_toggle_count",
+            "live_resize_window_request_count",
+            "live_resize_window_mode_requested",
+            "configuration_change_count",
+            "last_configuration_orientation",
             "activity_resume_count",
             "activity_pause_count",
             "native_session_started_count",
@@ -69,6 +93,77 @@ class R21SurfaceLifecycleContractTests(unittest.TestCase):
         ):
             with self.subTest(field=field):
                 self.assertIn(field, self.activity)
+
+    def test_resize_detection_survives_surface_destruction_and_recreation(self):
+        changed_body = self.activity.split("public void surfaceChanged(", 1)[1].split(
+            "private void toggleSurfaceTestSize(", 1
+        )[0]
+        created_body = self.activity.split("public void surfaceCreated(", 1)[1].split(
+            "public void surfaceChanged(", 1
+        )[0]
+        self.assertIn("lastKnownSurfaceWidth", changed_body)
+        self.assertIn("lastKnownSurfaceHeight", changed_body)
+        self.assertIn("lastResizeFromWidth = previousWidth", changed_body)
+        self.assertIn("lastResizeToWidth = width", changed_body)
+        self.assertIn("currentSurfaceWidth = 0", created_body)
+        self.assertNotIn("lastKnownSurfaceWidth = 0", created_body)
+
+    def test_rotation_and_controlled_surface_resize_are_reported(self):
+        self.assertIn("onConfigurationChanged(Configuration newConfig)", self.activity)
+        self.assertIn("Configuration.ORIENTATION_PORTRAIT", self.activity)
+        self.assertIn("Configuration.ORIENTATION_LANDSCAPE", self.activity)
+        self.assertIn("INCREASE SURFACE SIZE (WSI RESIZE TEST)", self.activity)
+        self.assertIn("RESTORE SURFACE SIZE (220dp)", self.activity)
+        self.assertIn("params.height = dp(expanded ? 320 : 220)", self.activity)
+        self.assertIn("\\\"schema_version\\\": 2", self.activity)
+
+    def test_live_wsi_resize_window_is_explicit_and_report_is_preserved(self):
+        self.assertIn("START LIVE WSI RESIZE WINDOW", self.activity)
+        self.assertIn("requestLiveResizeWindow()", self.activity)
+        self.assertIn("live_wsi_resize_window", self.activity)
+        self.assertIn("validateSurfaceNative(sessionSurface, width, height, liveResizeMode)", self.activity)
+        self.assertIn("latestLiveResizeReport = completeReport", self.activity)
+        self.assertIn("nyamist-g925-r2.2-live-wsi-resize-window.json", self.activity)
+        self.assertIn("copyLatestButton.setOnClickListener(view -> copyReport(false))", self.activity)
+        self.assertIn("copyLiveButton.setOnClickListener(view -> copyReport(true))", self.activity)
+        self.assertIn("String reportToCopy = liveWsi ? latestLiveResizeReport : latestReport", self.activity)
+        self.assertIn("session_current_at_completion", self.activity)
+
+    def test_triangle_viewport_preserves_shape_across_surface_aspect_ratios(self):
+        self.assertIn("std::min(extent.width, extent.height)", self.native)
+        self.assertIn("viewport.x = static_cast<float>(render_viewport_x)", self.native)
+        self.assertIn("viewport.y = static_cast<float>(render_viewport_y)", self.native)
+        self.assertIn("viewport.width = static_cast<float>(render_viewport_extent)", self.native)
+        self.assertIn("render_viewport.height = static_cast<float>(render_viewport_extent)", self.native)
+        self.assertIn("render_scissor.extent = extent", self.native)
+        self.assertIn("VK_DYNAMIC_STATE_VIEWPORT", self.native)
+        self.assertIn("VK_DYNAMIC_STATE_SCISSOR", self.native)
+        self.assertIn("vk.cmd_set_viewport(command_buffer, 0U, 1U, &render_viewport)", self.native)
+        self.assertIn("vk.cmd_set_scissor(command_buffer, 0U, 1U, &render_scissor)", self.native)
+        self.assertIn('LOAD_DEVICE(cmd_set_viewport, "vkCmdSetViewport")', self.native)
+        self.assertIn('LOAD_DEVICE(cmd_set_scissor, "vkCmdSetScissor")', self.native)
+
+    def test_dynamic_viewport_and_scissor_values_are_exported(self):
+        fields = (
+            "render_viewport_dynamic_state_enabled",
+            "render_viewport_x",
+            "render_viewport_y",
+            "render_viewport_width",
+            "render_viewport_height",
+            "render_viewport_update_count",
+            "render_scissor_width",
+            "render_scissor_height",
+            "render_scissor_update_count",
+        )
+        for field in fields:
+            with self.subTest(field=field):
+                self.assertIn(field, self.report_header)
+                self.assertIn(f'"{field}"', self.report_serializer)
+        self.assertIn("report.render_viewport_x = render_viewport_x", self.native)
+        self.assertIn("report.render_viewport_width = render_viewport.width", self.native)
+        self.assertIn("++report.render_viewport_update_count", self.native)
+        self.assertIn("report.render_scissor_width = render_scissor.extent.width", self.native)
+        self.assertIn("++report.render_scissor_update_count", self.native)
 
     def test_activity_resume_forces_a_fresh_wsi_session_on_existing_surface(self):
         resume_body = self.activity.split("protected void onResume()", 1)[1].split(

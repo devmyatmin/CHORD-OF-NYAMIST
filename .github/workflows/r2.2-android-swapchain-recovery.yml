@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - feature/g925-r2.2-swapchain-resize-out-of-date-recovery
+      - feature/g925-r2.2-actual-surface-resize-instrumentation
   pull_request:
     branches:
       - feature/g925-r2.1-surface-lifecycle-swapchain-recreation
+      - feature/g925-r2.2-swapchain-resize-out-of-date-recovery
   workflow_dispatch:
 
 permissions:
@@ -59,7 +61,7 @@ jobs:
       - name: Upload R2.2 debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: nyamist-g925-r2.2-swapchain-recovery-apk
+          name: nyamist-g925-r2.2-actual-resize-validation-apk
           path: android/surface-validation/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14

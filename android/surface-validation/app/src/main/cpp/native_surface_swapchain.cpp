@@ -19,6 +19,7 @@
 #include <limits>
 #include <dlfcn.h>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -97,6 +98,8 @@ struct VulkanDispatch {
     PFN_vkCmdBeginRenderPass cmd_begin_render_pass{};
     PFN_vkCmdEndRenderPass cmd_end_render_pass{};
     PFN_vkCmdBindPipeline cmd_bind_pipeline{};
+    PFN_vkCmdSetViewport cmd_set_viewport{};
+    PFN_vkCmdSetScissor cmd_set_scissor{};
     PFN_vkCmdDraw cmd_draw{};
     PFN_vkCmdBindIndexBuffer cmd_bind_index_buffer{};
     PFN_vkCmdDrawIndexed cmd_draw_indexed{};
@@ -151,6 +154,37 @@ bool swapchainRecoveryPolicySelfTest() {
 
 bool isUsable(VkResult result) {
     return result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR;
+}
+
+// Android may report a non-identity currentTransform after device rotation.
+// This renderer uses the current, already-oriented Surface extent and does not
+// pre-rotate clip-space geometry. Prefer IDENTITY so the presentation engine
+// does not apply a second rotation to content rendered for the new extent.
+VkSurfaceTransformFlagBitsKHR chooseSwapchainPreTransform(
+        const VkSurfaceCapabilitiesKHR& capabilities) {
+    if ((capabilities.supportedTransforms &
+         VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) != 0U) {
+        return VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+    }
+    return capabilities.currentTransform;
+}
+
+void recordSurfaceTransform(
+        AndroidSurfaceSwapchainValidationReport& report,
+        const VkSurfaceCapabilitiesKHR& capabilities) {
+    const VkSurfaceTransformFlagBitsKHR selected =
+        chooseSwapchainPreTransform(capabilities);
+    report.surface_current_transform =
+        static_cast<std::uint32_t>(capabilities.currentTransform);
+    report.surface_supported_transforms =
+        static_cast<std::uint32_t>(capabilities.supportedTransforms);
+    report.swapchain_pre_transform = static_cast<std::uint32_t>(selected);
+    report.swapchain_pre_transform_identity_selected =
+        selected == VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+    report.swapchain_pre_transform_policy =
+        report.swapchain_pre_transform_identity_selected
+            ? "identity_no_app_prerotation"
+            : "current_transform_fallback_requires_mvp_prerotation";
 }
 
 std::string resultName(VkResult result) {
@@ -680,6 +714,26 @@ bool renderAndPresentFrame(
         return false;
     }
 
+    // Viewport/scissor are computed from the current swapchain extent for every
+    // frame. They must not be frozen into a reusable graphics-pipeline object:
+    // Surface rotations/resizes can leave that object alive across WSI sessions.
+    const std::uint32_t render_viewport_extent =
+        std::min(extent.width, extent.height);
+    const std::uint32_t render_viewport_x =
+        (extent.width - render_viewport_extent) / 2U;
+    const std::uint32_t render_viewport_y =
+        (extent.height - render_viewport_extent) / 2U;
+    VkViewport render_viewport{};
+    render_viewport.x = static_cast<float>(render_viewport_x);
+    render_viewport.y = static_cast<float>(render_viewport_y);
+    render_viewport.width = static_cast<float>(render_viewport_extent);
+    render_viewport.height = static_cast<float>(render_viewport_extent);
+    render_viewport.minDepth = 0.0F;
+    render_viewport.maxDepth = 1.0F;
+    VkRect2D render_scissor{};
+    render_scissor.offset = {0, 0};
+    render_scissor.extent = extent;
+
     if (graphics_pipeline == VK_NULL_HANDLE) {
         VkShaderModuleCreateInfo vertex_shader_info{
             VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
@@ -733,22 +787,22 @@ bool renderAndPresentFrame(
         input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         input_assembly.primitiveRestartEnable = VK_FALSE;
 
-        VkViewport viewport{};
-        viewport.x = 0.0F;
-        viewport.y = 0.0F;
-        viewport.width = static_cast<float>(extent.width);
-        viewport.height = static_cast<float>(extent.height);
-        viewport.minDepth = 0.0F;
-        viewport.maxDepth = 1.0F;
-        VkRect2D scissor{};
-        scissor.offset = {0, 0};
-        scissor.extent = extent;
+        // Viewport and scissor are dynamic; current extent-derived values are
+        // supplied with vkCmdSetViewport/vkCmdSetScissor for every frame.
         VkPipelineViewportStateCreateInfo viewport_state{
             VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
         viewport_state.viewportCount = 1U;
-        viewport_state.pViewports = &viewport;
+        viewport_state.pViewports = nullptr;
         viewport_state.scissorCount = 1U;
-        viewport_state.pScissors = &scissor;
+        viewport_state.pScissors = nullptr;
+        const VkDynamicState dynamic_states[] = {
+            VK_DYNAMIC_STATE_VIEWPORT,
+            VK_DYNAMIC_STATE_SCISSOR
+        };
+        VkPipelineDynamicStateCreateInfo dynamic_state_info{
+            VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+        dynamic_state_info.dynamicStateCount = 2U;
+        dynamic_state_info.pDynamicStates = dynamic_states;
 
         VkPipelineRasterizationStateCreateInfo rasterization{
             VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
@@ -783,6 +837,7 @@ bool renderAndPresentFrame(
         pipeline_info.pVertexInputState = &vertex_input;
         pipeline_info.pInputAssemblyState = &input_assembly;
         pipeline_info.pViewportState = &viewport_state;
+        pipeline_info.pDynamicState = &dynamic_state_info;
         pipeline_info.pRasterizationState = &rasterization;
         pipeline_info.pMultisampleState = &multisampling;
         pipeline_info.pColorBlendState = &color_blending;
@@ -868,6 +923,17 @@ bool renderAndPresentFrame(
     report.render_pass_begin_recorded = true;
     vk.cmd_bind_pipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                          graphics_pipeline);
+    vk.cmd_set_viewport(command_buffer, 0U, 1U, &render_viewport);
+    vk.cmd_set_scissor(command_buffer, 0U, 1U, &render_scissor);
+    report.render_viewport_dynamic_state_enabled = true;
+    report.render_viewport_x = render_viewport_x;
+    report.render_viewport_y = render_viewport_y;
+    report.render_viewport_width = render_viewport.width;
+    report.render_viewport_height = render_viewport.height;
+    ++report.render_viewport_update_count;
+    report.render_scissor_width = render_scissor.extent.width;
+    report.render_scissor_height = render_scissor.extent.height;
+    ++report.render_scissor_update_count;
     report.graphics_pipeline_bind_recorded = true;
     if (uint8_index_probe_enabled && perform_pixel_readback) {
         // Make the first/readback frame an indexed-only draw. Pixel readback
@@ -1366,6 +1432,23 @@ bool runFrameSequence(
     return true;
 }
 
+void pauseForLiveResizeWindow(
+        AndroidSurfaceSwapchainValidationReport& report,
+        std::uint32_t pause_ms,
+        bool before_present) {
+    if (pause_ms == 0U) return;
+    if (before_present) {
+        ++report.live_resize_window_pre_present_pause_count;
+    } else {
+        ++report.live_resize_window_pre_acquire_pause_count;
+    }
+    const auto pause_start = std::chrono::steady_clock::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds(pause_ms));
+    const auto pause_end = std::chrono::steady_clock::now();
+    report.live_resize_window_pause_total_ms += static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(pause_end - pause_start).count());
+}
+
 bool recreateSwapchainAndProbe(
         VulkanDispatch& vk,
         AndroidSurfaceSwapchainValidationReport& report,
@@ -1384,7 +1467,8 @@ bool recreateSwapchainAndProbe(
         std::vector<VkImage>& images,
         VkExtent2D& extent,
         VkPipeline& graphics_pipeline,
-        bool present_fence_enabled) {
+        bool present_fence_enabled,
+        std::uint32_t live_resize_pause_ms) {
     report.swapchain_recreation_status = "pending";
     report.swapchain_recreation_mode = "old_swapchain_handoff";
     report.swapchain_old_handle_supplied = swapchain != VK_NULL_HANDLE;
@@ -1398,6 +1482,8 @@ bool recreateSwapchainAndProbe(
         return false;
     }
     report.swapchain_result_policy_status = "success";
+    bool live_resize_pre_acquire_pause_used = false;
+    bool live_resize_pre_present_pause_used = false;
 
     for (std::uint32_t attempt = 0U; attempt < 3U; ++attempt) {
         ++report.swapchain_recreation_attempt_count;
@@ -1411,6 +1497,7 @@ bool recreateSwapchainAndProbe(
             report.swapchain_recreation_status = "capabilities_query_failed";
             return false;
         }
+        recordSurfaceTransform(report, capabilities);
         if ((capabilities.supportedUsageFlags & image_usage) != image_usage) {
             fail(report, "Surface no longer supports the required swapchain image usage");
             report.swapchain_recreation_status = "usage_not_supported";
@@ -1512,7 +1599,7 @@ bool recreateSwapchainAndProbe(
         create_info.imageArrayLayers = 1U;
         create_info.imageUsage = image_usage;
         create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        create_info.preTransform = capabilities.currentTransform;
+        create_info.preTransform = chooseSwapchainPreTransform(capabilities);
         create_info.compositeAlpha = composite_alpha;
         create_info.presentMode = present_mode;
         create_info.clipped = VK_TRUE;
@@ -1637,6 +1724,10 @@ bool recreateSwapchainAndProbe(
                                  resultName(result));
                     report.swapchain_recreation_probe_completion_status = "fence_create_failed";
                 } else {
+                    if (live_resize_pause_ms > 0U && !live_resize_pre_acquire_pause_used) {
+                        live_resize_pre_acquire_pause_used = true;
+                        pauseForLiveResizeWindow(report, live_resize_pause_ms, false);
+                    }
                     std::uint32_t image_index = 0U;
                     result = vk.acquire_next_image(
                         device, swapchain, 1000000000ULL,
@@ -1700,6 +1791,10 @@ bool recreateSwapchainAndProbe(
                         }
                         if (result == VK_SUCCESS) {
                             report.swapchain_recreation_probe_submit_status = "success";
+                            if (live_resize_pause_ms > 0U && !live_resize_pre_present_pause_used) {
+                                live_resize_pre_present_pause_used = true;
+                                pauseForLiveResizeWindow(report, live_resize_pause_ms, true);
+                            }
                             VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
                             present_info.waitSemaphoreCount = 1U;
                             present_info.pWaitSemaphores = &render_semaphore;
@@ -1827,8 +1922,12 @@ bool recreateSwapchainAndProbe(
 }
 
 AndroidSurfaceSwapchainValidationReport runValidation(
-        JNIEnv* env, jobject java_surface, jint requested_width, jint requested_height) {
+        JNIEnv* env, jobject java_surface, jint requested_width, jint requested_height,
+        jint live_resize_window_mode) {
     AndroidSurfaceSwapchainValidationReport report;
+    report.live_resize_window_mode_enabled = live_resize_window_mode != 0;
+    report.live_resize_window_pause_ms_per_stage =
+        report.live_resize_window_mode_enabled ? 2000U : 0U;
     VulkanDispatch vk;
     ANativeWindow* window = nullptr;
     VkInstance instance = VK_NULL_HANDLE;
@@ -2786,6 +2885,8 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             LOAD_DEVICE(cmd_begin_render_pass, "vkCmdBeginRenderPass");
             LOAD_DEVICE(cmd_end_render_pass, "vkCmdEndRenderPass");
             LOAD_DEVICE(cmd_bind_pipeline, "vkCmdBindPipeline");
+            LOAD_DEVICE(cmd_set_viewport, "vkCmdSetViewport");
+            LOAD_DEVICE(cmd_set_scissor, "vkCmdSetScissor");
             LOAD_DEVICE(cmd_draw, "vkCmdDraw");
             LOAD_DEVICE(cmd_bind_index_buffer, "vkCmdBindIndexBuffer");
             LOAD_DEVICE(cmd_draw_indexed, "vkCmdDrawIndexed");
@@ -2831,7 +2932,9 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                 vk.create_pipeline_layout == nullptr || vk.destroy_pipeline_layout == nullptr ||
                 vk.create_graphics_pipelines == nullptr || vk.destroy_pipeline == nullptr ||
                 vk.cmd_begin_render_pass == nullptr || vk.cmd_end_render_pass == nullptr ||
-                vk.cmd_bind_pipeline == nullptr || vk.cmd_draw == nullptr ||
+                vk.cmd_bind_pipeline == nullptr ||
+                vk.cmd_set_viewport == nullptr || vk.cmd_set_scissor == nullptr ||
+                vk.cmd_draw == nullptr ||
                 (index_type_uint8_feature_enabled &&
                  (vk.cmd_bind_index_buffer == nullptr || vk.cmd_draw_indexed == nullptr)) ||
                 vk.cmd_copy_image_to_buffer == nullptr ||
@@ -2864,6 +2967,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             fail(report, "Surface capabilities query failed: " + resultName(result));
         } else {
             report.surface_capabilities_status = "success";
+            recordSurfaceTransform(report, capabilities);
             std::uint32_t format_count = 0U;
             result = vk.get_surface_formats(selected_physical_device, surface, &format_count, nullptr);
             std::vector<VkSurfaceFormatKHR> formats;
@@ -2972,7 +3076,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                             swapchain_info.imageArrayLayers = 1U;
                             swapchain_info.imageUsage = image_usage;
                             swapchain_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-                            swapchain_info.preTransform = capabilities.currentTransform;
+                            swapchain_info.preTransform = chooseSwapchainPreTransform(capabilities);
                             swapchain_info.compositeAlpha = composite_alpha;
                             swapchain_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
                             swapchain_info.clipped = VK_TRUE;
@@ -3006,7 +3110,8 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                         static_cast<std::uint32_t>(requested_width),
                                         static_cast<std::uint32_t>(requested_height),
                                         swapchain, images, extent, graphics_pipeline,
-                                        maintenance_feature_supported)) {
+                                        maintenance_feature_supported,
+                                        report.live_resize_window_pause_ms_per_stage)) {
                                         if (report.failure_reason.empty()) {
                                             fail(report, "R2.2 oldSwapchain recreation/probe failed");
                                         }
@@ -3047,7 +3152,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                         static_cast<std::uint32_t>(requested_width),
                                         static_cast<std::uint32_t>(requested_height),
                                         swapchain, images, extent, graphics_pipeline,
-                                        maintenance_feature_supported)) {
+                                        maintenance_feature_supported, 0U)) {
                                         if (report.failure_reason.empty()) {
                                             fail(report, "R2.2 SUBOPTIMAL swapchain handoff did not recover");
                                         }
@@ -3408,8 +3513,9 @@ AndroidSurfaceSwapchainValidationReport runValidation(
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_dev_nyamist_g925surface_MainActivity_validateSurfaceNative(
-        JNIEnv* env, jclass, jobject surface, jint width, jint height) {
-    const auto report = runValidation(env, surface, width, height);
+        JNIEnv* env, jclass, jobject surface, jint width, jint height,
+        jint live_resize_window_mode) {
+    const auto report = runValidation(env, surface, width, height, live_resize_window_mode);
     const std::string json = nyamist::discovery::toJson(report);
     return env->NewStringUTF(json.c_str());
 }

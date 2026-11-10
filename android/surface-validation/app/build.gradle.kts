@@ -2,7 +2,15 @@ plugins {
     id("com.android.application")
 }
 
+val nyamistBuildSha = providers.environmentVariable("GITHUB_SHA")
+    .orElse("local")
+    .get()
+    .take(12)
+
 android {
+    buildFeatures {
+        buildConfig = true
+    }
     namespace = "dev.nyamist.g925surface"
     compileSdk = 36
     ndkVersion = "28.2.13676358"
@@ -13,6 +21,7 @@ android {
         targetSdk = 35
         versionCode = 260
         versionName = "2.6.0"
+        buildConfigField("String", "NYAMIST_BUILD_SHA", "\"$nyamistBuildSha\"")
 
         ndk {
             abiFilters += "arm64-v8a"
