@@ -72,16 +72,17 @@ void testSuccessfulSwapchainReportContract() {
     report.vulkan_1_4_promoted_feature_supported_count = 1U;
     report.vulkan_1_4_promoted_feature_not_supported_count = 1U;
     report.vulkan_1_4_promoted_feature_not_advertised_count = 1U;
+    report.vulkan_1_4_promoted_feature_implicitly_supported_count = 1U;
     report.vulkan_1_4_promoted_feature_query_failed_count = 0U;
-    report.vulkan_1_4_promoted_feature_not_queryable_count = 1U;
+    report.vulkan_1_4_promoted_feature_not_queryable_count = 0U;
     report.vulkan_1_4_promoted_features_supported = {
         "VK_KHR_global_priority.globalPriorityQuery"};
     report.vulkan_1_4_promoted_features_not_supported = {
         "VK_KHR_line_rasterization.bresenhamLines"};
     report.vulkan_1_4_promoted_features_not_advertised = {
         "VK_EXT_host_image_copy.hostImageCopy"};
-    report.vulkan_1_4_promoted_features_not_queryable = {
-        "VK_KHR_push_descriptor.pushDescriptor"};
+    report.vulkan_1_4_promoted_features_implicitly_supported = {
+        "VK_KHR_push_descriptor.pushDescriptor (implicit via VK_KHR_push_descriptor)"};
     report.vulkan_1_4_promoted_features_not_applicable = {
         "VK_KHR_load_store_op_none (no feature bit)",
         "VK_KHR_map_memory2 (no feature bit)"};
@@ -273,8 +274,8 @@ void testSuccessfulSwapchainReportContract() {
           "supported feature bits must be serialized");
     check(json.find(R"("vulkan_1_4_promoted_features_not_supported": ["VK_KHR_line_rasterization.bresenhamLines"])") != std::string::npos,
           "unsupported feature bits must be serialized");
-    check(json.find(R"("vulkan_1_4_promoted_features_not_queryable": ["VK_KHR_push_descriptor.pushDescriptor"])") != std::string::npos,
-          "pre-1.4-only unqueryable feature bits must not default to false");
+    check(json.find(R"("vulkan_1_4_promoted_features_implicitly_supported": ["VK_KHR_push_descriptor.pushDescriptor (implicit via VK_KHR_push_descriptor)"])") != std::string::npos,
+          "pre-1.4 push descriptors must be reported as implicitly supported when the extension is advertised");
     check(json.find(R"json("vulkan_1_4_promoted_features_not_applicable": ["VK_KHR_load_store_op_none (no feature bit)", "VK_KHR_map_memory2 (no feature bit)"])json") != std::string::npos,
           "promoted extensions without feature bits must be explicit");
     check(json.find("\"selected_present_mode\": \"FIFO\"") != std::string::npos,
