@@ -249,6 +249,15 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     stringField(out, "pixel_verification_status", report.pixel_verification_status);
     numberField(out, "extent_width", report.extent_width);
     numberField(out, "extent_height", report.extent_height);
+    boolField(out, "render_viewport_dynamic_state_enabled", report.render_viewport_dynamic_state_enabled);
+    numberField(out, "render_viewport_x", report.render_viewport_x);
+    numberField(out, "render_viewport_y", report.render_viewport_y);
+    numberField(out, "render_viewport_width", report.render_viewport_width);
+    numberField(out, "render_viewport_height", report.render_viewport_height);
+    numberField(out, "render_viewport_update_count", report.render_viewport_update_count);
+    numberField(out, "render_scissor_width", report.render_scissor_width);
+    numberField(out, "render_scissor_height", report.render_scissor_height);
+    numberField(out, "render_scissor_update_count", report.render_scissor_update_count);
     stringField(out, "swapchain_create_status", report.swapchain_create_status);
     stringField(out, "swapchain_image_query_status", report.swapchain_image_query_status);
     numberField(out, "swapchain_image_count", report.swapchain_image_count);
