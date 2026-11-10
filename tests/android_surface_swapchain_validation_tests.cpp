@@ -275,7 +275,7 @@ void testSuccessfulSwapchainReportContract() {
           "unsupported feature bits must be serialized");
     check(json.find(R"("vulkan_1_4_promoted_features_not_queryable": ["VK_KHR_push_descriptor.pushDescriptor"])") != std::string::npos,
           "pre-1.4-only unqueryable feature bits must not default to false");
-    check(json.find(R"("vulkan_1_4_promoted_features_not_applicable": ["VK_KHR_load_store_op_none (no feature bit)", "VK_KHR_map_memory2 (no feature bit)"])") != std::string::npos,
+    check(json.find(R"json("vulkan_1_4_promoted_features_not_applicable": ["VK_KHR_load_store_op_none (no feature bit)", "VK_KHR_map_memory2 (no feature bit)"])json") != std::string::npos,
           "promoted extensions without feature bits must be explicit");
     check(json.find("\"selected_present_mode\": \"FIFO\"") != std::string::npos,
           "FIFO presentation mode must be serialized");
