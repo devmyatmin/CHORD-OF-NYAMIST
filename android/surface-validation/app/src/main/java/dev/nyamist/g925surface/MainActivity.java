@@ -103,7 +103,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         root.setPadding(pad, pad, pad, pad);
 
         TextView title = new TextView(this);
-        title.setText("CHORD OF NYAMIST — G925 R2.6");
+        title.setText("CHORD OF NYAMIST — G925 R2.6 · " + BuildConfig.NYAMIST_BUILD_SHA);
         title.setTextSize(20.0f);
         root.addView(title, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));

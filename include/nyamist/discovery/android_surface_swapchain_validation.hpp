@@ -151,6 +151,11 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::string pixel_verification_status{"not_attempted"};
     std::uint32_t extent_width{};
     std::uint32_t extent_height{};
+    std::uint32_t surface_current_transform{};
+    std::uint32_t surface_supported_transforms{};
+    std::uint32_t swapchain_pre_transform{};
+    bool swapchain_pre_transform_identity_selected{};
+    std::string swapchain_pre_transform_policy{"not_queried"};
     bool render_viewport_dynamic_state_enabled{};
     std::uint32_t render_viewport_x{};
     std::uint32_t render_viewport_y{};

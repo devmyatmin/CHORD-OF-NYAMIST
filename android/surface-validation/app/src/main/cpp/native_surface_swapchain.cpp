@@ -156,6 +156,37 @@ bool isUsable(VkResult result) {
     return result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR;
 }
 
+// Android may report a non-identity currentTransform after device rotation.
+// This renderer uses the current, already-oriented Surface extent and does not
+// pre-rotate clip-space geometry. Prefer IDENTITY so the presentation engine
+// does not apply a second rotation to content rendered for the new extent.
+VkSurfaceTransformFlagBitsKHR chooseSwapchainPreTransform(
+        const VkSurfaceCapabilitiesKHR& capabilities) {
+    if ((capabilities.supportedTransforms &
+         VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) != 0U) {
+        return VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+    }
+    return capabilities.currentTransform;
+}
+
+void recordSurfaceTransform(
+        AndroidSurfaceSwapchainValidationReport& report,
+        const VkSurfaceCapabilitiesKHR& capabilities) {
+    const VkSurfaceTransformFlagBitsKHR selected =
+        chooseSwapchainPreTransform(capabilities);
+    report.surface_current_transform =
+        static_cast<std::uint32_t>(capabilities.currentTransform);
+    report.surface_supported_transforms =
+        static_cast<std::uint32_t>(capabilities.supportedTransforms);
+    report.swapchain_pre_transform = static_cast<std::uint32_t>(selected);
+    report.swapchain_pre_transform_identity_selected =
+        selected == VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+    report.swapchain_pre_transform_policy =
+        report.swapchain_pre_transform_identity_selected
+            ? "identity_no_app_prerotation"
+            : "current_transform_fallback_requires_mvp_prerotation";
+}
+
 std::string resultName(VkResult result) {
     switch (result) {
     case VK_SUCCESS: return "VK_SUCCESS";
@@ -1466,6 +1497,7 @@ bool recreateSwapchainAndProbe(
             report.swapchain_recreation_status = "capabilities_query_failed";
             return false;
         }
+        recordSurfaceTransform(report, capabilities);
         if ((capabilities.supportedUsageFlags & image_usage) != image_usage) {
             fail(report, "Surface no longer supports the required swapchain image usage");
             report.swapchain_recreation_status = "usage_not_supported";
@@ -1567,7 +1599,7 @@ bool recreateSwapchainAndProbe(
         create_info.imageArrayLayers = 1U;
         create_info.imageUsage = image_usage;
         create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        create_info.preTransform = capabilities.currentTransform;
+        create_info.preTransform = chooseSwapchainPreTransform(capabilities);
         create_info.compositeAlpha = composite_alpha;
         create_info.presentMode = present_mode;
         create_info.clipped = VK_TRUE;
@@ -2935,6 +2967,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             fail(report, "Surface capabilities query failed: " + resultName(result));
         } else {
             report.surface_capabilities_status = "success";
+            recordSurfaceTransform(report, capabilities);
             std::uint32_t format_count = 0U;
             result = vk.get_surface_formats(selected_physical_device, surface, &format_count, nullptr);
             std::vector<VkSurfaceFormatKHR> formats;
@@ -3043,7 +3076,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                             swapchain_info.imageArrayLayers = 1U;
                             swapchain_info.imageUsage = image_usage;
                             swapchain_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-                            swapchain_info.preTransform = capabilities.currentTransform;
+                            swapchain_info.preTransform = chooseSwapchainPreTransform(capabilities);
                             swapchain_info.compositeAlpha = composite_alpha;
                             swapchain_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
                             swapchain_info.clipped = VK_TRUE;

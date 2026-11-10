@@ -9,6 +9,7 @@ NATIVE = (
 )
 HEADER = ROOT / "include" / "nyamist" / "discovery" / "android_surface_swapchain_validation.hpp"
 SERIALIZER = ROOT / "src" / "discovery" / "android_surface_swapchain_validation.cpp"
+GRADLE = ROOT / "android" / "surface-validation" / "app" / "build.gradle.kts"
 ACTIVITY = (
     ROOT / "android" / "surface-validation" / "app" / "src" / "main"
     / "java" / "dev" / "nyamist" / "g925surface" / "MainActivity.java"
@@ -22,6 +23,7 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
         cls.native = NATIVE.read_text(encoding="utf-8")
         cls.header = HEADER.read_text(encoding="utf-8")
         cls.serializer = SERIALIZER.read_text(encoding="utf-8")
+        cls.gradle = GRADLE.read_text(encoding="utf-8")
         cls.activity = ACTIVITY.read_text(encoding="utf-8")
         cls.workflow = WORKFLOW.read_text(encoding="utf-8")
 
@@ -68,6 +70,22 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
         self.assertIn("swapchain_extent_after_width", self.header)
         self.assertIn("swapchain_extent_after_height", self.header)
 
+    def test_swapchain_prefers_identity_transform_for_current_surface_extent(self):
+        self.assertIn("chooseSwapchainPreTransform", self.native)
+        self.assertIn("VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR", self.native)
+        self.assertIn("recordSurfaceTransform(report, capabilities)", self.native)
+        self.assertIn("swapchain_info.preTransform = chooseSwapchainPreTransform(capabilities)", self.native)
+        self.assertIn("create_info.preTransform = chooseSwapchainPreTransform(capabilities)", self.native)
+        for field in (
+            "surface_current_transform",
+            "surface_supported_transforms",
+            "swapchain_pre_transform",
+            "swapchain_pre_transform_identity_selected",
+            "swapchain_pre_transform_policy",
+        ):
+            self.assertIn(field, self.header)
+            self.assertIn(f'"{field}"', self.serializer)
+
     def test_android_workflow_pins_vulkan_headers_for_r23_native_build(self):
         self.assertIn("Vulkan-Headers.git", self.workflow)
         self.assertIn("--branch v1.4.368", self.workflow)
@@ -92,6 +110,11 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
         self.assertIn("report.live_resize_window_mode_enabled ? 2000U : 0U", self.native)
         self.assertIn("live_resize_window_pause_total_ms", self.serializer)
         self.assertIn("latestLiveResizeReport", self.activity)
+
+    def test_apk_displays_the_exact_source_revision(self):
+        self.assertIn('buildConfigField("String", "NYAMIST_BUILD_SHA"', self.gradle)
+        self.assertIn("providers.environmentVariable(\"GITHUB_SHA\")", self.gradle)
+        self.assertIn("BuildConfig.NYAMIST_BUILD_SHA", self.activity)
 
     def test_app_build_identity_is_r23_with_r22_recovery_fields(self):
         self.assertIn("R2.6 WSI session", self.activity)

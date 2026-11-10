@@ -71,9 +71,29 @@ The live-window mode records both pause points and their total duration. A real 
 
 The live-window control is designed to expose the actual WSI operation to a Surface change while the same VkDevice and oldSwapchain probe are active. It opens two 2-second windows: before image acquire, and after queue submit but before present. Tap the Surface size control once in each window. This is an observation harness, not an event injector; the driver is free to return VK_SUCCESS, VK_SUBOPTIMAL_KHR or VK_ERROR_OUT_OF_DATE_KHR. The report includes the mode flag, pause counts, total pause duration, real acquire/present result counters, and bounded recovery counts. The live report is stored separately and exported by its dedicated copy action; it does not replace the latest-session report.
 
-## Aspect-preserving triangle rendering — Part 1
+## Surface transform and aspect-preserving rendering — Part 1
 
-The graphics pipeline uses a centered square viewport whose side is the smaller swapchain dimension. The render pass still clears and presents the complete Surface, but triangle geometry is no longer stretched by a wide landscape viewport. Validate portrait and landscape screenshots: the triangle should retain the same proportions while the Surface background continues to fill the full swapchain image.
+The renderer uses the current Android Surface dimensions and does not pre-rotate
+its clip-space geometry. Accordingly, swapchain creation prefers
+`VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR` whenever the Surface advertises it;
+the presentation engine then applies the Surface's current orientation exactly
+once. Selecting `currentTransform` while also rendering for the already-oriented
+extent mixes the pre-rotation path with the no-pre-rotation path and can
+rotate/stretch the displayed triangle.
+
+The report records `surface_current_transform`,
+`surface_supported_transforms`, `swapchain_pre_transform`,
+`swapchain_pre_transform_identity_selected`, and
+`swapchain_pre_transform_policy` for both the initial chain and replacement
+handoffs. If IDENTITY is not supported, the report explicitly records
+`current_transform_fallback_requires_mvp_prerotation`; that fallback is not a
+visual PASS until the matching MVP pre-rotation is implemented and verified.
+
+The graphics pipeline uses a centered square viewport whose side is the
+smaller swapchain dimension. The render pass still clears and presents the
+complete Surface. Validate portrait and landscape screenshots: the triangle
+should retain the same proportions while the Surface background continues to
+fill the full swapchain image.
 
 ## WSI result policy
 

@@ -249,6 +249,11 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     stringField(out, "pixel_verification_status", report.pixel_verification_status);
     numberField(out, "extent_width", report.extent_width);
     numberField(out, "extent_height", report.extent_height);
+    numberField(out, "surface_current_transform", report.surface_current_transform);
+    numberField(out, "surface_supported_transforms", report.surface_supported_transforms);
+    numberField(out, "swapchain_pre_transform", report.swapchain_pre_transform);
+    boolField(out, "swapchain_pre_transform_identity_selected", report.swapchain_pre_transform_identity_selected);
+    stringField(out, "swapchain_pre_transform_policy", report.swapchain_pre_transform_policy);
     boolField(out, "render_viewport_dynamic_state_enabled", report.render_viewport_dynamic_state_enabled);
     numberField(out, "render_viewport_x", report.render_viewport_x);
     numberField(out, "render_viewport_y", report.render_viewport_y);
