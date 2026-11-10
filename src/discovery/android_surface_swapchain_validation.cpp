@@ -78,6 +78,16 @@ void array64Field(std::ostringstream& out, const char* name,
     out << "],\n";
 }
 
+void stringArrayField(std::ostringstream& out, const char* name,
+                      const std::vector<std::string>& values) {
+    out << "  \\"" << name << "\\": [";
+    for (std::size_t index = 0; index < values.size(); ++index) {
+        if (index != 0U) out << ", ";
+        out << "\\\"" << escapeJson(values[index]) << "\\\"";
+    }
+    out << "],\\n";
+}
+
 void summary64Fields(std::ostringstream& out, const char* prefix,
                      const std::vector<std::uint64_t>& values,
                      const char* unit_suffix) {
@@ -106,7 +116,7 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     std::ostringstream out;
     out << "{\n";
     numberField(out, "schema_version", report.schema_version);
-    stringField(out, "project", "CHORD OF NYAMIST / NYAMIST G925 R2.3");
+    stringField(out, "project", "CHORD OF NYAMIST / NYAMIST G925 R2.4");
     stringField(out, "status", report.status);
     stringField(out, "platform", report.platform);
     stringField(out, "loader_library", report.loader_library);
@@ -144,6 +154,14 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     boolField(out, "vulkan_1_4_pipeline_protected_access_supported", report.vulkan_1_4_pipeline_protected_access_supported);
     boolField(out, "vulkan_1_4_required_features_supported", report.vulkan_1_4_required_features_supported);
     stringField(out, "vulkan_1_4_required_features_status", report.vulkan_1_4_required_features_status);
+    stringField(out, "vulkan_1_4_promoted_extension_inventory_status", report.vulkan_1_4_promoted_extension_inventory_status);
+    stringField(out, "vulkan_1_4_promoted_extension_inventory_scope", report.vulkan_1_4_promoted_extension_inventory_scope);
+    stringField(out, "vulkan_1_4_promoted_extension_coverage_status", report.vulkan_1_4_promoted_extension_coverage_status);
+    numberField(out, "vulkan_1_4_promoted_extension_total_count", report.vulkan_1_4_promoted_extension_total_count);
+    numberField(out, "vulkan_1_4_promoted_extension_supported_count", report.vulkan_1_4_promoted_extension_supported_count);
+    numberField(out, "vulkan_1_4_promoted_extension_not_advertised_count", report.vulkan_1_4_promoted_extension_not_advertised_count);
+    stringArrayField(out, "vulkan_1_4_promoted_extensions_supported", report.vulkan_1_4_promoted_extensions_supported);
+    stringArrayField(out, "vulkan_1_4_promoted_extensions_not_advertised", report.vulkan_1_4_promoted_extensions_not_advertised);
     boolField(out, "target_gpu_match", report.target_gpu_match);
     stringField(out, "swapchain_maintenance_instance_extension_status", report.swapchain_maintenance_instance_extension_status);
     stringField(out, "swapchain_maintenance_device_extension_status", report.swapchain_maintenance_device_extension_status);

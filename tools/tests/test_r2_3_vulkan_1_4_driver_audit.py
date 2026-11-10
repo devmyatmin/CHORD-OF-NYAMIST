@@ -19,8 +19,8 @@ class R23Vulkan14DriverAuditContractTests(unittest.TestCase):
         cls.gradle = GRADLE.read_text(encoding="utf-8")
 
     def test_schema_v8_and_r23_report_identity(self):
-        self.assertIn("schema_version{8U}", self.header)
-        self.assertIn("NYAMIST G925 R2.3", self.serializer)
+        self.assertIn("schema_version{9U}", self.header)
+        self.assertIn("NYAMIST G925 R2.4", self.serializer)
         self.assertIn('schema_version\\": 8', self.activity)
 
     def test_instance_api_negotiates_up_to_loader_cap(self):
@@ -55,9 +55,9 @@ class R23Vulkan14DriverAuditContractTests(unittest.TestCase):
         self.assertIn("skipped_physical_device_api_below_1_4", self.native)
 
     def test_app_version_and_report_path_are_r23(self):
-        self.assertIn("versionCode = 230", self.gradle)
-        self.assertIn('versionName = "2.3.0"', self.gradle)
-        self.assertIn("nyamist-g925-r2.3-vulkan-1.4-audit.json", self.activity)
+        self.assertIn("versionCode = 240", self.gradle)
+        self.assertIn('versionName = "2.4.0"', self.gradle)
+        self.assertIn("nyamist-g925-r2.4-vulkan-1.4-audit.json", self.activity)
 
     def test_android_build_uses_pinned_official_vulkan_headers(self):
         cmake = (ROOT / "android/surface-validation/app/src/main/cpp/CMakeLists.txt").read_text(encoding="utf-8")

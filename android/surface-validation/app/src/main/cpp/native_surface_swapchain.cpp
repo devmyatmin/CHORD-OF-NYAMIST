@@ -25,6 +25,25 @@ namespace {
 
 using nyamist::discovery::AndroidSurfaceSwapchainValidationReport;
 
+constexpr std::array<const char*, 16> kVulkan14PromotedExtensions{
+    "VK_KHR_dynamic_rendering_local_read",
+    "VK_KHR_global_priority",
+    "VK_KHR_index_type_uint8",
+    "VK_KHR_line_rasterization",
+    "VK_KHR_load_store_op_none",
+    "VK_KHR_maintenance5",
+    "VK_KHR_maintenance6",
+    "VK_KHR_map_memory2",
+    "VK_KHR_push_descriptor",
+    "VK_KHR_shader_expect_assume",
+    "VK_KHR_shader_float_controls2",
+    "VK_KHR_shader_subgroup_rotate",
+    "VK_KHR_vertex_attribute_divisor",
+    "VK_EXT_host_image_copy",
+    "VK_EXT_pipeline_protected_access",
+    "VK_EXT_pipeline_robustness"
+};
+
 struct VulkanDispatch {
     void* library{};
     PFN_vkGetInstanceProcAddr get_instance_proc_addr{};
@@ -1888,6 +1907,8 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     std::uint32_t selected_queue_family = 0U;
     std::uint32_t selected_queue_timestamp_valid_bits = 0U;
     VkPhysicalDevice selected_physical_device = VK_NULL_HANDLE;
+    std::vector<VkExtensionProperties> selected_physical_device_extensions;
+    bool selected_physical_device_extensions_enumerated = false;
     if (report.failure_reason.empty() && surface != VK_NULL_HANDLE) {
         std::uint32_t physical_count = 0U;
         VkResult result = vk.enumerate_physical_devices(instance, &physical_count, nullptr);
@@ -1930,6 +1951,8 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                         selected_physical_device = physical;
                         selected_queue_family = index;
                         selected_queue_timestamp_valid_bits = families[index].timestampValidBits;
+                        selected_physical_device_extensions = device_extensions;
+                        selected_physical_device_extensions_enumerated = true;
                         break;
                     }
                 }
@@ -1963,6 +1986,52 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                     return out;
                 }(properties.deviceID);
                 report.physical_device_api_version = versionString(properties.apiVersion);
+
+                // R2.4 inventories promoted Vulkan 1.4 extension names.
+                // On pre-1.4 devices this records advertisement only, not
+                // feature or limit compliance with Vulkan 1.4 core.
+                report.vulkan_1_4_promoted_extension_total_count =
+                    static_cast<std::uint32_t>(kVulkan14PromotedExtensions.size());
+                if (versionAtLeast(properties.apiVersion, 1U, 4U)) {
+                    report.vulkan_1_4_promoted_extension_inventory_status =
+                        "not_applicable_core_api_1_4_or_higher";
+                    report.vulkan_1_4_promoted_extension_inventory_scope =
+                        "promoted_functionality_is_in_core_api";
+                    report.vulkan_1_4_promoted_extension_coverage_status = "core_api";
+                } else if (selected_physical_device_extensions_enumerated) {
+                    report.vulkan_1_4_promoted_extension_inventory_status = "success";
+                    report.vulkan_1_4_promoted_extension_inventory_scope =
+                        "extension_name_advertisement_on_pre_1_4_device";
+                    for (const char* extension_name : kVulkan14PromotedExtensions) {
+                        if (hasDeviceExtension(selected_physical_device_extensions,
+                                               extension_name)) {
+                            report.vulkan_1_4_promoted_extensions_supported.emplace_back(
+                                extension_name);
+                        } else {
+                            report.vulkan_1_4_promoted_extensions_not_advertised.emplace_back(
+                                extension_name);
+                        }
+                    }
+                    report.vulkan_1_4_promoted_extension_supported_count =
+                        static_cast<std::uint32_t>(
+                            report.vulkan_1_4_promoted_extensions_supported.size());
+                    report.vulkan_1_4_promoted_extension_not_advertised_count =
+                        static_cast<std::uint32_t>(
+                            report.vulkan_1_4_promoted_extensions_not_advertised.size());
+                    if (report.vulkan_1_4_promoted_extension_supported_count == 0U) {
+                        report.vulkan_1_4_promoted_extension_coverage_status = "none_advertised";
+                    } else if (report.vulkan_1_4_promoted_extension_not_advertised_count == 0U) {
+                        report.vulkan_1_4_promoted_extension_coverage_status = "all_advertised";
+                    } else {
+                        report.vulkan_1_4_promoted_extension_coverage_status =
+                            "partial_advertisement";
+                    }
+                } else {
+                    report.vulkan_1_4_promoted_extension_inventory_status = "enumeration_failed";
+                    report.vulkan_1_4_promoted_extension_inventory_scope =
+                        "extension_name_advertisement_on_pre_1_4_device";
+                    report.vulkan_1_4_promoted_extension_coverage_status = "unknown";
+                }
 
                 // Query driver identity and the physical-device UUID through
                 // the public Vulkan properties2 API, not private driver APIs.
