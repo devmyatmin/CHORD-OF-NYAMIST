@@ -18,10 +18,10 @@ class R23Vulkan14DriverAuditContractTests(unittest.TestCase):
         cls.activity = ACTIVITY.read_text(encoding="utf-8")
         cls.gradle = GRADLE.read_text(encoding="utf-8")
 
-    def test_schema_v9_and_r24_report_identity(self):
-        self.assertIn("schema_version{11U}", self.header)
+    def test_schema_v12_and_current_report_identity(self):
+        self.assertIn("schema_version{12U}", self.header)
         self.assertIn("NYAMIST G925 R2.6", self.serializer)
-        self.assertIn('schema_version\\": 11', self.activity)
+        self.assertIn('schema_version\\": 12', self.activity)
 
     def test_instance_api_negotiates_up_to_loader_cap(self):
         self.assertIn("versionAtLeast(loader_api_version, 1U, 4U)", self.native)
