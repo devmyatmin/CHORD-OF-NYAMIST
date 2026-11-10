@@ -1,69 +1,81 @@
-# NYAMIST G925 R1.8 — GPU Timestamp Query & Multi-Frame Validation
+# NYAMIST G925 R2.0 — Swapchain Pixel Readback Verification
 
-This Android application extends the R1.7 shader/pipeline/triangle test into a
-repeatable 16-frame validation sequence with Vulkan timestamp queries on the
-selected graphics queue.
+This Android diagnostic extends the accepted R1.9 present-fence path with
+actual pixel readback from the acquired swapchain image. It verifies four
+clear-color background locations and one triangle-interior point using a
+small host-visible staging buffer.
 
 ## Execution model
 
 1. Create the Android Vulkan instance, surface, G925 logical device, graphics /
    present queue, and FIFO swapchain through the stock Android loader.
-2. Create one reusable render pass, shader modules, pipeline layout, graphics
-   pipeline, command pool, and command buffer.
-3. Submit one unmeasured warm-up frame to initialize pipeline/driver state.
-4. Submit and present 16 measured frames. Each measured frame reacquires a
-   swapchain image, records the same three-vertex triangle draw, submits,
-   presents, waits for queue idle, and reuses the command pool only after it is
-   no longer pending.
-5. Allocate a timestamp query pool with two timestamp queries per measured
-   frame. Reset each query pair in its command buffer, write a TOP_OF_PIPE
-   timestamp immediately before the render pass, and a BOTTOM_OF_PIPE timestamp
-   after the render pass. Read each pair only after queue idle.
-6. Convert timestamp ticks to nanoseconds using the physical device's
-   timestampPeriod. Apply timestampValidBits wrap masking for queues with fewer
-   than 64 valid bits.
-7. Record each frame's CPU acquire, queue-submit call, present call, queue-idle
-   wait, acquire-to-idle total, plus each GPU timestamp interval.
-8. Serialize raw sample arrays and min / median / nearest-rank P95 / max
-   summaries. CPU wall-clock values and GPU timestamp values remain separate.
-9. Destroy per-image framebuffer and image-view objects after each completed
-   frame, then destroy the shared pipeline, shader, query pool, synchronization,
-   command, swapchain, and device resources in dependency-safe order.
+2. Verify that the Android Surface supports both
+   `VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT` and
+   `VK_IMAGE_USAGE_TRANSFER_SRC_BIT`. If transfer-source use is unavailable,
+   report the capability failure explicitly; do not claim pixel validation.
+3. Create the swapchain with `COLOR_ATTACHMENT | TRANSFER_SRC`, retain the
+   R1.9 `VK_EXT_swapchain_maintenance1` present-fence path, and create a
+   20-byte transfer-destination buffer for five RGBA8 sample values.
+4. Render the existing three-vertex triangle during one warm-up frame. The
+   render pass ends in `VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL`.
+5. Copy five 1×1 regions from the acquired swapchain image to the staging
+   buffer: four corners (background) and the center (triangle).
+6. Transition the swapchain image back to
+   `VK_IMAGE_LAYOUT_PRESENT_SRC_KHR`, submit and present it, then wait for
+   rendering/presentation completion before mapping the staging buffer.
+7. Prefer HOST_VISIBLE|HOST_COHERENT memory. If only non-coherent host-visible
+   memory is selected, invalidate the mapped allocation before reading.
+8. Normalize BGRA formats to RGBA, compare four background samples against the
+   expected sRGB-encoded clear color, and require the center sample to differ
+   from the clear color with opaque alpha.
+9. Keep the pixel copy in the warm-up frame only. The 16 measured GPU timestamp
+   intervals remain around the render pass and exclude the readback copy.
+10. Submit 16 measured frames after warm-up, preserve the R1.9 present-fence
+    lifecycle, serialize schema-v6 evidence, and destroy readback resources.
 
-## Timing definitions
+## Report fields
 
-- frame_total_cpu_us_samples: CPU wall-clock from immediately before image
-  acquisition to return from queue idle for each measured frame.
-- acquire_cpu_us_samples: CPU time spent in vkAcquireNextImageKHR.
-- queue_submit_cpu_us_samples: CPU time spent inside vkQueueSubmit.
-- present_call_cpu_us_samples: CPU time spent inside vkQueuePresentKHR.
-- queue_idle_wait_cpu_us_samples: CPU time spent inside vkQueueWaitIdle.
-- gpu_frame_time_ns_samples: GPU timestamp tick interval converted to ns
-  between TOP_OF_PIPE before the render pass and BOTTOM_OF_PIPE after it.
+Schema v6 adds Surface transfer-source support, selected image usage,
+staging-buffer/memory state, copy/map/invalidate/unmap results, five sample
+labels, expected clear RGBA8, observed RGBA8 pixel values, background-match and
+triangle-center booleans, final verification state, and readback cleanup state.
 
-A GPU timestamp interval is not a display-refresh measurement and must not be
-reported as FPS. The CPU acquire-to-idle interval is not GPU execution time.
-The 16 samples are a short validation run, not sustained performance, thermal,
-or game-compatibility evidence. Queue idle is deliberately used for deterministic
-single-queue resource and semaphore reuse; this is not a throughput-optimized
-renderer.
+For a target-device pass, the report must show:
+
+- `swapchain_transfer_src_support_status: supported`
+- `pixel_readback_mode: swapchain_transfer_src`
+- `pixel_readback_sample_count: 5`
+- `pixel_background_samples_match_clear: true`
+- `pixel_triangle_center_detected: true`
+- `pixel_verification_status: success`
+- Successful staging allocation, binding, copy, map, invalidation when
+  required, unmap, buffer destruction and memory free.
+- R1.9 present-fence completion evidence and 16 GPU timestamp samples.
+
+## Timing definitions and limitations
+
+The GPU timestamp interval is TOP_OF_PIPE through BOTTOM_OF_PIPE around the
+render pass. The warm-up frame's readback copy is outside the measured 16 GPU
+samples. CPU acquire-to-idle timings remain distinct from GPU timestamps.
+
+The data is copied from the swapchain image before presentation; it is not a
+screenshot or scanout readback of the physical display panel. Five pixel
+samples are a focused output check, not exhaustive framebuffer validation.
+The result does not establish FPS, sustained performance, thermal or battery
+behavior, or game compatibility.
 
 ## Build and run
 
-The R1.8 workflow builds an arm64-v8a debug APK and uploads the
-nyamist-g925-r1.8-debug-apk artifact.
+The R2.0 Android workflow builds an arm64-v8a debug APK and uploads the
+`nyamist-g925-r2.0-pixel-readback-apk` artifact.
 
-1. Download the APK from a successful R1.8 Android workflow run.
-2. Install and open NYAMIST G925 R1.8 Multi-Frame GPU Timing Test.
-3. Keep the app in the foreground until the 1 warm-up + 16 measured frames finish.
-4. Tap Copy JSON report and paste the complete JSON into the project chat.
-
-## Hardware acceptance
-
-A full R1.8 pass requires the target G925 identity, shader modules and graphics
-pipeline, 17 successful frame submissions/presentations (1 warm-up + 16 samples),
-16 valid CPU samples, 16 valid GPU timestamp query samples, successful
-presentation/queue-idle operations, and complete Vulkan cleanup.
+1. Download the APK from a successful R2.0 Android workflow run.
+2. Uninstall an older debug build first if Android reports a signing conflict.
+3. Install and open **NYAMIST G925 R2.0 Pixel Readback Validation**.
+4. Keep the app in the foreground until the 1 warm-up + 16 measured frames
+   finish.
+5. Tap **Copy JSON report** and paste the complete schema-v6 JSON into the
+   project chat.
 
 Hosted CI validates C++ tests, Android native compilation, shader compilation,
 and APK packaging only. Actual REDMI K80 Ultra JSON evidence is mandatory for
