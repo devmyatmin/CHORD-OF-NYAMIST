@@ -70,6 +70,8 @@ class R21SurfaceLifecycleContractTests(unittest.TestCase):
             "surface_last_resize_to_width",
             "surface_last_resize_to_height",
             "surface_resize_test_toggle_count",
+            "live_resize_window_request_count",
+            "live_resize_window_mode_requested",
             "configuration_change_count",
             "last_configuration_orientation",
             "activity_resume_count",
@@ -104,6 +106,15 @@ class R21SurfaceLifecycleContractTests(unittest.TestCase):
         self.assertIn("RESTORE SURFACE SIZE (220dp)", self.activity)
         self.assertIn("params.height = dp(expanded ? 320 : 220)", self.activity)
         self.assertIn("\\\"schema_version\\\": 2", self.activity)
+
+    def test_live_wsi_resize_window_is_explicit_and_report_is_preserved(self):
+        self.assertIn("START LIVE WSI RESIZE WINDOW", self.activity)
+        self.assertIn("requestLiveResizeWindow()", self.activity)
+        self.assertIn("live_wsi_resize_window", self.activity)
+        self.assertIn("validateSurfaceNative(sessionSurface, width, height, liveResizeMode)", self.activity)
+        self.assertIn("latestLiveResizeReport = completeReport", self.activity)
+        self.assertIn("nyamist-g925-r2.2-live-wsi-resize-window.json", self.activity)
+        self.assertIn("latestLiveResizeReport.isEmpty() ? latestReport : latestLiveResizeReport", self.activity)
 
     def test_activity_resume_forces_a_fresh_wsi_session_on_existing_surface(self):
         resume_body = self.activity.split("protected void onResume()", 1)[1].split(
