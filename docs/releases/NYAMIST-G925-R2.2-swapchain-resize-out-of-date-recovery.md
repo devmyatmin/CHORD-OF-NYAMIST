@@ -1,6 +1,6 @@
 # NYAMIST G925 R2.2 — Swapchain Resize and OUT_OF_DATE Recovery
 
-**Hosted validation: PASS. Target-device validation: pending REDMI K80 Ultra schema-v7 report.**
+**Hosted validation: PASS. Target-device same-device oldSwapchain handoff: HARDWARE PASS (2026-11-10). Actual extent change and real SUBOPTIMAL / OUT_OF_DATE emission/recovery: NOT OBSERVED.**
 
 ## Objective
 
@@ -60,6 +60,29 @@ R2.2 APK artifact from Android PR Run #13:
 The artifact ZIP and the contained APK both passed ZIP integrity tests. Hosted
 validation proves compilation, tests and packaging. It does not prove that
 the MT6991 driver has emitted a real SUBOPTIMAL or OUT_OF_DATE result.
+
+## Target-device follow-up — same-device handoff PASS
+
+The schema-v11 REDMI K80 Ultra follow-up report confirms one successful
+same-device `oldSwapchain` handoff: old handle supplied and destroyed,
+replacement images enumerated, replacement image acquired/submitted/presented,
+and present-fence completion observed. The physical extent remained
+1202×715, Android Surface resize events were zero, and acquire/present
+SUBOPTIMAL plus create/acquire/present OUT_OF_DATE counters were all zero.
+This is a hardware PASS for same-device handoff only, not for actual resize
+or event-triggered recovery. See
+[the device evidence](../evidence/NYAMIST-G925-R2.2-redmi-k80-ultra-2026-11-10.md).
+
+## Part 1 — actual Surface resize instrumentation
+
+The Android lifecycle report is upgraded to schema version 2. It retains the
+last valid dimensions across Surface recreation and records first/latest
+dimensions, resize from/to dimensions, orientation configuration changes,
+and a controlled 220dp ↔ 320dp SurfaceView resize control. Hosted tests and
+an arm64 Android build cover the instrumentation. **Target-device Part 1
+acceptance remains pending** until a report shows a real nonzero resize count
+and differing dimensions. This does not automatically imply a real Vulkan
+SUBOPTIMAL or OUT_OF_DATE result.
 
 ## Device acceptance criteria
 
