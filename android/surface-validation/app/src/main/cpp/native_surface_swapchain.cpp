@@ -10,6 +10,7 @@
 #include <vulkan/vulkan.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -35,6 +36,7 @@ struct VulkanDispatch {
     PFN_vkDestroyInstance destroy_instance{};
     PFN_vkEnumeratePhysicalDevices enumerate_physical_devices{};
     PFN_vkGetPhysicalDeviceProperties get_physical_device_properties{};
+    PFN_vkGetPhysicalDeviceMemoryProperties get_physical_device_memory_properties{};
     PFN_vkGetPhysicalDeviceFeatures2 get_physical_device_features2{};
     PFN_vkGetPhysicalDeviceQueueFamilyProperties get_queue_families{};
     PFN_vkEnumerateDeviceExtensionProperties enumerate_device_extensions{};
@@ -52,6 +54,15 @@ struct VulkanDispatch {
     PFN_vkCreateSwapchainKHR create_swapchain{};
     PFN_vkDestroySwapchainKHR destroy_swapchain{};
     PFN_vkCreateImageView create_image_view{};
+    PFN_vkCreateBuffer create_buffer{};
+    PFN_vkDestroyBuffer destroy_buffer{};
+    PFN_vkGetBufferMemoryRequirements get_buffer_memory_requirements{};
+    PFN_vkAllocateMemory allocate_memory{};
+    PFN_vkFreeMemory free_memory{};
+    PFN_vkBindBufferMemory bind_buffer_memory{};
+    PFN_vkMapMemory map_memory{};
+    PFN_vkUnmapMemory unmap_memory{};
+    PFN_vkInvalidateMappedMemoryRanges invalidate_mapped_memory_ranges{};
     PFN_vkDestroyImageView destroy_image_view{};
     PFN_vkCreateRenderPass create_render_pass{};
     PFN_vkDestroyRenderPass destroy_render_pass{};
@@ -67,6 +78,7 @@ struct VulkanDispatch {
     PFN_vkCmdEndRenderPass cmd_end_render_pass{};
     PFN_vkCmdBindPipeline cmd_bind_pipeline{};
     PFN_vkCmdDraw cmd_draw{};
+    PFN_vkCmdCopyImageToBuffer cmd_copy_image_to_buffer{};
     PFN_vkGetSwapchainImagesKHR get_swapchain_images{};
     PFN_vkCreateSemaphore create_semaphore{};
     PFN_vkDestroySemaphore destroy_semaphore{};
@@ -153,6 +165,210 @@ std::string colorSpaceName(VkColorSpaceKHR color_space) {
            std::to_string(static_cast<int>(color_space)) + ")";
 }
 
+std::uint8_t quantizePixelChannel(float linear_value, bool srgb) {
+    const float clamped = std::clamp(linear_value, 0.0F, 1.0F);
+    const float encoded = !srgb ? clamped :
+        (clamped <= 0.0031308F
+            ? 12.92F * clamped
+            : 1.055F * std::pow(clamped, 1.0F / 2.4F) - 0.055F);
+    return static_cast<std::uint8_t>(
+        std::clamp(std::lround(encoded * 255.0F), 0L, 255L));
+}
+
+bool createPixelReadbackResources(
+        VulkanDispatch& vk,
+        AndroidSurfaceSwapchainValidationReport& report,
+        VkPhysicalDevice physical_device,
+        VkDevice device,
+        VkBuffer& readback_buffer,
+        VkDeviceMemory& readback_memory,
+        bool& host_coherent) {
+    constexpr VkDeviceSize sample_bytes = 5U * 4U;
+    report.pixel_readback_mode = "swapchain_transfer_src";
+    report.pixel_readback_source = "acquired_swapchain_image";
+    report.pixel_readback_byte_count = sample_bytes;
+    report.pixel_readback_sample_labels =
+        "top_left,top_right,bottom_left,bottom_right,triangle_center";
+    if (vk.get_physical_device_memory_properties == nullptr) {
+        report.pixel_readback_memory_allocate_status = "memory_properties_entry_point_missing";
+        fail(report, "vkGetPhysicalDeviceMemoryProperties is unavailable");
+        return false;
+    }
+
+    VkBufferCreateInfo buffer_info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    buffer_info.size = sample_bytes;
+    buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VkResult result = vk.create_buffer(device, &buffer_info, nullptr, &readback_buffer);
+    report.pixel_readback_buffer_create_status =
+        result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "vkCreateBuffer(pixel readback) failed: " + resultName(result));
+        return false;
+    }
+
+    VkMemoryRequirements requirements{};
+    vk.get_buffer_memory_requirements(device, readback_buffer, &requirements);
+    report.pixel_readback_allocation_size = requirements.size;
+
+    VkPhysicalDeviceMemoryProperties memory_properties{};
+    vk.get_physical_device_memory_properties(physical_device, &memory_properties);
+    std::uint32_t selected_memory_type = UINT32_MAX;
+    std::uint32_t fallback_memory_type = UINT32_MAX;
+    for (std::uint32_t index = 0U; index < memory_properties.memoryTypeCount; ++index) {
+        if ((requirements.memoryTypeBits & (1U << index)) == 0U) continue;
+        const VkMemoryPropertyFlags flags =
+            memory_properties.memoryTypes[index].propertyFlags;
+        if ((flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0U) continue;
+        if ((flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0U) {
+            selected_memory_type = index;
+            host_coherent = true;
+            break;
+        }
+        if (fallback_memory_type == UINT32_MAX) fallback_memory_type = index;
+    }
+    if (selected_memory_type == UINT32_MAX && fallback_memory_type != UINT32_MAX) {
+        selected_memory_type = fallback_memory_type;
+        host_coherent = false;
+    }
+    if (selected_memory_type == UINT32_MAX) {
+        report.pixel_readback_memory_allocate_status = "no_host_visible_memory_type";
+        fail(report, "No HOST_VISIBLE memory type is available for pixel readback");
+        return false;
+    }
+
+    report.pixel_readback_memory_type = host_coherent
+        ? "HOST_VISIBLE|HOST_COHERENT" : "HOST_VISIBLE";
+    VkMemoryAllocateInfo allocation_info{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+    allocation_info.allocationSize = requirements.size;
+    allocation_info.memoryTypeIndex = selected_memory_type;
+    result = vk.allocate_memory(device, &allocation_info, nullptr, &readback_memory);
+    report.pixel_readback_memory_allocate_status =
+        result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "vkAllocateMemory(pixel readback) failed: " + resultName(result));
+        return false;
+    }
+
+    result = vk.bind_buffer_memory(device, readback_buffer, readback_memory, 0U);
+    report.pixel_readback_bind_status =
+        result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        fail(report, "vkBindBufferMemory(pixel readback) failed: " + resultName(result));
+        return false;
+    }
+    return true;
+}
+
+bool verifyPixelReadback(
+        VulkanDispatch& vk,
+        AndroidSurfaceSwapchainValidationReport& report,
+        VkDevice device,
+        VkDeviceMemory readback_memory,
+        VkFormat format,
+        VkExtent2D extent,
+        bool host_coherent) {
+    if (extent.width < 8U || extent.height < 8U) {
+        report.pixel_verification_status = "invalid_extent";
+        fail(report, "The swapchain extent is too small for independent pixel sample points");
+        return false;
+    }
+
+    void* mapped = nullptr;
+    VkResult result = vk.map_memory(
+        device, readback_memory, 0U, VK_WHOLE_SIZE, 0U, &mapped);
+    report.pixel_readback_map_status =
+        result == VK_SUCCESS && mapped != nullptr ? "success" : "failed";
+    if (result != VK_SUCCESS || mapped == nullptr) {
+        report.pixel_verification_status = "map_failed";
+        fail(report, "vkMapMemory(pixel readback) failed: " + resultName(result));
+        return false;
+    }
+
+    bool readable = true;
+    if (host_coherent) {
+        report.pixel_readback_invalidate_status = "not_required_host_coherent";
+    } else {
+        VkMappedMemoryRange range{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
+        range.memory = readback_memory;
+        range.offset = 0U;
+        range.size = VK_WHOLE_SIZE;
+        result = vk.invalidate_mapped_memory_ranges(device, 1U, &range);
+        report.pixel_readback_invalidate_status =
+            result == VK_SUCCESS ? "success" : "failed";
+        readable = result == VK_SUCCESS;
+        if (!readable) {
+            report.pixel_verification_status = "invalidate_failed";
+            fail(report, "vkInvalidateMappedMemoryRanges(pixel readback) failed: " +
+                         resultName(result));
+        }
+    }
+
+    if (readable) {
+        const bool srgb = format == VK_FORMAT_R8G8B8A8_SRGB ||
+                          format == VK_FORMAT_B8G8R8A8_SRGB;
+        const bool bgra = format == VK_FORMAT_B8G8R8A8_SRGB ||
+                          format == VK_FORMAT_B8G8R8A8_UNORM;
+        const std::uint64_t expected[4] = {
+            quantizePixelChannel(0.035F, srgb),
+            quantizePixelChannel(0.14F, srgb),
+            quantizePixelChannel(0.32F, srgb),
+            255U
+        };
+        for (const std::uint64_t channel : expected) {
+            report.pixel_expected_clear_rgba8.push_back(channel);
+        }
+
+        const auto* bytes = static_cast<const std::uint8_t*>(mapped);
+        bool backgrounds_match = true;
+        for (std::uint32_t sample = 0U; sample < 5U; ++sample) {
+            const std::uint8_t* raw = bytes + (sample * 4U);
+            const std::uint64_t rgba[4] = {
+                bgra ? raw[2] : raw[0],
+                raw[1],
+                bgra ? raw[0] : raw[2],
+                raw[3]
+            };
+            for (const std::uint64_t channel : rgba) {
+                report.pixel_rgba8_samples.push_back(channel);
+            }
+            if (sample < 4U) {
+                for (std::size_t channel = 0U; channel < 4U; ++channel) {
+                    const auto delta = rgba[channel] > expected[channel]
+                        ? rgba[channel] - expected[channel]
+                        : expected[channel] - rgba[channel];
+                    const std::uint64_t tolerance = channel == 3U ? 1U : 4U;
+                    if (delta > tolerance) backgrounds_match = false;
+                }
+            } else {
+                bool differs_from_clear = false;
+                for (std::size_t channel = 0U; channel < 3U; ++channel) {
+                    const auto delta = rgba[channel] > expected[channel]
+                        ? rgba[channel] - expected[channel]
+                        : expected[channel] - rgba[channel];
+                    if (delta >= 16U) differs_from_clear = true;
+                }
+                report.pixel_triangle_center_detected =
+                    differs_from_clear && rgba[3] >= 250U;
+            }
+        }
+        report.pixel_readback_sample_count = 5U;
+        report.pixel_background_samples_match_clear = backgrounds_match;
+        report.pixel_readback_copy_status = "success";
+        report.pixel_verification_status =
+            backgrounds_match && report.pixel_triangle_center_detected
+                ? "success" : "failed";
+        if (report.pixel_verification_status != "success") {
+            fail(report, "Pixel samples did not match the clear-color background and rendered triangle expectations");
+        }
+    }
+
+    vk.unmap_memory(device, readback_memory);
+    report.pixel_readback_unmap_status = "success";
+    return readable && report.pixel_verification_status == "success";
+}
+
+
 
 bool renderAndPresentFrame(
         VulkanDispatch& vk,
@@ -180,6 +396,11 @@ bool renderAndPresentFrame(
         std::uint32_t timestamp_query_base,
         VkFence present_fence,
         bool present_fence_enabled,
+        bool pixel_readback_enabled,
+        bool perform_pixel_readback,
+        VkBuffer pixel_readback_buffer,
+        VkDeviceMemory pixel_readback_memory,
+        bool pixel_readback_memory_coherent,
         bool collect_frame_sample,
         std::chrono::steady_clock::time_point frame_start) {
     VkImageViewCreateInfo image_view_info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
@@ -212,7 +433,9 @@ bool renderAndPresentFrame(
         color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        color_attachment.finalLayout = pixel_readback_enabled
+            ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+            : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
         VkAttachmentReference color_reference{};
         color_reference.attachment = 0U;
@@ -457,8 +680,103 @@ bool renderAndPresentFrame(
     report.render_pass_end_recorded = true;
     report.image_layout_transition_recorded = true;
     if (timestamp_query_pool != VK_NULL_HANDLE && collect_frame_sample) {
+        // Timestamp scope ends with the render pass; the diagnostic image copy is excluded.
         vk.cmd_write_timestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
                                timestamp_query_pool, timestamp_query_base + 1U);
+    }
+
+    if (pixel_readback_enabled) {
+        if (perform_pixel_readback) {
+            VkImageMemoryBarrier image_to_transfer{
+                VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            image_to_transfer.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            image_to_transfer.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            image_to_transfer.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            image_to_transfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            image_to_transfer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            image_to_transfer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            image_to_transfer.image = image;
+            image_to_transfer.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            image_to_transfer.subresourceRange.baseMipLevel = 0U;
+            image_to_transfer.subresourceRange.levelCount = 1U;
+            image_to_transfer.subresourceRange.baseArrayLayer = 0U;
+            image_to_transfer.subresourceRange.layerCount = 1U;
+            vk.cmd_pipeline_barrier(command_buffer,
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                VK_PIPELINE_STAGE_TRANSFER_BIT, 0U,
+                0U, nullptr, 0U, nullptr, 1U, &image_to_transfer);
+
+            const std::uint32_t sample_x[5] = {
+                2U, extent.width - 3U, 2U, extent.width - 3U, extent.width / 2U
+            };
+            const std::uint32_t sample_y[5] = {
+                2U, 2U, extent.height - 3U, extent.height - 3U, extent.height / 2U
+            };
+            VkBufferImageCopy regions[5]{};
+            for (std::uint32_t sample = 0U; sample < 5U; ++sample) {
+                regions[sample].bufferOffset = static_cast<VkDeviceSize>(sample) * 4U;
+                regions[sample].bufferRowLength = 0U;
+                regions[sample].bufferImageHeight = 0U;
+                regions[sample].imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                regions[sample].imageSubresource.mipLevel = 0U;
+                regions[sample].imageSubresource.baseArrayLayer = 0U;
+                regions[sample].imageSubresource.layerCount = 1U;
+                regions[sample].imageOffset = {
+                    static_cast<std::int32_t>(sample_x[sample]),
+                    static_cast<std::int32_t>(sample_y[sample]), 0
+                };
+                regions[sample].imageExtent = {1U, 1U, 1U};
+            }
+            vk.cmd_copy_image_to_buffer(command_buffer, image,
+                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, pixel_readback_buffer,
+                5U, regions);
+            report.pixel_readback_recorded = true;
+            report.pixel_readback_copy_status = "recorded";
+
+            VkBufferMemoryBarrier buffer_to_host{
+                VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
+            buffer_to_host.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            buffer_to_host.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+            buffer_to_host.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            buffer_to_host.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            buffer_to_host.buffer = pixel_readback_buffer;
+            buffer_to_host.offset = 0U;
+            buffer_to_host.size = 5U * 4U;
+
+            VkImageMemoryBarrier image_to_present{
+                VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            image_to_present.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            image_to_present.dstAccessMask = 0U;
+            image_to_present.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            image_to_present.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+            image_to_present.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            image_to_present.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            image_to_present.image = image;
+            image_to_present.subresourceRange = image_to_transfer.subresourceRange;
+            vk.cmd_pipeline_barrier(command_buffer,
+                VK_PIPELINE_STAGE_TRANSFER_BIT,
+                VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                0U, 0U, nullptr, 1U, &buffer_to_host, 1U, &image_to_present);
+        } else {
+            VkImageMemoryBarrier image_to_present{
+                VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            image_to_present.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            image_to_present.dstAccessMask = 0U;
+            image_to_present.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            image_to_present.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+            image_to_present.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            image_to_present.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            image_to_present.image = image;
+            image_to_present.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            image_to_present.subresourceRange.baseMipLevel = 0U;
+            image_to_present.subresourceRange.levelCount = 1U;
+            image_to_present.subresourceRange.baseArrayLayer = 0U;
+            image_to_present.subresourceRange.layerCount = 1U;
+            vk.cmd_pipeline_barrier(command_buffer,
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0U,
+                0U, nullptr, 0U, nullptr, 1U, &image_to_present);
+        }
     }
 
     result = vk.end_command_buffer(command_buffer);
@@ -554,6 +872,12 @@ bool renderAndPresentFrame(
     report.queue_idle_status = result == VK_SUCCESS ? "success" : "failed";
     if (result != VK_SUCCESS) {
         fail(report, "vkQueueWaitIdle failed after rendering/presentation: " + resultName(result));
+        return false;
+    }
+
+    if (perform_pixel_readback &&
+        !verifyPixelReadback(vk, report, device, pixel_readback_memory,
+                             format, extent, pixel_readback_memory_coherent)) {
         return false;
     }
 
