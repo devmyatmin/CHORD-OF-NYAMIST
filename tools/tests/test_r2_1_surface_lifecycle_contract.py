@@ -116,6 +116,14 @@ class R21SurfaceLifecycleContractTests(unittest.TestCase):
         self.assertIn("nyamist-g925-r2.2-live-wsi-resize-window.json", self.activity)
         self.assertIn("latestLiveResizeReport.isEmpty() ? latestReport : latestLiveResizeReport", self.activity)
 
+    def test_triangle_viewport_preserves_shape_across_surface_aspect_ratios(self):
+        self.assertIn("std::min(extent.width, extent.height)", self.native)
+        self.assertIn("viewport.x = static_cast<float>(render_viewport_x)", self.native)
+        self.assertIn("viewport.y = static_cast<float>(render_viewport_y)", self.native)
+        self.assertIn("viewport.width = static_cast<float>(render_viewport_extent)", self.native)
+        self.assertIn("viewport.height = static_cast<float>(render_viewport_extent)", self.native)
+        self.assertIn("scissor.extent = extent", self.native)
+
     def test_activity_resume_forces_a_fresh_wsi_session_on_existing_surface(self):
         resume_body = self.activity.split("protected void onResume()", 1)[1].split(
             "protected void onPause()", 1

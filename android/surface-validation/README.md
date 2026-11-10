@@ -68,6 +68,10 @@ The live-window mode records both pause points and their total duration. A real 
 
 The live-window control is designed to expose the actual WSI operation to a Surface change while the same VkDevice and oldSwapchain probe are active. It opens two 2-second windows: before image acquire, and after queue submit but before present. Tap the Surface size control once in each window. This is an observation harness, not an event injector; the driver is free to return VK_SUCCESS, VK_SUBOPTIMAL_KHR or VK_ERROR_OUT_OF_DATE_KHR. The report includes the mode flag, pause counts, total pause duration, real acquire/present result counters, and bounded recovery counts. The live report is stored separately and is the report copied by the clipboard action when present.
 
+## Aspect-preserving triangle rendering — Part 1
+
+The graphics pipeline uses a centered square viewport whose side is the smaller swapchain dimension. The render pass still clears and presents the complete Surface, but triangle geometry is no longer stretched by a wide landscape viewport. Validate portrait and landscape screenshots: the triangle should retain the same proportions while the Surface background continues to fill the full swapchain image.
+
 ## WSI result policy
 
 - VK_SUCCESS continues the current operation.

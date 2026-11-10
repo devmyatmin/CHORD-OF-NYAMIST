@@ -734,11 +734,21 @@ bool renderAndPresentFrame(
         input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         input_assembly.primitiveRestartEnable = VK_FALSE;
 
+        // Preserve the triangle's clip-space proportions for portrait and
+        // landscape Surfaces. The render pass still clears/presents the full
+        // swapchain image; only the triangle draw viewport is aspect-fitted.
+        const std::uint32_t render_viewport_extent =
+            std::min(extent.width, extent.height);
+        const std::uint32_t render_viewport_x =
+            (extent.width - render_viewport_extent) / 2U;
+        const std::uint32_t render_viewport_y =
+            (extent.height - render_viewport_extent) / 2U;
+
         VkViewport viewport{};
-        viewport.x = 0.0F;
-        viewport.y = 0.0F;
-        viewport.width = static_cast<float>(extent.width);
-        viewport.height = static_cast<float>(extent.height);
+        viewport.x = static_cast<float>(render_viewport_x);
+        viewport.y = static_cast<float>(render_viewport_y);
+        viewport.width = static_cast<float>(render_viewport_extent);
+        viewport.height = static_cast<float>(render_viewport_extent);
         viewport.minDepth = 0.0F;
         viewport.maxDepth = 1.0F;
         VkRect2D scissor{};
