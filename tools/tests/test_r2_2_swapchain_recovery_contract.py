@@ -13,6 +13,7 @@ ACTIVITY = (
     ROOT / "android" / "surface-validation" / "app" / "src" / "main"
     / "java" / "dev" / "nyamist" / "g925surface" / "MainActivity.java"
 )
+WORKFLOW = ROOT / ".github" / "workflows" / "r2.2-android-swapchain-recovery.yml"
 
 
 class R22SwapchainRecoveryContractTests(unittest.TestCase):
@@ -22,6 +23,7 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
         cls.header = HEADER.read_text(encoding="utf-8")
         cls.serializer = SERIALIZER.read_text(encoding="utf-8")
         cls.activity = ACTIVITY.read_text(encoding="utf-8")
+        cls.workflow = WORKFLOW.read_text(encoding="utf-8")
 
     def test_r22_report_contract_is_preserved_in_schema_v8(self):
         # R2.3 extends the native report schema while retaining the R2.2
@@ -65,6 +67,11 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
         self.assertIn("swapchain_extent_changed", self.header)
         self.assertIn("swapchain_extent_after_width", self.header)
         self.assertIn("swapchain_extent_after_height", self.header)
+
+    def test_android_workflow_pins_vulkan_headers_for_r23_native_build(self):
+        self.assertIn("Vulkan-Headers.git", self.workflow)
+        self.assertIn("--branch v1.4.368", self.workflow)
+        self.assertIn('NYAMIST_VULKAN_HEADERS_ROOT="$RUNNER_TEMP/Vulkan-Headers" gradle', self.workflow)
 
     def test_app_build_identity_is_r23_with_r22_recovery_fields(self):
         self.assertIn("R2.6 WSI session", self.activity)
