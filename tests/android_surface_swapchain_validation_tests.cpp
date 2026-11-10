@@ -19,7 +19,7 @@ void testUnavailableReportIsExplicit() {
     check(json.find("\"schema_version\": 5") != std::string::npos,
           "schema version must be serialized");
     check(json.find("NYAMIST G925 R1.9") != std::string::npos,
-          "R1.7 identity must be serialized");
+          "R1.9 identity must be serialized");
     check(json.find("\"status\": \"unavailable\"") != std::string::npos,
           "missing native surface must be reported as unavailable");
     check(json.find("\"frame_content_written\": false") != std::string::npos,
@@ -223,6 +223,31 @@ void testMultiFrameTimingSerialization() {
           "GPU median must be serialized");
 }
 
+void testFallbackDoesNotClaimPresentationCompletion() {
+    nyamist::discovery::AndroidSurfaceSwapchainValidationReport report;
+    report.schema_version = 5U;
+    report.present_fence_used = false;
+    report.present_completion_guaranteed = false;
+    report.present_completion_mode = "per_image_reacquire_fallback";
+    report.present_fence_entry_points_status = "not_supported";
+    report.present_fence_create_status = "not_supported";
+    report.present_fence_attach_status = "not_supported";
+    report.present_fence_wait_status = "not_supported";
+    report.present_fence_reset_status = "not_required";
+    report.shutdown_presentation_completion_status =
+        "not_guaranteed_without_present_fence";
+
+    const auto json = nyamist::discovery::toJson(report);
+    check(json.find(R"("present_fence_used": false)") != std::string::npos,
+          "fallback must not claim a present fence was used");
+    check(json.find(R"("present_completion_guaranteed": false)") != std::string::npos,
+          "fallback must not claim formal completion guarantee");
+    check(json.find(R"("present_completion_mode": "per_image_reacquire_fallback")") != std::string::npos,
+          "fallback mode must be explicit");
+    check(json.find(R"("shutdown_presentation_completion_status": "not_guaranteed_without_present_fence")") != std::string::npos,
+          "fallback shutdown limitation must be explicit");
+}
+
 void testJsonEscaping() {
     nyamist::discovery::AndroidSurfaceSwapchainValidationReport report;
     report.failure_reason = "surface \"lost\"\\closed";
@@ -238,6 +263,7 @@ int main() {
         testUnavailableReportIsExplicit();
         testSuccessfulSwapchainReportContract();
         testMultiFrameTimingSerialization();
+        testFallbackDoesNotClaimPresentationCompletion();
         testJsonEscaping();
         std::cout << "All NYAMIST Android surface/swapchain validation tests passed.\n";
         return 0;
