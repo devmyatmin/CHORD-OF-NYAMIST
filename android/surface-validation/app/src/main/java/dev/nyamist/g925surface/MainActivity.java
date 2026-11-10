@@ -39,6 +39,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private TextView reportView;
     private SurfaceView validationSurfaceView;
     private Button resizeTestButton;
+    private Button liveResizeWindowButton;
     private SurfaceHolder currentHolder;
     private String latestReport = "";
 
@@ -70,6 +71,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private int surfaceDestroyedCount;
     private int surfaceResizeCount;
     private int surfaceResizeTestToggleCount;
+    private int liveResizeWindowRequestCount;
+    private volatile String latestLiveResizeReport = "";
     private boolean surfaceResizeTestExpanded;
     private int configurationChangeCount;
     private String lastConfigurationOrientation = "undefined";
@@ -86,7 +89,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private int outOfDateSessionRetryCount;
     private String lastSurfaceEvent = "waiting_for_surface";
 
-    private static native String validateSurfaceNative(Surface surface, int width, int height);
+    private static native String validateSurfaceNative(
+            Surface surface, int width, int height, int liveResizeWindowMode);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -119,6 +123,12 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         resizeTestButton.setText("INCREASE SURFACE SIZE (WSI RESIZE TEST)");
         resizeTestButton.setOnClickListener(view -> toggleSurfaceTestSize());
         root.addView(resizeTestButton, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        liveResizeWindowButton = new Button(this);
+        liveResizeWindowButton.setText("START LIVE WSI RESIZE WINDOW");
+        liveResizeWindowButton.setOnClickListener(view -> requestLiveResizeWindow());
+        root.addView(liveResizeWindowButton, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         Button rebuildButton = new Button(this);
@@ -258,6 +268,25 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                 + "; waiting for Android surfaceChanged callback...");
     }
 
+    private void requestLiveResizeWindow() {
+        SurfaceHolder holder;
+        int width;
+        int height;
+        synchronized (lifecycleLock) {
+            holder = currentHolder;
+            width = currentSurfaceWidth;
+            height = currentSurfaceHeight;
+            if (surfaceAvailable && holder != null && width > 0 && height > 0) {
+                liveResizeWindowRequestCount++;
+            }
+        }
+        if (holder == null || width <= 0 || height <= 0) {
+            statusView.setText("No valid Surface is available for the live WSI resize window.");
+            return;
+        }
+        scheduleValidation(holder, width, height, "live_wsi_resize_window", true);
+    }
+
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         synchronized (lifecycleLock) {
@@ -345,7 +374,11 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             lastSurfaceEvent = reason;
         }
 
-        statusView.setText("Building a fresh Vulkan Surface / Swapchain session: " + reason);
+        if ("live_wsi_resize_window".equals(reason)) {
+            statusView.setText("LIVE WSI resize window starting: change Surface size once before acquire and once before present (2 seconds each).");
+        } else {
+            statusView.setText("Building a fresh Vulkan Surface / Swapchain session: " + reason);
+        }
         try {
             validationExecutor.execute(() -> runValidationSession(
                     sessionSurface, width, height, sessionGeneration, requestId, reason));
@@ -379,7 +412,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
 
         String nativeJson;
         try {
-            nativeJson = validateSurfaceNative(sessionSurface, width, height);
+            int liveResizeMode = "live_wsi_resize_window".equals(reason) ? 1 : 0;
+            nativeJson = validateSurfaceNative(sessionSurface, width, height, liveResizeMode);
             if (nativeJson == null || nativeJson.trim().isEmpty()) {
                 nativeJson = failureJson("Native validation returned an empty report");
             }
@@ -419,6 +453,9 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                 nativeJson, sessionGeneration, requestId, width, height, reason,
                 sessionSuccess, sessionCurrent);
         saveReport(completeReport);
+        if ("live_wsi_resize_window".equals(reason)) {
+            latestLiveResizeReport = completeReport;
+        }
 
         final String result = completeReport;
         final boolean currentAtCompletion = sessionCurrent;
@@ -501,6 +538,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                     + "\n    \"surface_last_resize_to_width\": " + lastResizeToWidth + ","
                     + "\n    \"surface_last_resize_to_height\": " + lastResizeToHeight + ","
                     + "\n    \"surface_resize_test_toggle_count\": " + surfaceResizeTestToggleCount + ","
+                    + "\n    \"live_resize_window_request_count\": " + liveResizeWindowRequestCount + ","
+                    + "\n    \"live_resize_window_mode_requested\": " + "live_wsi_resize_window".equals(reason) + ","
                     + "\n    \"surface_resize_test_height_dp\": " + (surfaceResizeTestExpanded ? 320 : 220) + ","
                     + "\n    \"configuration_change_count\": " + configurationChangeCount + ","
                     + "\n    \"last_configuration_orientation\": \"" + lastConfigurationOrientation + "\","
@@ -535,7 +574,10 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         try {
             File directory = getExternalFilesDir(null);
             if (directory == null) directory = getFilesDir();
-            File output = new File(directory, "nyamist-g925-r2.6-uint8-index-probe.json");
+            boolean liveResizeReport = json.contains("\\\"live_resize_window_mode_enabled\\\": true");
+            File output = new File(directory, liveResizeReport
+                    ? "nyamist-g925-r2.2-live-wsi-resize-window.json"
+                    : "nyamist-g925-r2.6-uint8-index-probe.json");
             try (FileOutputStream stream = new FileOutputStream(output, false)) {
                 stream.write(json.getBytes(StandardCharsets.UTF_8));
             }
@@ -548,14 +590,19 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     }
 
     private void copyReport() {
-        if (latestReport.isEmpty()) {
+        String reportToCopy = latestLiveResizeReport.isEmpty() ? latestReport : latestLiveResizeReport;
+        if (reportToCopy.isEmpty()) {
             statusView.setText("No report is available yet.");
             return;
         }
         ClipboardManager clipboard =
                 (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R2.6 JSON", latestReport));
-        statusView.setText("R2.6 JSON report copied to clipboard.");
+        clipboard.setPrimaryClip(ClipData.newPlainText(
+                latestLiveResizeReport.isEmpty() ? "NYAMIST R2.6 JSON" : "NYAMIST R2.2 Live WSI Resize JSON",
+                reportToCopy));
+        statusView.setText(latestLiveResizeReport.isEmpty()
+                ? "R2.6 JSON report copied to clipboard."
+                : "Live WSI resize-window JSON report copied to clipboard.");
     }
 
     @Override
