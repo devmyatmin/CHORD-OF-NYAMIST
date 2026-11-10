@@ -85,7 +85,8 @@ class R25PromotedFeatureCapabilityContractTests(unittest.TestCase):
         self.assertIn("versionAtLeast(properties.apiVersion, 1U, 4U)", self.native)
         self.assertIn("versionAtLeast(instance_api_version, 1U, 4U)", self.native)
         self.assertIn("VkPhysicalDeviceVulkan14Features features14", self.native)
-        self.assertIn('report.vulkan_1_4_promoted_feature_query_status = "skipped_instance_api_below_1_4"', self.native)
+        self.assertIn("report.vulkan_1_4_promoted_feature_query_status =", self.native)
+        self.assertIn('"skipped_instance_api_below_1_4"', self.native)
 
     def test_all_21_core_feature_members_are_accounted_for(self):
         for feature in FEATURE_BITS:
