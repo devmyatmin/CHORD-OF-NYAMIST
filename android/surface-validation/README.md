@@ -91,3 +91,16 @@ Android compatibility.
 Stock Android public Vulkan loader and vendor driver only. No root, direct GPU
 device-node access, SELinux/kernel changes, vendor partition writes, or driver
 replacement.
+
+## Hosted R2.2 build — PASS
+
+The current R2.2 source passed Core CI push/PR and Android APK push/PR
+workflows. The PR APK artifact (ID 13734383707) contains a valid arm64-v8a
+debug APK with an ELF64/AArch64 native library built using NDK r28c.
+
+Target-device validation is still pending. The REDMI K80 Ultra report must
+show oldSwapchain supplied, replacement-image query/acquire/submit/present,
+presentation completion, same logical device reuse, and separate actual
+SUBOPTIMAL / OUT_OF_DATE counters. A swapchain handoff with unchanged extent
+must not be described as a resize pass.
+

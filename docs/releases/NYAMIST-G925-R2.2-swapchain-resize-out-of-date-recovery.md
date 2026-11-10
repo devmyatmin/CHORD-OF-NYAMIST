@@ -1,6 +1,6 @@
 # NYAMIST G925 R2.2 — Swapchain Resize and OUT_OF_DATE Recovery
 
-**Implementation status: staged for hosted validation. Target-device validation: pending.**
+**Hosted validation: PASS. Target-device validation: pending REDMI K80 Ultra schema-v7 report.**
 
 ## Objective
 
@@ -34,14 +34,32 @@ bounded handling for WSI SUBOPTIMAL and OUT_OF_DATE results.
 - Report schema v7 records old/new handles, extent changes, replacement
   present evidence, actual result counts, retry attempts and outcomes.
 
-## Hosted validation — PENDING
+## Hosted validation — PASS
 
-- Core CI includes R2.2 contract tests for schema v7, oldSwapchain handoff,
-  image acquire/submit/present, bounded recovery and Java fallback.
-- Android workflow builds an arm64-v8a debug APK with JDK 17, SDK 36,
-  NDK 28.2.13676358 and CMake 3.22.1.
-- Hosted checks do not prove the target vendor driver has returned
-  SUBOPTIMAL or OUT_OF_DATE during the device workload.
+Validated code head: a200bff1ac41f5729c6aca8ab204c233eca493a9.
+
+- NYAMIST Core CI push Run #400: SUCCESS.
+- R2.2 Android push workflow Run #12: SUCCESS.
+- NYAMIST Core CI PR Run #401: SUCCESS.
+- R2.2 Android PR workflow Run #13: SUCCESS.
+- [Core CI push Run #400](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42753727260)
+- [Android push Run #12](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42753727224)
+- [Core CI PR Run #401](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42753732418)
+- [Android PR Run #13](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42753732766)
+
+R2.2 APK artifact from Android PR Run #13:
+- Artifact: nyamist-g925-r2.2-swapchain-recovery-apk
+- Artifact ID: 13734383707
+- ZIP size: 1,229,809 bytes
+- ZIP SHA-256: 2f2ceea13686c2b333b3a6aa40f3db61695ec2e00c6a5bf5bed676c093ce802c
+- Extracted APK size: 2,050,974 bytes
+- APK SHA-256: e0ef6919fd1c0cccff53ec134c1678c4e1b8169be925748c2d3f36e1820adf3c
+- Native library: lib/arm64-v8a/libnyamist_surface_validation.so
+- Native ELF: 64-bit AArch64, Android NDK r28c (28.2.13676358)
+
+The artifact ZIP and the contained APK both passed ZIP integrity tests. Hosted
+validation proves compilation, tests and packaging. It does not prove that
+the MT6991 driver has emitted a real SUBOPTIMAL or OUT_OF_DATE result.
 
 ## Device acceptance criteria
 
