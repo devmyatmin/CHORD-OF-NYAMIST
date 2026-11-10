@@ -1,6 +1,6 @@
 # NYAMIST G925 R2.3 — Vulkan 1.4 and Driver Identity Audit
 
-**Status:** implementation submitted for hosted validation; REDMI K80 Ultra hardware validation pending.
+**Status:** implementation and hosted validation PASS; REDMI K80 Ultra Vulkan 1.4 audit completed on-device.
 
 ## Objective
 
@@ -49,10 +49,78 @@ modification, replacement ICD or custom driver installation.
 5. If physical-device API is below 1.4, record that as the result; do not
    infer support from loader API.
 
-## Hosted validation
+## Hosted validation — PASS
 
-Pending GitHub Actions results.
+- Core CI push #411: PASS
+- Core CI PR #412: PASS
+- Android arm64 APK push workflow #7: PASS
+- Android arm64 APK PR workflow #8: PASS
 
-## Hardware validation
+Both Core CI and Android package workflows completed successfully on commit
+`ce363860462a5d19c617029cf9d787a589b16c46`.
 
-Pending device-generated schema-v8 report.
+
+
+## Hardware validation — PASS (2026-11-10)
+
+The user supplied a successful schema-v8 report from the REDMI K80 Ultra
+(Mali-G925-Immortalis MC12, vendor `0x13b5`, device `0xd8300010`).
+
+### Vulkan API and driver identity
+
+| Field | Hardware result |
+|---|---|
+| Public loader API | `1.4.0` |
+| Created instance API | `1.4.0` |
+| Physical-device API | `1.3.278` |
+| Driver ID | `9 / VK_DRIVER_ID_ARM_PROPRIETARY` |
+| Driver name | `Mali-G925-Immortalis MC12` |
+| Driver build info | `v1.r49p1-03bet0.4505ac1771886c7c25f13653ad4cdff7` |
+| Driver version | `205524992 / 0x0c401000` |
+| Driver conformance version | `1.3.8.0` |
+
+**Audit conclusion:** `vulkan_1_4_support_status=not_exposed_by_physical_device`.
+The physical device reports Vulkan 1.3.278, despite the loader and instance
+supporting 1.4.0. The Vulkan 1.4 feature query was correctly skipped because
+the physical-device API is below 1.4.
+
+The false-valued Vulkan 1.4 feature fields in this report are default report
+values, not evidence that each feature was queried and individually rejected.
+The query status explicitly records `skipped_physical_device_api_below_1_4`.
+
+### Retained rendering evidence
+
+- Target GPU match, Vulkan instance/device creation, queue, swapchain and
+  cleanup: success.
+- Triangle graphics pipeline and `vkCmdDraw(3,1,0,0)`: success.
+- Five-point swapchain-image pixel readback: success; four corners matched
+  `[53,105,153,255]`, triangle center read `[200,180,180,255]`.
+- GPU timestamp query: 16 samples; median `49,115 ns`, p95 `71,385 ns`.
+- CPU frame-total timing: median `7,890 us`, p95 `16,105 us`.
+- Present fences: 17 attaches, 17 waits, 16 resets; shutdown fence signaled.
+- Cleanup: success.
+
+These timing values are a short validation sample, not an FPS, sustained
+performance, thermal or battery benchmark.
+
+### R2.2 WSI handoff and event coverage
+
+- Same-device `oldSwapchain` handoff: success; old handle destroyed.
+- Replacement swapchain image query: success, six images.
+- Replacement probe acquire/submit/present/completion: success.
+- Surface extent before/after: `1202 x 715` -> `1202 x 715`; unchanged.
+- Actual acquire/present `SUBOPTIMAL` and `OUT_OF_DATE` counters: all zero.
+- `swapchain_out_of_date_recovery_status=not_observed`.
+
+Therefore this run proves same-device oldSwapchain replacement, but it does
+**not** prove an actual extent-changing resize or real driver-returned
+OUT_OF_DATE recovery. The replacement probe is explicitly marked
+`swapchain_recreation_probe_rendered=false`; triangle pixel verification
+belongs to the primary render sequence.
+
+The Android lifecycle block shows one surface-created event and no pause,
+resume, destruction, recreation or resize in this run. A lifecycle stress
+test remains separate.
+
+The report's device UUID is deliberately not copied into this public summary.
+
