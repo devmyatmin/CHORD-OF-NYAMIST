@@ -66,6 +66,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private int nativeSessionSkippedCount;
     private int activeNativeSessions;
     private int maxConcurrentNativeSessions;
+    private int outOfDateSessionRetryGeneration = -1;
+    private int outOfDateSessionRetryCount;
     private String lastSurfaceEvent = "waiting_for_surface";
 
     private static native String validateSurfaceNative(Surface surface, int width, int height);
@@ -156,6 +158,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             currentHolder = holder;
             surfaceAvailable = true;
             surfaceGeneration++;
+            outOfDateSessionRetryGeneration = -1;
             surfaceCreatedCount++;
             if (surfaceWasDestroyed) surfaceRecreatedCount++;
             surfaceWasDestroyed = false;
@@ -320,6 +323,10 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         boolean sessionSuccess = nativeJson.contains("\"status\": \"success\"")
                 || nativeJson.contains("\"status\":\"success\"");
         boolean sessionCurrent;
+        SurfaceHolder retryHolder = null;
+        int retryWidth = 0;
+        int retryHeight = 0;
+        boolean outOfDateRetryQueued = false;
         synchronized (lifecycleLock) {
             nativeSessionCompletedCount++;
             if (sessionSuccess) nativeSessionSuccessCount++;
@@ -327,6 +334,17 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             sessionCurrent = surfaceAvailable && sessionGeneration == surfaceGeneration
                     && requestId == latestRequestId
                     && width == currentSurfaceWidth && height == currentSurfaceHeight;
+            boolean primaryOutOfDate = nativeJson.contains("VK_ERROR_OUT_OF_DATE_KHR");
+            if (!sessionSuccess && primaryOutOfDate && sessionCurrent
+                    && outOfDateSessionRetryGeneration != sessionGeneration
+                    && currentHolder != null && currentSurfaceWidth > 0 && currentSurfaceHeight > 0) {
+                outOfDateSessionRetryGeneration = sessionGeneration;
+                outOfDateSessionRetryCount++;
+                retryHolder = currentHolder;
+                retryWidth = currentSurfaceWidth;
+                retryHeight = currentSurfaceHeight;
+                outOfDateRetryQueued = true;
+            }
             lifecycleLock.notifyAll();
         }
 
@@ -337,12 +355,18 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
 
         final String result = completeReport;
         final boolean currentAtCompletion = sessionCurrent;
+        final boolean retryQueued = outOfDateRetryQueued;
+        final SurfaceHolder queuedHolder = retryHolder;
+        final int queuedWidth = retryWidth;
+        final int queuedHeight = retryHeight;
         if (!activityDestroyed) {
             runOnUiThread(() -> {
                 if (activityDestroyed) return;
                 latestReport = result;
                 reportView.setText(result);
-                if (!currentAtCompletion) {
+                if (retryQueued) {
+                    statusView.setText("VK_ERROR_OUT_OF_DATE_KHR detected; a fresh WSI session retry is queued.");
+                } else if (!currentAtCompletion) {
                     statusView.setText(
                             "A previous Surface session finished. The current Surface session is queued.");
                 } else if (!sessionSuccess) {
@@ -353,6 +377,10 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                     statusView.setText("R2.2 WSI session completed; inspect the validation fields.");
                 }
             });
+        }
+        if (outOfDateRetryQueued && queuedHolder != null) {
+            scheduleValidation(queuedHolder, queuedWidth, queuedHeight,
+                    "out_of_date_full_wsi_session_retry", true);
         }
     }
 
@@ -406,6 +434,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                     + "\n    \"native_session_skipped_count\": " + nativeSessionSkippedCount + ","
                     + "\n    \"native_session_active_count\": " + activeNativeSessions + ","
                     + "\n    \"max_concurrent_native_sessions\": " + maxConcurrentNativeSessions + ","
+                    + "\n    \"out_of_date_full_session_retry_count\": " + outOfDateSessionRetryCount + ","
+                    + "\n    \"out_of_date_full_session_retry_generation\": " + outOfDateSessionRetryGeneration + ","
                     + "\n    \"last_surface_event\": \"" + lastSurfaceEvent + "\","
                     + "\n    \"session_rebuild_policy\": \"fresh_wsi_session_per_request\""
                     + "\n  }";
