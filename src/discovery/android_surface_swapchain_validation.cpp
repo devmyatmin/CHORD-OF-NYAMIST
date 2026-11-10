@@ -169,11 +169,13 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     numberField(out, "vulkan_1_4_promoted_feature_supported_count", report.vulkan_1_4_promoted_feature_supported_count);
     numberField(out, "vulkan_1_4_promoted_feature_not_supported_count", report.vulkan_1_4_promoted_feature_not_supported_count);
     numberField(out, "vulkan_1_4_promoted_feature_not_advertised_count", report.vulkan_1_4_promoted_feature_not_advertised_count);
+    numberField(out, "vulkan_1_4_promoted_feature_implicitly_supported_count", report.vulkan_1_4_promoted_feature_implicitly_supported_count);
     numberField(out, "vulkan_1_4_promoted_feature_query_failed_count", report.vulkan_1_4_promoted_feature_query_failed_count);
     numberField(out, "vulkan_1_4_promoted_feature_not_queryable_count", report.vulkan_1_4_promoted_feature_not_queryable_count);
     stringArrayField(out, "vulkan_1_4_promoted_features_supported", report.vulkan_1_4_promoted_features_supported);
     stringArrayField(out, "vulkan_1_4_promoted_features_not_supported", report.vulkan_1_4_promoted_features_not_supported);
     stringArrayField(out, "vulkan_1_4_promoted_features_not_advertised", report.vulkan_1_4_promoted_features_not_advertised);
+    stringArrayField(out, "vulkan_1_4_promoted_features_implicitly_supported", report.vulkan_1_4_promoted_features_implicitly_supported);
     stringArrayField(out, "vulkan_1_4_promoted_features_query_failed", report.vulkan_1_4_promoted_features_query_failed);
     stringArrayField(out, "vulkan_1_4_promoted_features_not_queryable", report.vulkan_1_4_promoted_features_not_queryable);
     stringArrayField(out, "vulkan_1_4_promoted_features_not_applicable", report.vulkan_1_4_promoted_features_not_applicable);
