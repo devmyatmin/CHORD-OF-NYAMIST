@@ -19,13 +19,15 @@ readback, present-fence path, GPU timestamp collection and cleanup logic.
 - Record Activity onPause/onResume. On resume, queue a new WSI session when a
   previously validated Surface is still available.
 - Provide an explicit rebuild control for deterministic repeat-session tests.
-- Copy each Java Surface handle before queueing native work; native code keeps
-  its ANativeWindow reference for the duration of the call and releases it
-  during cleanup.
+- Retain a strong Java reference to the framework-owned Surface object
+  while a request is queued or running; do not attempt to call a nonexistent
+  Surface(Surface) copy constructor. JNI obtains its own ANativeWindow
+  reference with ANativeWindow_fromSurface and releases it during native cleanup.
 - Run all native sessions through one single-thread executor. Requests for
-  stale Surface generations are skipped before entering JNI. Active sessions
-  are not force-interrupted; they finish cleanup before the next queued
-  generation can begin.
+  stale Surface generations are skipped before entering JNI. If
+  surfaceDestroyed arrives during native work, that callback waits until the
+  active JNI session has completed cleanup and released its ANativeWindow.
+  The next queued generation can begin only after that callback boundary.
 - Every native invocation recreates the Vulkan instance, Android surface,
   device and swapchain, then destroys them in order. This is a fresh WSI
   session per request, not an in-place oldSwapchain handoff.
