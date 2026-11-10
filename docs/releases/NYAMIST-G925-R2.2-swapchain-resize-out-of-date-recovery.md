@@ -1,6 +1,6 @@
 # NYAMIST G925 R2.2 — Swapchain Resize and OUT_OF_DATE Recovery
 
-**Hosted validation: PASS. Target-device validation: pending REDMI K80 Ultra schema-v7 report.**
+**Hosted validation: PASS. Target-device same-device oldSwapchain handoff: HARDWARE PASS. Actual extent change and real SUBOPTIMAL / OUT_OF_DATE events: NOT OBSERVED.**
 
 ## Objective
 
@@ -60,6 +60,41 @@ R2.2 APK artifact from Android PR Run #13:
 The artifact ZIP and the contained APK both passed ZIP integrity tests. Hosted
 validation proves compilation, tests and packaging. It does not prove that
 the MT6991 driver has emitted a real SUBOPTIMAL or OUT_OF_DATE result.
+
+## Target-device follow-up — same-device handoff HARDWARE PASS
+
+A fresh REDMI K80 Ultra report (schema v11, with the R2.2 fields) confirms
+successful same-device oldSwapchain replacement:
+
+- `swapchain_recreation_status=success`; one attempt and one success.
+- Previous swapchain handle supplied and old handle destroyed successfully.
+- `swapchain_logical_device_reused=true`.
+- Replacement image enumeration returned six images.
+- Replacement image acquire, command submit, present and present-fence
+  completion all succeeded.
+- Result-policy self-test succeeded.
+- The probe did not render scene content; the subsequent normal frame
+  sequence independently passed triangle pixel readback.
+
+**The event-triggered paths remain NOT OBSERVED in this report:**
+
+- Extent before/after was 1202×715; `swapchain_extent_changed=false`.
+- Android Surface resize count was zero.
+- Acquire/present SUBOPTIMAL counters were zero.
+- Create/acquire/present OUT_OF_DATE counters were zero.
+- OUT_OF_DATE recovery attempts/successes were 0/0 and status was
+  `not_observed`.
+
+This proves an oldSwapchain handoff at an unchanged extent. It does not prove
+a dimension-changing resize or a real driver SUBOPTIMAL / OUT_OF_DATE event.
+The result-policy self-test is not a substitute for an actual driver event.
+
+Additional retained evidence: uint8 indexed draw and five-point pixel
+readback succeeded; present-fence attaches/waits/resets were 17/17/16;
+Surface destroy/recreate counts were 3/3 with 19/19 successful serialized
+native sessions and maximum concurrency 1. Full measurements and exact
+acceptance boundaries are in
+`docs/evidence/NYAMIST-G925-R2.2-redmi-k80-ultra-2026-11-10.md`.
 
 ## Device acceptance criteria
 
