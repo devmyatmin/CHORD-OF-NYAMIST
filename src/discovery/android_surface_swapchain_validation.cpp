@@ -281,6 +281,11 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     numberField(out, "swapchain_out_of_date_recovery_success_count", report.swapchain_out_of_date_recovery_success_count);
     stringField(out, "swapchain_result_policy_status", report.swapchain_result_policy_status);
     stringField(out, "swapchain_out_of_date_recovery_status", report.swapchain_out_of_date_recovery_status);
+    boolField(out, "live_resize_window_mode_enabled", report.live_resize_window_mode_enabled);
+    numberField(out, "live_resize_window_pause_ms_per_stage", report.live_resize_window_pause_ms_per_stage);
+    numberField(out, "live_resize_window_pre_acquire_pause_count", report.live_resize_window_pre_acquire_pause_count);
+    numberField(out, "live_resize_window_pre_present_pause_count", report.live_resize_window_pre_present_pause_count);
+    number64Field(out, "live_resize_window_pause_total_ms", report.live_resize_window_pause_total_ms);
     stringField(out, "semaphore_create_status", report.semaphore_create_status);
     stringField(out, "present_semaphore_create_status", report.present_semaphore_create_status);
     stringField(out, "image_acquire_status", report.image_acquire_status);
