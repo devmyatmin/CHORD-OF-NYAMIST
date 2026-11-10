@@ -106,6 +106,27 @@ struct VulkanDispatch {
     PFN_vkGetQueryPoolResults get_query_pool_results{};
 };
 
+enum class SwapchainResultPolicy {
+    continue_operation,
+    recreate_after_operation,
+    recreate_before_operation,
+    fatal
+};
+
+SwapchainResultPolicy swapchainResultPolicy(VkResult result) {
+    if (result == VK_SUCCESS) return SwapchainResultPolicy::continue_operation;
+    if (result == VK_SUBOPTIMAL_KHR) return SwapchainResultPolicy::recreate_after_operation;
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) return SwapchainResultPolicy::recreate_before_operation;
+    return SwapchainResultPolicy::fatal;
+}
+
+bool swapchainRecoveryPolicySelfTest() {
+    return swapchainResultPolicy(VK_SUCCESS) == SwapchainResultPolicy::continue_operation &&
+           swapchainResultPolicy(VK_SUBOPTIMAL_KHR) == SwapchainResultPolicy::recreate_after_operation &&
+           swapchainResultPolicy(VK_ERROR_OUT_OF_DATE_KHR) == SwapchainResultPolicy::recreate_before_operation &&
+           swapchainResultPolicy(VK_ERROR_SURFACE_LOST_KHR) == SwapchainResultPolicy::fatal;
+}
+
 bool isUsable(VkResult result) {
     return result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR;
 }
@@ -831,6 +852,13 @@ bool renderAndPresentFrame(
             present_end - present_start).count());
     report.image_present_status = isUsable(result) ? "success" : "failed";
     report.image_presented = isUsable(result);
+    if (result == VK_SUBOPTIMAL_KHR) {
+        ++report.swapchain_present_suboptimal_count;
+    } else if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+        ++report.swapchain_present_out_of_date_count;
+        report.swapchain_out_of_date_recovery_status =
+            "primary_present_out_of_date_requires_session_retry";
+    }
     if (!isUsable(result)) {
         fail(report, "vkQueuePresentKHR failed: " + resultName(result));
         return false;
@@ -1046,6 +1074,13 @@ bool runFrameSequence(
             std::chrono::duration_cast<std::chrono::microseconds>(
                 acquire_end - acquire_start).count());
         report.image_acquire_status = isUsable(result) ? "success" : "failed";
+        if (result == VK_SUBOPTIMAL_KHR) {
+            ++report.swapchain_acquire_suboptimal_count;
+        } else if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+            ++report.swapchain_acquire_out_of_date_count;
+            report.swapchain_out_of_date_recovery_status =
+                "primary_acquire_out_of_date_requires_session_retry";
+        }
         if (!isUsable(result)) {
             fail(report, "vkAcquireNextImageKHR failed during frame " +
                          std::to_string(frame_index) + ": " + resultName(result));
@@ -1123,6 +1158,435 @@ bool runFrameSequence(
             "not_guaranteed_without_present_fence";
     }
     return true;
+}
+
+bool recreateSwapchainAndProbe(
+        VulkanDispatch& vk,
+        AndroidSurfaceSwapchainValidationReport& report,
+        VkPhysicalDevice physical_device,
+        VkSurfaceKHR surface,
+        VkDevice device,
+        VkQueue queue,
+        VkFormat format,
+        VkColorSpaceKHR color_space,
+        VkImageUsageFlags image_usage,
+        VkPresentModeKHR present_mode,
+        VkCompositeAlphaFlagBitsKHR preferred_composite_alpha,
+        std::uint32_t requested_width,
+        std::uint32_t requested_height,
+        VkSwapchainKHR& swapchain,
+        std::vector<VkImage>& images,
+        VkExtent2D& extent,
+        bool present_fence_enabled) {
+    report.swapchain_recreation_status = "pending";
+    report.swapchain_recreation_mode = "old_swapchain_handoff";
+    report.swapchain_old_handle_supplied = swapchain != VK_NULL_HANDLE;
+    report.swapchain_extent_before_width = extent.width;
+    report.swapchain_extent_before_height = extent.height;
+    report.swapchain_logical_device_reused = true;
+
+    if (!swapchainRecoveryPolicySelfTest()) {
+        report.swapchain_result_policy_status = "failed";
+        fail(report, "Swapchain result recovery policy self-test failed");
+        return false;
+    }
+    report.swapchain_result_policy_status = "success";
+
+    for (std::uint32_t attempt = 0U; attempt < 3U; ++attempt) {
+        ++report.swapchain_recreation_attempt_count;
+
+        VkSurfaceCapabilitiesKHR capabilities{};
+        VkResult result = vk.get_surface_capabilities(
+            physical_device, surface, &capabilities);
+        if (result != VK_SUCCESS) {
+            fail(report, "Surface capabilities refresh before swapchain recreation failed: " +
+                         resultName(result));
+            report.swapchain_recreation_status = "capabilities_query_failed";
+            return false;
+        }
+        if ((capabilities.supportedUsageFlags & image_usage) != image_usage) {
+            fail(report, "Surface no longer supports the required swapchain image usage");
+            report.swapchain_recreation_status = "usage_not_supported";
+            return false;
+        }
+
+        std::uint32_t format_count = 0U;
+        result = vk.get_surface_formats(physical_device, surface, &format_count, nullptr);
+        std::vector<VkSurfaceFormatKHR> formats;
+        if (result == VK_SUCCESS && format_count > 0U) {
+            formats.resize(format_count);
+            result = vk.get_surface_formats(
+                physical_device, surface, &format_count, formats.data());
+        }
+        if (result != VK_SUCCESS || formats.empty()) {
+            fail(report, "Surface format refresh for swapchain recreation failed: " +
+                         resultName(result));
+            report.swapchain_recreation_status = "format_query_failed";
+            return false;
+        }
+        const bool format_still_supported = std::any_of(
+            formats.begin(), formats.end(), [format, color_space](const VkSurfaceFormatKHR& item) {
+                return item.format == format && item.colorSpace == color_space;
+            });
+        if (!format_still_supported &&
+            !(formats.size() == 1U && formats.front().format == VK_FORMAT_UNDEFINED)) {
+            fail(report, "The selected surface format changed; this recovery path requires a new render-format session");
+            report.swapchain_recreation_status = "format_changed_requires_session_rebuild";
+            return false;
+        }
+
+        std::uint32_t mode_count = 0U;
+        result = vk.get_present_modes(physical_device, surface, &mode_count, nullptr);
+        std::vector<VkPresentModeKHR> modes;
+        if (result == VK_SUCCESS && mode_count > 0U) {
+            modes.resize(mode_count);
+            result = vk.get_present_modes(
+                physical_device, surface, &mode_count, modes.data());
+        }
+        if (result != VK_SUCCESS ||
+            std::find(modes.begin(), modes.end(), present_mode) == modes.end()) {
+            fail(report, "The selected present mode is no longer supported by the Surface");
+            report.swapchain_recreation_status = "present_mode_changed";
+            return false;
+        }
+
+        VkExtent2D next_extent{};
+        if (capabilities.currentExtent.width != UINT32_MAX) {
+            next_extent = capabilities.currentExtent;
+        } else {
+            next_extent.width = std::clamp(
+                requested_width, capabilities.minImageExtent.width,
+                capabilities.maxImageExtent.width);
+            next_extent.height = std::clamp(
+                requested_height, capabilities.minImageExtent.height,
+                capabilities.maxImageExtent.height);
+        }
+        if (next_extent.width == 0U || next_extent.height == 0U) {
+            fail(report, "The refreshed Surface extent is zero; swapchain recreation is deferred");
+            report.swapchain_recreation_status = "zero_extent_deferred";
+            return false;
+        }
+
+        std::uint32_t image_count = capabilities.minImageCount + 1U;
+        if (capabilities.maxImageCount > 0U && image_count > capabilities.maxImageCount) {
+            image_count = capabilities.maxImageCount;
+        }
+
+        VkCompositeAlphaFlagBitsKHR composite_alpha = preferred_composite_alpha;
+        if ((capabilities.supportedCompositeAlpha & composite_alpha) == 0U) {
+            const VkCompositeAlphaFlagBitsKHR candidates[] = {
+                VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+                VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+                VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+                VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR
+            };
+            bool found = false;
+            for (const auto candidate : candidates) {
+                if ((capabilities.supportedCompositeAlpha & candidate) != 0U) {
+                    composite_alpha = candidate;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                fail(report, "No supported composite-alpha mode remains for swapchain recreation");
+                report.swapchain_recreation_status = "composite_alpha_unavailable";
+                return false;
+            }
+        }
+
+        VkSwapchainCreateInfoKHR create_info{
+            VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
+        create_info.surface = surface;
+        create_info.minImageCount = image_count;
+        create_info.imageFormat = format;
+        create_info.imageColorSpace = color_space;
+        create_info.imageExtent = next_extent;
+        create_info.imageArrayLayers = 1U;
+        create_info.imageUsage = image_usage;
+        create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        create_info.preTransform = capabilities.currentTransform;
+        create_info.compositeAlpha = composite_alpha;
+        create_info.presentMode = present_mode;
+        create_info.clipped = VK_TRUE;
+        create_info.oldSwapchain = swapchain;
+
+        VkSwapchainKHR replacement = VK_NULL_HANDLE;
+        result = vk.create_swapchain(device, &create_info, nullptr, &replacement);
+        if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+            ++report.swapchain_acquire_out_of_date_count;
+            ++report.swapchain_out_of_date_recovery_attempt_count;
+            report.swapchain_out_of_date_recovery_status = "retrying_after_create_out_of_date";
+            if (attempt + 1U < 3U) continue;
+            fail(report, "vkCreateSwapchainKHR remained OUT_OF_DATE after recovery retries");
+            report.swapchain_recreation_status = "out_of_date_retry_exhausted";
+            return false;
+        }
+        if (result != VK_SUCCESS || replacement == VK_NULL_HANDLE) {
+            fail(report, "Replacement vkCreateSwapchainKHR failed: " + resultName(result));
+            report.swapchain_recreation_status = "create_failed";
+            return false;
+        }
+        ++report.swapchain_recreation_success_count;
+
+        std::uint32_t replacement_image_count = 0U;
+        result = vk.get_swapchain_images(device, replacement, &replacement_image_count, nullptr);
+        std::vector<VkImage> replacement_images;
+        if (result == VK_SUCCESS && replacement_image_count > 0U) {
+            replacement_images.resize(replacement_image_count);
+            result = vk.get_swapchain_images(
+                device, replacement, &replacement_image_count, replacement_images.data());
+        }
+        if (result != VK_SUCCESS || replacement_images.empty()) {
+            vk.device_wait_idle(device);
+            vk.destroy_swapchain(device, replacement, nullptr);
+            fail(report, "Replacement swapchain image enumeration failed: " + resultName(result));
+            report.swapchain_recreated_image_query_status = "failed";
+            report.swapchain_recreation_status = "image_query_failed";
+            return false;
+        }
+
+        VkSwapchainKHR retired = swapchain;
+        swapchain = replacement;
+        images = std::move(replacement_images);
+        if (retired != VK_NULL_HANDLE) {
+            result = vk.device_wait_idle(device);
+            if (result != VK_SUCCESS) {
+                fail(report, "vkDeviceWaitIdle failed before retiring the old swapchain: " +
+                             resultName(result));
+                report.swapchain_recreation_status = "device_wait_failed";
+                return false;
+            }
+            vk.destroy_swapchain(device, retired, nullptr);
+            report.swapchain_old_destroy_status = "success";
+        }
+
+        report.swapchain_recreated_image_query_status = "success";
+        report.swapchain_recreated_image_count =
+            static_cast<std::uint32_t>(images.size());
+        report.swapchain_image_count = static_cast<std::uint32_t>(images.size());
+        report.swapchain_extent_after_width = next_extent.width;
+        report.swapchain_extent_after_height = next_extent.height;
+        report.swapchain_extent_changed =
+            report.swapchain_extent_before_width != next_extent.width ||
+            report.swapchain_extent_before_height != next_extent.height;
+        report.extent_width = next_extent.width;
+        report.extent_height = next_extent.height;
+        extent = next_extent;
+
+        VkSemaphore acquire_semaphore = VK_NULL_HANDLE;
+        VkSemaphore render_semaphore = VK_NULL_HANDLE;
+        VkFence completion_fence = VK_NULL_HANDLE;
+        VkCommandPool probe_pool = VK_NULL_HANDLE;
+        VkCommandBuffer probe_command = VK_NULL_HANDLE;
+        bool probe_ok = false;
+        bool retry_out_of_date = false;
+
+        VkSemaphoreCreateInfo semaphore_info{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+        result = vk.create_semaphore(device, &semaphore_info, nullptr, &acquire_semaphore);
+        if (result == VK_SUCCESS) {
+            result = vk.create_semaphore(device, &semaphore_info, nullptr, &render_semaphore);
+        }
+        if (result != VK_SUCCESS) {
+            fail(report, "Swapchain recreation probe semaphore creation failed: " +
+                         resultName(result));
+            report.swapchain_recreation_probe_acquire_status = "semaphore_create_failed";
+        } else {
+            VkCommandPoolCreateInfo pool_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+            pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+            pool_info.queueFamilyIndex = report.queue_family_index;
+            result = vk.create_command_pool(device, &pool_info, nullptr, &probe_pool);
+            if (result == VK_SUCCESS) {
+                VkCommandBufferAllocateInfo allocate_info{
+                    VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+                allocate_info.commandPool = probe_pool;
+                allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+                allocate_info.commandBufferCount = 1U;
+                result = vk.allocate_command_buffers(device, &allocate_info, &probe_command);
+            }
+            if (result != VK_SUCCESS) {
+                fail(report, "Swapchain recreation probe command allocation failed: " +
+                             resultName(result));
+                report.swapchain_recreation_probe_submit_status = "command_setup_failed";
+            } else {
+                if (present_fence_enabled) {
+                    VkFenceCreateInfo fence_info{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+                    result = vk.create_fence(device, &fence_info, nullptr, &completion_fence);
+                }
+                if (result != VK_SUCCESS) {
+                    fail(report, "Swapchain recreation probe fence creation failed: " +
+                                 resultName(result));
+                    report.swapchain_recreation_probe_completion_status = "fence_create_failed";
+                } else {
+                    std::uint32_t image_index = 0U;
+                    result = vk.acquire_next_image(
+                        device, swapchain, 1000000000ULL,
+                        acquire_semaphore, VK_NULL_HANDLE, &image_index);
+                    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+                        ++report.swapchain_acquire_out_of_date_count;
+                        ++report.swapchain_out_of_date_recovery_attempt_count;
+                        report.swapchain_out_of_date_recovery_status = "retrying_after_acquire_out_of_date";
+                        retry_out_of_date = true;
+                        report.swapchain_recreation_probe_acquire_status =
+                            "out_of_date_retry_requested";
+                    } else if (!isUsable(result) || image_index >= images.size()) {
+                        fail(report, "Replacement swapchain acquire probe failed: " +
+                                     resultName(result));
+                        report.swapchain_recreation_probe_acquire_status = "failed";
+                    } else {
+                        if (result == VK_SUBOPTIMAL_KHR) {
+                            ++report.swapchain_acquire_suboptimal_count;
+                        }
+                        report.swapchain_recreation_probe_acquire_status = "success";
+                        VkCommandBufferBeginInfo begin_info{
+                            VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+                        begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+                        result = vk.begin_command_buffer(probe_command, &begin_info);
+                        if (result == VK_SUCCESS) {
+                            VkImageMemoryBarrier to_present{
+                                VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+                            to_present.srcAccessMask = 0U;
+                            to_present.dstAccessMask = 0U;
+                            to_present.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                            to_present.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+                            to_present.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                            to_present.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                            to_present.image = images[image_index];
+                            to_present.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                            to_present.subresourceRange.baseMipLevel = 0U;
+                            to_present.subresourceRange.levelCount = 1U;
+                            to_present.subresourceRange.baseArrayLayer = 0U;
+                            to_present.subresourceRange.layerCount = 1U;
+                            vk.cmd_pipeline_barrier(
+                                probe_command, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                                VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0U,
+                                0U, nullptr, 0U, nullptr, 1U, &to_present);
+                            result = vk.end_command_buffer(probe_command);
+                        }
+                        report.swapchain_recreation_probe_submit_status =
+                            result == VK_SUCCESS ? "recorded" : "failed";
+                        if (result == VK_SUCCESS) {
+                            const VkPipelineStageFlags wait_stage =
+                                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+                            VkSubmitInfo submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+                            submit_info.waitSemaphoreCount = 1U;
+                            submit_info.pWaitSemaphores = &acquire_semaphore;
+                            submit_info.pWaitDstStageMask = &wait_stage;
+                            submit_info.commandBufferCount = 1U;
+                            submit_info.pCommandBuffers = &probe_command;
+                            submit_info.signalSemaphoreCount = 1U;
+                            submit_info.pSignalSemaphores = &render_semaphore;
+                            result = vk.queue_submit(queue, 1U, &submit_info, VK_NULL_HANDLE);
+                        }
+                        if (result == VK_SUCCESS) {
+                            report.swapchain_recreation_probe_submit_status = "success";
+                            VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+                            present_info.waitSemaphoreCount = 1U;
+                            present_info.pWaitSemaphores = &render_semaphore;
+                            present_info.swapchainCount = 1U;
+                            present_info.pSwapchains = &swapchain;
+                            present_info.pImageIndices = &image_index;
+                            VkSwapchainPresentFenceInfoEXT fence_info{
+                                VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT};
+                            fence_info.swapchainCount = 1U;
+                            fence_info.pFences = &completion_fence;
+                            if (present_fence_enabled) present_info.pNext = &fence_info;
+                            result = vk.queue_present(queue, &present_info);
+                            if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+                                ++report.swapchain_present_out_of_date_count;
+                                ++report.swapchain_out_of_date_recovery_attempt_count;
+                                report.swapchain_out_of_date_recovery_status = "retrying_after_present_out_of_date";
+                                retry_out_of_date = true;
+                                report.swapchain_recreation_probe_present_status =
+                                    "out_of_date_retry_requested";
+                                vk.device_wait_idle(device);
+                            } else if (!isUsable(result)) {
+                                fail(report, "Replacement swapchain present probe failed: " +
+                                             resultName(result));
+                                report.swapchain_recreation_probe_present_status = "failed";
+                                vk.device_wait_idle(device);
+                            } else {
+                                if (result == VK_SUBOPTIMAL_KHR) {
+                                    ++report.swapchain_present_suboptimal_count;
+                                }
+                                report.swapchain_recreation_probe_present_status = "success";
+                                if (present_fence_enabled) {
+                                    result = vk.wait_for_fences(
+                                        device, 1U, &completion_fence, VK_TRUE,
+                                        std::numeric_limits<std::uint64_t>::max());
+                                    if (result == VK_SUCCESS) {
+                                        report.swapchain_recreation_probe_completion_status =
+                                            "present_fence_signaled";
+                                    } else {
+                                        fail(report, "Replacement swapchain present-fence wait failed: " +
+                                                     resultName(result));
+                                        report.swapchain_recreation_probe_completion_status = "failed";
+                                    }
+                                } else {
+                                    result = vk.queue_wait_idle(queue);
+                                    if (result == VK_SUCCESS) {
+                                        report.swapchain_recreation_probe_completion_status =
+                                            "queue_idle_fallback";
+                                    } else {
+                                        fail(report, "Queue idle failed after replacement swapchain probe: " +
+                                                     resultName(result));
+                                        report.swapchain_recreation_probe_completion_status = "failed";
+                                    }
+                                }
+                                if (result == VK_SUCCESS) {
+                                    result = vk.queue_wait_idle(queue);
+                                    probe_ok = result == VK_SUCCESS;
+                                    if (!probe_ok) {
+                                        fail(report, "Queue idle failed after replacement swapchain presentation");
+                                    }
+                                }
+                            }
+                        } else {
+                            fail(report, "Replacement swapchain probe queue submit failed: " +
+                                         resultName(result));
+                            report.swapchain_recreation_probe_submit_status = "failed";
+                        }
+                    }
+                }
+            }
+        }
+
+        if (probe_pool != VK_NULL_HANDLE) {
+            vk.destroy_command_pool(device, probe_pool, nullptr);
+        }
+        if (acquire_semaphore != VK_NULL_HANDLE) {
+            vk.destroy_semaphore(device, acquire_semaphore, nullptr);
+        }
+        if (render_semaphore != VK_NULL_HANDLE) {
+            vk.destroy_semaphore(device, render_semaphore, nullptr);
+        }
+        if (completion_fence != VK_NULL_HANDLE) {
+            vk.destroy_fence(device, completion_fence, nullptr);
+        }
+
+        if (probe_ok) {
+            ++report.swapchain_recreation_probe_present_count;
+            report.swapchain_recreation_probe_rendered = false;
+            report.swapchain_recreation_status = "success";
+            report.swapchain_out_of_date_recovery_status =
+                report.swapchain_out_of_date_recovery_attempt_count > 0U
+                    ? "recovered" : "not_observed";
+            return true;
+        }
+        if (retry_out_of_date && attempt + 1U < 3U) {
+            continue;
+        }
+        if (retry_out_of_date) {
+            fail(report, "Replacement swapchain remained OUT_OF_DATE after recovery retries");
+            report.swapchain_recreation_status = "out_of_date_retry_exhausted";
+            return false;
+        }
+        report.swapchain_recreation_status = "probe_failed";
+        return false;
+    }
+
+    report.swapchain_recreation_status = "out_of_date_retry_exhausted";
+    return false;
 }
 
 AndroidSurfaceSwapchainValidationReport runValidation(
