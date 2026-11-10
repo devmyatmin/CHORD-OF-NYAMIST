@@ -78,6 +78,16 @@ void array64Field(std::ostringstream& out, const char* name,
     out << "],\n";
 }
 
+void stringArrayField(std::ostringstream& out, const char* name,
+                      const std::vector<std::string>& values) {
+    out << "  \"" << name << "\": [";
+    for (std::size_t index = 0; index < values.size(); ++index) {
+        if (index != 0U) out << ", ";
+        out << "\"" << escapeJson(values[index]) << "\"";
+    }
+    out << "],\n";
+}
+
 void summary64Fields(std::ostringstream& out, const char* prefix,
                      const std::vector<std::uint64_t>& values,
                      const char* unit_suffix) {
@@ -106,7 +116,7 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     std::ostringstream out;
     out << "{\n";
     numberField(out, "schema_version", report.schema_version);
-    stringField(out, "project", "CHORD OF NYAMIST / NYAMIST G925 R1.9");
+    stringField(out, "project", "CHORD OF NYAMIST / NYAMIST G925 R2.6");
     stringField(out, "status", report.status);
     stringField(out, "platform", report.platform);
     stringField(out, "loader_library", report.loader_library);
@@ -122,7 +132,70 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     stringField(out, "vendor_id", report.vendor_id_hex);
     stringField(out, "device_id", report.device_id_hex);
     stringField(out, "physical_device_api_version", report.physical_device_api_version);
+    stringField(out, "instance_api_version", report.instance_api_version);
+    stringField(out, "physical_device_properties2_query_status", report.physical_device_properties2_query_status);
+    stringField(out, "driver_properties_query_status", report.driver_properties_query_status);
+    numberField(out, "driver_id", report.driver_id);
+    stringField(out, "driver_id_name", report.driver_id_name);
+    stringField(out, "driver_name", report.driver_name);
+    stringField(out, "driver_info", report.driver_info);
+    numberField(out, "driver_version_raw", report.driver_version_raw);
+    stringField(out, "driver_version_hex", report.driver_version_hex);
+    stringField(out, "driver_conformance_version", report.driver_conformance_version);
+    stringField(out, "physical_device_uuid", report.physical_device_uuid_hex);
+    boolField(out, "vulkan_1_4_device_api_supported", report.vulkan_1_4_device_api_supported);
+    stringField(out, "vulkan_1_4_support_status", report.vulkan_1_4_support_status);
+    stringField(out, "vulkan_1_4_features_query_status", report.vulkan_1_4_features_query_status);
+    boolField(out, "vulkan_1_4_bresenham_lines_supported", report.vulkan_1_4_bresenham_lines_supported);
+    boolField(out, "vulkan_1_4_shader_subgroup_rotate_clustered_supported", report.vulkan_1_4_shader_subgroup_rotate_clustered_supported);
+    boolField(out, "vulkan_1_4_push_descriptor_supported", report.vulkan_1_4_push_descriptor_supported);
+    boolField(out, "vulkan_1_4_protected_memory_supported", report.vulkan_1_4_protected_memory_supported);
+    boolField(out, "vulkan_1_4_pipeline_protected_access_required", report.vulkan_1_4_pipeline_protected_access_required);
+    boolField(out, "vulkan_1_4_pipeline_protected_access_supported", report.vulkan_1_4_pipeline_protected_access_supported);
+    boolField(out, "vulkan_1_4_required_features_supported", report.vulkan_1_4_required_features_supported);
+    stringField(out, "vulkan_1_4_required_features_status", report.vulkan_1_4_required_features_status);
+    stringField(out, "vulkan_1_4_promoted_extension_inventory_status", report.vulkan_1_4_promoted_extension_inventory_status);
+    stringField(out, "vulkan_1_4_promoted_extension_inventory_scope", report.vulkan_1_4_promoted_extension_inventory_scope);
+    stringField(out, "vulkan_1_4_promoted_extension_coverage_status", report.vulkan_1_4_promoted_extension_coverage_status);
+    numberField(out, "vulkan_1_4_promoted_extension_total_count", report.vulkan_1_4_promoted_extension_total_count);
+    numberField(out, "vulkan_1_4_promoted_extension_supported_count", report.vulkan_1_4_promoted_extension_supported_count);
+    numberField(out, "vulkan_1_4_promoted_extension_not_advertised_count", report.vulkan_1_4_promoted_extension_not_advertised_count);
+    stringArrayField(out, "vulkan_1_4_promoted_extensions_supported", report.vulkan_1_4_promoted_extensions_supported);
+    stringArrayField(out, "vulkan_1_4_promoted_extensions_not_advertised", report.vulkan_1_4_promoted_extensions_not_advertised);
+    stringField(out, "vulkan_1_4_promoted_feature_query_status", report.vulkan_1_4_promoted_feature_query_status);
+    stringField(out, "vulkan_1_4_promoted_feature_query_scope", report.vulkan_1_4_promoted_feature_query_scope);
+    numberField(out, "vulkan_1_4_promoted_feature_total_count", report.vulkan_1_4_promoted_feature_total_count);
+    numberField(out, "vulkan_1_4_promoted_feature_queried_count", report.vulkan_1_4_promoted_feature_queried_count);
+    numberField(out, "vulkan_1_4_promoted_feature_supported_count", report.vulkan_1_4_promoted_feature_supported_count);
+    numberField(out, "vulkan_1_4_promoted_feature_not_supported_count", report.vulkan_1_4_promoted_feature_not_supported_count);
+    numberField(out, "vulkan_1_4_promoted_feature_not_advertised_count", report.vulkan_1_4_promoted_feature_not_advertised_count);
+    numberField(out, "vulkan_1_4_promoted_feature_implicitly_supported_count", report.vulkan_1_4_promoted_feature_implicitly_supported_count);
+    numberField(out, "vulkan_1_4_promoted_feature_query_failed_count", report.vulkan_1_4_promoted_feature_query_failed_count);
+    numberField(out, "vulkan_1_4_promoted_feature_not_queryable_count", report.vulkan_1_4_promoted_feature_not_queryable_count);
+    stringArrayField(out, "vulkan_1_4_promoted_features_supported", report.vulkan_1_4_promoted_features_supported);
+    stringArrayField(out, "vulkan_1_4_promoted_features_not_supported", report.vulkan_1_4_promoted_features_not_supported);
+    stringArrayField(out, "vulkan_1_4_promoted_features_not_advertised", report.vulkan_1_4_promoted_features_not_advertised);
+    stringArrayField(out, "vulkan_1_4_promoted_features_implicitly_supported", report.vulkan_1_4_promoted_features_implicitly_supported);
+    stringArrayField(out, "vulkan_1_4_promoted_features_query_failed", report.vulkan_1_4_promoted_features_query_failed);
+    stringArrayField(out, "vulkan_1_4_promoted_features_not_queryable", report.vulkan_1_4_promoted_features_not_queryable);
+    stringArrayField(out, "vulkan_1_4_promoted_features_not_applicable", report.vulkan_1_4_promoted_features_not_applicable);
     boolField(out, "target_gpu_match", report.target_gpu_match);
+    stringField(out, "index_type_uint8_extension_status", report.index_type_uint8_extension_status);
+    stringField(out, "index_type_uint8_feature_support_status", report.index_type_uint8_feature_support_status);
+    stringField(out, "index_type_uint8_feature_enable_status", report.index_type_uint8_feature_enable_status);
+    stringField(out, "index_type_uint8_buffer_create_status", report.index_type_uint8_buffer_create_status);
+    stringField(out, "index_type_uint8_memory_allocate_status", report.index_type_uint8_memory_allocate_status);
+    stringField(out, "index_type_uint8_memory_bind_status", report.index_type_uint8_memory_bind_status);
+    stringField(out, "index_type_uint8_memory_map_status", report.index_type_uint8_memory_map_status);
+    stringField(out, "index_type_uint8_upload_status", report.index_type_uint8_upload_status);
+    stringField(out, "index_type_uint8_memory_unmap_status", report.index_type_uint8_memory_unmap_status);
+    stringField(out, "index_type_uint8_draw_entry_points_status", report.index_type_uint8_draw_entry_points_status);
+    stringField(out, "index_type_uint8_draw_record_status", report.index_type_uint8_draw_record_status);
+    boolField(out, "index_type_uint8_draw_recorded", report.index_type_uint8_draw_recorded);
+    numberField(out, "index_type_uint8_draw_index_count", report.index_type_uint8_draw_index_count);
+    stringField(out, "index_type_uint8_probe_status", report.index_type_uint8_probe_status);
+    stringField(out, "index_type_uint8_buffer_destroy_status", report.index_type_uint8_buffer_destroy_status);
+    stringField(out, "index_type_uint8_memory_free_status", report.index_type_uint8_memory_free_status);
     stringField(out, "swapchain_maintenance_instance_extension_status", report.swapchain_maintenance_instance_extension_status);
     stringField(out, "swapchain_maintenance_device_extension_status", report.swapchain_maintenance_device_extension_status);
     stringField(out, "swapchain_maintenance_feature_status", report.swapchain_maintenance_feature_status);
@@ -153,11 +226,61 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     stringField(out, "selected_surface_format", report.selected_surface_format);
     stringField(out, "selected_present_mode", report.selected_present_mode);
     stringField(out, "selected_image_usage", report.selected_image_usage);
+    stringField(out, "swapchain_transfer_src_support_status", report.swapchain_transfer_src_support_status);
+    stringField(out, "pixel_readback_mode", report.pixel_readback_mode);
+    stringField(out, "pixel_readback_source", report.pixel_readback_source);
+    stringField(out, "pixel_readback_buffer_create_status", report.pixel_readback_buffer_create_status);
+    stringField(out, "pixel_readback_memory_allocate_status", report.pixel_readback_memory_allocate_status);
+    stringField(out, "pixel_readback_bind_status", report.pixel_readback_bind_status);
+    stringField(out, "pixel_readback_memory_type", report.pixel_readback_memory_type);
+    number64Field(out, "pixel_readback_allocation_size", report.pixel_readback_allocation_size);
+    number64Field(out, "pixel_readback_byte_count", report.pixel_readback_byte_count);
+    boolField(out, "pixel_readback_recorded", report.pixel_readback_recorded);
+    stringField(out, "pixel_readback_copy_status", report.pixel_readback_copy_status);
+    stringField(out, "pixel_readback_map_status", report.pixel_readback_map_status);
+    stringField(out, "pixel_readback_invalidate_status", report.pixel_readback_invalidate_status);
+    stringField(out, "pixel_readback_unmap_status", report.pixel_readback_unmap_status);
+    numberField(out, "pixel_readback_sample_count", report.pixel_readback_sample_count);
+    stringField(out, "pixel_readback_sample_labels", report.pixel_readback_sample_labels);
+    array64Field(out, "pixel_expected_clear_rgba8", report.pixel_expected_clear_rgba8);
+    array64Field(out, "pixel_rgba8_samples", report.pixel_rgba8_samples);
+    boolField(out, "pixel_background_samples_match_clear", report.pixel_background_samples_match_clear);
+    boolField(out, "pixel_triangle_center_detected", report.pixel_triangle_center_detected);
+    stringField(out, "pixel_verification_status", report.pixel_verification_status);
     numberField(out, "extent_width", report.extent_width);
     numberField(out, "extent_height", report.extent_height);
     stringField(out, "swapchain_create_status", report.swapchain_create_status);
     stringField(out, "swapchain_image_query_status", report.swapchain_image_query_status);
     numberField(out, "swapchain_image_count", report.swapchain_image_count);
+    stringField(out, "swapchain_recreation_status", report.swapchain_recreation_status);
+    stringField(out, "swapchain_recreation_mode", report.swapchain_recreation_mode);
+    numberField(out, "swapchain_recreation_attempt_count", report.swapchain_recreation_attempt_count);
+    numberField(out, "swapchain_recreation_success_count", report.swapchain_recreation_success_count);
+    boolField(out, "swapchain_old_handle_supplied", report.swapchain_old_handle_supplied);
+    stringField(out, "swapchain_old_destroy_status", report.swapchain_old_destroy_status);
+    stringField(out, "swapchain_recreated_image_query_status", report.swapchain_recreated_image_query_status);
+    numberField(out, "swapchain_recreated_image_count", report.swapchain_recreated_image_count);
+    numberField(out, "swapchain_extent_before_width", report.swapchain_extent_before_width);
+    numberField(out, "swapchain_extent_before_height", report.swapchain_extent_before_height);
+    numberField(out, "swapchain_extent_after_width", report.swapchain_extent_after_width);
+    numberField(out, "swapchain_extent_after_height", report.swapchain_extent_after_height);
+    boolField(out, "swapchain_extent_changed", report.swapchain_extent_changed);
+    boolField(out, "swapchain_logical_device_reused", report.swapchain_logical_device_reused);
+    stringField(out, "swapchain_recreation_probe_acquire_status", report.swapchain_recreation_probe_acquire_status);
+    stringField(out, "swapchain_recreation_probe_submit_status", report.swapchain_recreation_probe_submit_status);
+    stringField(out, "swapchain_recreation_probe_present_status", report.swapchain_recreation_probe_present_status);
+    stringField(out, "swapchain_recreation_probe_completion_status", report.swapchain_recreation_probe_completion_status);
+    numberField(out, "swapchain_recreation_probe_present_count", report.swapchain_recreation_probe_present_count);
+    boolField(out, "swapchain_recreation_probe_rendered", report.swapchain_recreation_probe_rendered);
+    numberField(out, "swapchain_acquire_suboptimal_count", report.swapchain_acquire_suboptimal_count);
+    numberField(out, "swapchain_present_suboptimal_count", report.swapchain_present_suboptimal_count);
+    numberField(out, "swapchain_create_out_of_date_count", report.swapchain_create_out_of_date_count);
+    numberField(out, "swapchain_acquire_out_of_date_count", report.swapchain_acquire_out_of_date_count);
+    numberField(out, "swapchain_present_out_of_date_count", report.swapchain_present_out_of_date_count);
+    numberField(out, "swapchain_out_of_date_recovery_attempt_count", report.swapchain_out_of_date_recovery_attempt_count);
+    numberField(out, "swapchain_out_of_date_recovery_success_count", report.swapchain_out_of_date_recovery_success_count);
+    stringField(out, "swapchain_result_policy_status", report.swapchain_result_policy_status);
+    stringField(out, "swapchain_out_of_date_recovery_status", report.swapchain_out_of_date_recovery_status);
     stringField(out, "semaphore_create_status", report.semaphore_create_status);
     stringField(out, "present_semaphore_create_status", report.present_semaphore_create_status);
     stringField(out, "image_acquire_status", report.image_acquire_status);
@@ -216,6 +339,8 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
               report.timestamp_compute_and_graphics_supported);
     doubleField(out, "timestamp_period_ns", report.timestamp_period_ns);
     stringField(out, "cleanup_status", report.cleanup_status);
+    stringField(out, "pixel_readback_buffer_destroy_status", report.pixel_readback_buffer_destroy_status);
+    stringField(out, "pixel_readback_memory_free_status", report.pixel_readback_memory_free_status);
     stringField(out, "semaphore_destroy_status", report.semaphore_destroy_status);
     stringField(out, "present_semaphore_destroy_status", report.present_semaphore_destroy_status);
     stringField(out, "command_buffer_free_status", report.command_buffer_free_status);

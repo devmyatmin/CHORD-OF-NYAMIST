@@ -38,6 +38,19 @@ add_library(nyamist_surface_validation SHARED
     "${NYAMIST_REPO_ROOT}/src/discovery/android_surface_swapchain_validation.cpp"
 )
 
+# Prefer a pinned Khronos Vulkan-Headers revision for Vulkan 1.4
+# declarations that may be newer than the Android NDK's bundled headers.
+set(NYAMIST_VULKAN_HEADERS_ROOT "$ENV{NYAMIST_VULKAN_HEADERS_ROOT}")
+if(NYAMIST_VULKAN_HEADERS_ROOT AND
+   EXISTS "${NYAMIST_VULKAN_HEADERS_ROOT}/include/vulkan/vulkan.h")
+    target_include_directories(nyamist_surface_validation BEFORE PRIVATE
+        "${NYAMIST_VULKAN_HEADERS_ROOT}/include")
+    message(STATUS "NYAMIST Vulkan headers: ${NYAMIST_VULKAN_HEADERS_ROOT}")
+else()
+    message(FATAL_ERROR
+        "R2.3 requires official Vulkan-Headers v1.4.368; set NYAMIST_VULKAN_HEADERS_ROOT")
+endif()
+
 target_include_directories(nyamist_surface_validation PRIVATE
     "${NYAMIST_REPO_ROOT}/include"
     "${NYAMIST_SHADER_OUTPUT_DIR}"

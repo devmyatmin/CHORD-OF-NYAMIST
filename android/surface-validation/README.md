@@ -1,73 +1,138 @@
-# NYAMIST G925 R1.8 — GPU Timestamp Query & Multi-Frame Validation
+# NYAMIST G925 R2.2 — Swapchain Resize and OUT_OF_DATE Recovery
 
-This Android application extends the R1.7 shader/pipeline/triangle test into a
-repeatable 16-frame validation sequence with Vulkan timestamp queries on the
-selected graphics queue.
+R2.2 extends R2.1 Surface lifecycle validation with a same-device Vulkan
+swapchain replacement probe and bounded handling for WSI result changes.
 
-## Execution model
+## Same-device oldSwapchain handoff
 
-1. Create the Android Vulkan instance, surface, G925 logical device, graphics /
-   present queue, and FIFO swapchain through the stock Android loader.
-2. Create one reusable render pass, shader modules, pipeline layout, graphics
-   pipeline, command pool, and command buffer.
-3. Submit one unmeasured warm-up frame to initialize pipeline/driver state.
-4. Submit and present 16 measured frames. Each measured frame reacquires a
-   swapchain image, records the same three-vertex triangle draw, submits,
-   presents, waits for queue idle, and reuses the command pool only after it is
-   no longer pending.
-5. Allocate a timestamp query pool with two timestamp queries per measured
-   frame. Reset each query pair in its command buffer, write a TOP_OF_PIPE
-   timestamp immediately before the render pass, and a BOTTOM_OF_PIPE timestamp
-   after the render pass. Read each pair only after queue idle.
-6. Convert timestamp ticks to nanoseconds using the physical device's
-   timestampPeriod. Apply timestampValidBits wrap masking for queues with fewer
-   than 64 valid bits.
-7. Record each frame's CPU acquire, queue-submit call, present call, queue-idle
-   wait, acquire-to-idle total, plus each GPU timestamp interval.
-8. Serialize raw sample arrays and min / median / nearest-rank P95 / max
-   summaries. CPU wall-clock values and GPU timestamp values remain separate.
-9. Destroy per-image framebuffer and image-view objects after each completed
-   frame, then destroy the shared pipeline, shader, query pool, synchronization,
-   command, swapchain, and device resources in dependency-safe order.
+1. Build the initial FIFO Android swapchain on the selected G925 device.
+2. Re-query VkSurfaceCapabilitiesKHR, surface formats and present modes.
+3. Recompute the current extent using currentExtent or the requested Android
+   Surface dimensions clamped to the refreshed min/max extent.
+4. Create a replacement VkSwapchainKHR with oldSwapchain set to the current
+   swapchain handle, preserving the same VkDevice and Android VkSurfaceKHR.
+5. Enumerate the replacement images and destroy the retired old swapchain.
+6. Acquire one replacement image, record a layout transition from
+   UNDEFINED to PRESENT_SRC_KHR, submit the command buffer, and present it.
+7. Wait for VK_EXT_swapchain_maintenance1 present fence when available;
+   otherwise use queue-idle fallback and report the weaker completion mode.
+8. Run the regular R2.0 triangle render, timestamp and five-pixel readback
+   sequence on the replacement swapchain.
 
-## Timing definitions
+The handoff probe intentionally does not draw scene content on its one
+replacement image. Its purpose is to prove the new chain can be acquired,
+submitted and presented while retaining the same logical device. The following
+normal frame sequence performs the actual triangle draw and pixel readback.
 
-- frame_total_cpu_us_samples: CPU wall-clock from immediately before image
-  acquisition to return from queue idle for each measured frame.
-- acquire_cpu_us_samples: CPU time spent in vkAcquireNextImageKHR.
-- queue_submit_cpu_us_samples: CPU time spent inside vkQueueSubmit.
-- present_call_cpu_us_samples: CPU time spent inside vkQueuePresentKHR.
-- queue_idle_wait_cpu_us_samples: CPU time spent inside vkQueueWaitIdle.
-- gpu_frame_time_ns_samples: GPU timestamp tick interval converted to ns
-  between TOP_OF_PIPE before the render pass and BOTTOM_OF_PIPE after it.
+## WSI result policy
 
-A GPU timestamp interval is not a display-refresh measurement and must not be
-reported as FPS. The CPU acquire-to-idle interval is not GPU execution time.
-The 16 samples are a short validation run, not sustained performance, thermal,
-or game-compatibility evidence. Queue idle is deliberately used for deterministic
-single-queue resource and semaphore reuse; this is not a throughput-optimized
-renderer.
+- VK_SUCCESS continues the current operation.
+- VK_SUBOPTIMAL_KHR permits the current operation to complete, then requests
+  a replacement swapchain. The replacement probe retries boundedly if the
+  new chain is still suboptimal.
+- VK_ERROR_OUT_OF_DATE_KHR requests replacement before another acquire/present.
+  The replacement probe retries up to two times after the first attempt,
+  using the latest swapchain as oldSwapchain each time.
+- Other errors remain fatal and are not silently converted to success.
 
-## Build and run
+The primary 17-frame renderer still treats an OUT_OF_DATE result as a failed
+native session, with an explicit status. Android then queues one fresh full
+WSI session retry per Surface generation after native cleanup. That fallback
+recreates the VkDevice too; it is reported separately and is not described as
+same-device swapchain recovery.
 
-The R1.8 workflow builds an arm64-v8a debug APK and uploads the
-nyamist-g925-r1.8-debug-apk artifact.
+The deterministic native policy self-test verifies the result mapping.
+Actual driver-returned OUT_OF_DATE and SUBOPTIMAL results are counted
+separately. When neither occurs, the report says "not_observed"; this is not
+evidence that the driver returned OUT_OF_DATE.
 
-1. Download the APK from a successful R1.8 Android workflow run.
-2. Install and open NYAMIST G925 R1.8 Multi-Frame GPU Timing Test.
-3. Keep the app in the foreground until the 1 warm-up + 16 measured frames finish.
-4. Tap Copy JSON report and paste the complete JSON into the project chat.
+## R2.2 report schema v7
 
-## Hardware acceptance
+The native JSON schema v7 adds:
 
-A full R1.8 pass requires the target G925 identity, shader modules and graphics
-pipeline, 17 successful frame submissions/presentations (1 warm-up + 16 samples),
-16 valid CPU samples, 16 valid GPU timestamp query samples, successful
-presentation/queue-idle operations, and complete Vulkan cleanup.
+- oldSwapchain handoff mode, attempt/success counts and old-handle destruction.
+- Replacement image query status/count.
+- Extent before/after and whether the Surface extent changed.
+- Same VkDevice reuse evidence.
+- Replacement image acquire, command submission, present and completion status.
+- Separate acquire/present SUBOPTIMAL and OUT_OF_DATE counters.
+- Bounded recovery attempt/success counters and explicit not-observed/recovered
+  status for real OUT_OF_DATE events.
+- Android lifecycle metadata includes the distinct full-session retry counter
+  used only when the primary render loop returns OUT_OF_DATE.
 
-Hosted CI validates C++ tests, Android native compilation, shader compilation,
-and APK packaging only. Actual REDMI K80 Ultra JSON evidence is mandatory for
-hardware acceptance.
+## R2.2 device test procedure
 
-No root, direct device-node access, SELinux/kernel changes, vendor partition
-writes, or driver replacement are used.
+1. Install NYAMIST G925 R2.2 and open the app.
+2. Wait for the initial SUCCESS report.
+3. Rotate the device once and allow Android to recreate or resize the Surface.
+4. Wait for the newest session to finish and copy the full JSON report.
+5. Check swapchain_recreation_status, oldSwapchain supplied/destroyed,
+   logical device reused, replacement probe acquire/submit/present and
+   completion fields, plus the R2.0 pixel and R1.9 present-fence evidence.
+6. Check swapchain_extent_changed and the actual WSI result counters. Do not
+   call it a resize pass when the extent did not change. Do not claim a real
+   OUT_OF_DATE recovery if the observed driver result count is zero.
+
+A successful oldSwapchain handoff with identical before/after dimensions
+proves same-device replacement but does not prove an actual resize event.
+Android's fixed currentExtent may legitimately remain unchanged for a Surface.
+
+## Validation boundaries
+
+Hosted tests validate report serialization, policy classification, Java
+session-retry wiring, native compilation and APK packaging. Hardware evidence
+is required to establish replacement swapchain behavior on the MT6991 driver.
+
+This milestone does not establish FPS, sustained performance, thermal/battery
+behavior, physical-panel scanout, game-engine compatibility or Stranded Deep
+Android compatibility.
+
+Stock Android public Vulkan loader and vendor driver only. No root, direct GPU
+device-node access, SELinux/kernel changes, vendor partition writes, or driver
+replacement.
+
+## Hosted R2.2 build — PASS
+
+The current R2.2 source passed Core CI push/PR and Android APK push/PR
+workflows. The PR APK artifact (ID 13734383707) contains a valid arm64-v8a
+debug APK with an ELF64/AArch64 native library built using NDK r28c.
+
+Target-device validation is still pending. The REDMI K80 Ultra report must
+show oldSwapchain supplied, replacement-image query/acquire/submit/present,
+presentation completion, same logical device reuse, and separate actual
+SUBOPTIMAL / OUT_OF_DATE counters. A swapchain handoff with unchanged extent
+must not be described as a resize pass.
+
+## R2.3 — Vulkan 1.4 and stock-driver identity audit
+
+R2.3 requests the highest Vulkan instance API version exposed by the Android
+public loader, capped at 1.4. It does not upgrade the physical-device driver:
+loader API, instance API and physical-device API are reported separately.
+
+The report queries `VkPhysicalDeviceDriverProperties` and
+`VkPhysicalDeviceIDProperties` through `vkGetPhysicalDeviceProperties2`,
+recording driver ID/name/info, raw driver version (decimal and hexadecimal),
+conformance version and physical-device UUID.
+
+When the physical device itself advertises Vulkan 1.4 and the instance API is
+also 1.4, the app queries `VkPhysicalDeviceVulkan14Features` and checks
+Bresenham lines, clustered subgroup rotate, push descriptors, and the
+conditional protected-pipeline-access feature. This focused audit is not a
+replacement for Vulkan CTS or Android VTS.
+
+### R2.3 device test
+
+1. Install NYAMIST G925 R2.3 and run it on the REDMI K80 Ultra.
+2. Wait for the complete G925 Surface validation session.
+3. Copy the full JSON report.
+4. Review `loader_api_version`, `instance_api_version`,
+   `physical_device_api_version`, `driver_id`, `driver_name`,
+   `driver_info`, `driver_version_raw`, `driver_version_hex`,
+   `driver_conformance_version`, `physical_device_uuid` and
+   `vulkan_1_4_support_status`.
+
+A 1.4 loader with a physical-device API of 1.3 remains a Vulkan 1.3 GPU
+implementation. The app does not replace the stock vendor driver or modify
+system partitions.
+
