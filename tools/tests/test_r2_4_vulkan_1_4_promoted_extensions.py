@@ -61,7 +61,7 @@ class R24PromotedExtensionInventoryContractTests(unittest.TestCase):
         self.assertIn("vulkan_1_4_promoted_extension_inventory_status", self.serializer)
         self.assertIn("vulkan_1_4_promoted_extension_coverage_status", self.serializer)
 
-    def test_app_identity_is_r25(self):
+    def test_app_identity_is_current_r26(self):
         self.assertIn('schema_version\\": 11', self.activity)
         self.assertIn("versionCode = 260", self.gradle)
         self.assertIn('versionName = "2.6.0"', self.gradle)
