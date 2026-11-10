@@ -121,8 +121,14 @@ class R21SurfaceLifecycleContractTests(unittest.TestCase):
         self.assertIn("viewport.x = static_cast<float>(render_viewport_x)", self.native)
         self.assertIn("viewport.y = static_cast<float>(render_viewport_y)", self.native)
         self.assertIn("viewport.width = static_cast<float>(render_viewport_extent)", self.native)
-        self.assertIn("viewport.height = static_cast<float>(render_viewport_extent)", self.native)
-        self.assertIn("scissor.extent = extent", self.native)
+        self.assertIn("render_viewport.height = static_cast<float>(render_viewport_extent)", self.native)
+        self.assertIn("render_scissor.extent = extent", self.native)
+        self.assertIn("VK_DYNAMIC_STATE_VIEWPORT", self.native)
+        self.assertIn("VK_DYNAMIC_STATE_SCISSOR", self.native)
+        self.assertIn("vk.cmd_set_viewport(command_buffer, 0U, 1U, &render_viewport)", self.native)
+        self.assertIn("vk.cmd_set_scissor(command_buffer, 0U, 1U, &render_scissor)", self.native)
+        self.assertIn('LOAD_DEVICE(cmd_set_viewport, "vkCmdSetViewport")', self.native)
+        self.assertIn('LOAD_DEVICE(cmd_set_scissor, "vkCmdSetScissor")', self.native)
 
     def test_activity_resume_forces_a_fresh_wsi_session_on_existing_surface(self):
         resume_body = self.activity.split("protected void onResume()", 1)[1].split(
