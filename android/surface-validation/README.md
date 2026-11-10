@@ -1,85 +1,77 @@
-# NYAMIST G925 R2.0 — Swapchain Pixel Readback Verification
+# NYAMIST G925 R2.1 — Surface Lifecycle and WSI Session Recreation
 
-This Android diagnostic extends the accepted R1.9 present-fence path with
-actual pixel readback from the acquired swapchain image. It verifies four
-clear-color background locations and one triangle-interior point using a
-small host-visible staging buffer.
+R2.1 extends the R2.0 pixel-readback validation with Android Surface lifecycle
+tracking and serialized Vulkan WSI session reconstruction.
 
 ## Execution model
 
-1. Create the Android Vulkan instance, surface, G925 logical device, graphics /
-   present queue, and FIFO swapchain through the stock Android loader.
-2. Verify that the Android Surface supports both
-   `VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT` and
-   `VK_IMAGE_USAGE_TRANSFER_SRC_BIT`. If transfer-source use is unavailable,
-   report the capability failure explicitly; do not claim pixel validation.
-3. Create the swapchain with `COLOR_ATTACHMENT | TRANSFER_SRC`, retain the
-   R1.9 `VK_EXT_swapchain_maintenance1` present-fence path, and create a
-   20-byte transfer-destination buffer for five RGBA8 sample values.
-4. Render the existing three-vertex triangle during one warm-up frame. The
-   render pass ends in `VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL`.
-5. Copy five 1×1 regions from the acquired swapchain image to the staging
-   buffer: four corners (background) and the center (triangle).
-6. Transition the swapchain image back to
-   `VK_IMAGE_LAYOUT_PRESENT_SRC_KHR`, submit and present it, then wait for
-   rendering/presentation completion before mapping the staging buffer.
-7. Prefer HOST_VISIBLE|HOST_COHERENT memory. If only non-coherent host-visible
-   memory is selected, invalidate the mapped allocation before reading.
-8. Normalize BGRA formats to RGBA, compare four background samples against the
-   expected sRGB-encoded clear color, and require the center sample to differ
-   from the clear color with opaque alpha.
-9. Keep the pixel copy in the warm-up frame only. The 16 measured GPU timestamp
-   intervals remain around the render pass and exclude the readback copy.
-10. Submit 16 measured frames after warm-up, preserve the R1.9 present-fence
-    lifecycle, serialize schema-v6 evidence, and destroy readback resources.
+- Android SurfaceHolder callbacks record surface creation, size changes,
+  resizes and destruction.
+- Activity pause/resume callbacks are recorded. If the Activity resumes while
+  the same Surface remains available, a new WSI validation session is queued.
+- The on-screen REBUILD VULKAN SURFACE / SWAPCHAIN button requests another
+  explicit validation session without requiring an OS Surface destruction.
+- Each request receives a copied Java Surface handle. The native validation
+  function acquires its ANativeWindow reference and constructs a new Vulkan
+  instance, Android VkSurfaceKHR, logical device, swapchain, rendering
+  resources and presentation resources. It completes cleanup before returning.
+- All native calls run on one single-thread executor. A newer Surface
+  generation invalidates queued stale requests. An already-running native
+  session is allowed to finish its orderly cleanup; the next valid Surface
+  session runs afterward.
+- Each invocation constructs a fresh WSI session. R2.1 does not yet claim an
+  in-place vkCreateSwapchainKHR oldSwapchain handoff.
 
-## Report fields
+## Lifecycle report
 
-Schema v6 adds Surface transfer-source support, selected image usage,
-staging-buffer/memory state, copy/map/invalidate/unmap results, five sample
-labels, expected clear RGBA8, observed RGBA8 pixel values, background-match and
-triangle-center booleans, final verification state, and readback cleanup state.
+The native schema-v6 report is preserved. Android adds a top-level
+android_surface_lifecycle object with nested schema_version 1.
 
-For a target-device pass, the report must show:
+It records:
 
-- `swapchain_transfer_src_support_status: supported`
-- `pixel_readback_mode: swapchain_transfer_src`
-- `pixel_readback_sample_count: 5`
-- `pixel_background_samples_match_clear: true`
-- `pixel_triangle_center_detected: true`
-- `pixel_verification_status: success`
-- Successful staging allocation, binding, copy, map, invalidation when
-  required, unmap, buffer destruction and memory free.
-- R1.9 present-fence completion evidence and 16 GPU timestamp samples.
+- Surface created, recreated, changed, destroyed and resize counts.
+- Activity pause/resume counts and current resumed state.
+- Session generation, request ID, reason, requested dimensions and result.
+- Native session started, completed, successful and skipped counts.
+- Active and maximum concurrent native session counts.
+- Whether the session was still current when it completed.
+- The serialized rebuild policy used by the Activity.
 
-## Timing definitions and limitations
+A successful serialized run should report
+max_concurrent_native_sessions = 1 and native_session_active_count = 0.
+Successful Vulkan resource cleanup is still required for each native session.
 
-The GPU timestamp interval is TOP_OF_PIPE through BOTTOM_OF_PIPE around the
-render pass. The warm-up frame's readback copy is outside the measured 16 GPU
-samples. CPU acquire-to-idle timings remain distinct from GPU timestamps.
+## Device test procedure
 
-The data is copied from the swapchain image before presentation; it is not a
-screenshot or scanout readback of the physical display panel. Five pixel
-samples are a focused output check, not exhaustive framebuffer validation.
-The result does not establish FPS, sustained performance, thermal or battery
-behavior, or game compatibility.
+1. Install the R2.1 APK and open NYAMIST G925 R2.1.
+2. Wait for the initial WSI session to finish and show SUCCESS.
+3. Tap REBUILD VULKAN SURFACE / SWAPCHAIN once. Wait for the next SUCCESS.
+4. Press Home, wait briefly, then return to the app. This records Activity
+   pause/resume and automatically requests a fresh WSI session if the Surface
+   is still available. Android may also destroy and recreate the Surface.
+5. Rotate the device once if convenient; a size change should request another
+   session. Rotate back if needed.
+6. Wait for the latest session to finish, tap COPY JSON REPORT, and provide
+   the complete JSON.
 
-## Build and run
+The device must show at least two completed native sessions, no more than one
+concurrent native session, successful swapchain creation and cleanup for the
+latest session, and a successful R2.0 pixel-readback check. To claim an actual
+Surface recreation event, the report must show surface_destroyed_count >= 1
+and surface_recreated_count >= 1. If Android keeps the same Surface while the
+app is paused, the pause/resume plus manual rebuild evidence is recorded
+separately and must not be mislabeled as a Surface destroy/create cycle.
 
-The R2.0 Android workflow builds an arm64-v8a debug APK and uploads the
-`nyamist-g925-r2.0-pixel-readback-apk` artifact.
+## Validation boundaries
 
-1. Download the APK from a successful R2.0 Android workflow run.
-2. Uninstall an older debug build first if Android reports a signing conflict.
-3. Install and open **NYAMIST G925 R2.0 Pixel Readback Validation**.
-4. Keep the app in the foreground until the 1 warm-up + 16 measured frames
-   finish.
-5. Tap **Copy JSON report** and paste the complete schema-v6 JSON into the
-   project chat.
+Hosted CI checks the Java/native build, shader compilation, APK packaging and
+lifecycle contract smoke tests. Actual Surface destruction/recreation behavior
+is device- and OS-lifecycle-dependent and requires the complete R2.1 report
+from the REDMI K80 Ultra.
 
-Hosted CI validates C++ tests, Android native compilation, shader compilation,
-and APK packaging only. Actual REDMI K80 Ultra JSON evidence is mandatory for
-hardware acceptance.
+This milestone does not establish FPS, sustained performance, thermal/battery
+behavior, physical-panel scanout, or game-engine compatibility.
 
-No root, direct device-node access, SELinux/kernel changes, vendor partition
-writes, or driver replacement are used.
+Stock Android public Vulkan loader and vendor driver only. No root, direct GPU
+device-node access, SELinux/kernel changes, vendor partition writes, or
+driver replacement.

@@ -1,0 +1,60 @@
+name: NYAMIST G925 R2.1 Surface Lifecycle and WSI Recreation
+
+on:
+  push:
+    branches:
+      - feature/g925-r2.1-surface-lifecycle-swapchain-recreation
+  pull_request:
+    branches:
+      - feature/g925-r2.0-pixel-readback-verification
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android-r2-1:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+
+      - name: Install Android SDK, NDK, CMake and GLSL compiler
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+          sudo apt-get update
+          sudo apt-get install --yes glslang-tools
+
+      - name: Install Gradle 9.6.0
+        run: |
+          curl --fail --location --retry 3 \
+            https://services.gradle.org/distributions/gradle-9.6.0-bin.zip \
+            --output "$RUNNER_TEMP/gradle-9.6.0-bin.zip"
+          unzip -q "$RUNNER_TEMP/gradle-9.6.0-bin.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/gradle-9.6.0/bin" >> "$GITHUB_PATH"
+
+      - name: Validate R2.1 lifecycle contract tests
+        run: python3 -m unittest tools.tests.test_r2_1_surface_lifecycle_contract -v
+
+      - name: Build arm64 Android APK
+        working-directory: android/surface-validation
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Upload R2.1 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: nyamist-g925-r2.1-surface-lifecycle-apk
+          path: android/surface-validation/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
