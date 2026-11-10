@@ -24,6 +24,36 @@ replacement image. Its purpose is to prove the new chain can be acquired,
 submitted and presented while retaining the same logical device. The following
 normal frame sequence performs the actual triangle draw and pixel readback.
 
+## Actual Surface resize test — Part 1
+
+The Android lifecycle report is schema version 2. It preserves the last valid
+Surface dimensions across Surface destruction/recreation, records the first
+and latest dimensions, and reports the last observed resize from/to values.
+The Activity also records orientation configuration changes.
+
+For a deterministic size-change check:
+
+1. Install the Part 1 arm64 debug APK and open the app.
+2. Wait for the initial R2.6 WSI session to finish successfully.
+3. Tap **INCREASE SURFACE SIZE (WSI RESIZE TEST)**. The SurfaceView height
+   changes from 220dp to 320dp; wait for the resulting session.
+4. Tap **RESTORE SURFACE SIZE (220dp)** and wait for that session too.
+5. Enable Android auto-rotate, rotate portrait → landscape → portrait, and
+   wait for the latest Surface session to finish.
+6. Tap **COPY JSON REPORT** and preserve the complete JSON.
+
+Part 1 acceptance requires a nonzero `surface_resize_count`, a true
+`surface_resize_observed`, differing last-resize from/to dimensions, and
+session dimensions matching the latest Surface callback. The controlled
+toggle count should be at least two. A nonzero configuration-change count
+confirms Android delivered orientation changes.
+
+If Android destroys/recreates the Surface during rotation, the prior valid
+dimensions are retained so a real size change is not lost when the new
+Surface first reports its dimensions. Surface recreation alone is not a
+resize pass. This test proves an Android Surface dimension change only; it
+does not by itself prove a Vulkan OUT_OF_DATE result or recovery.
+
 ## WSI result policy
 
 - VK_SUCCESS continues the current operation.
