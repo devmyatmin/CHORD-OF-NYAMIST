@@ -517,6 +517,9 @@ bool renderAndPresentFrame(
         fail(report, "vkQueuePresentKHR failed: " + resultName(result));
         return false;
     }
+    if (present_fence_enabled) {
+        ++report.present_fence_attach_count;
+    }
 
     if (present_fence_enabled) {
         const auto fence_wait_start = std::chrono::steady_clock::now();
@@ -532,6 +535,7 @@ bool renderAndPresentFrame(
             fail(report, "vkWaitForFences(present) failed: " + resultName(result));
             return false;
         }
+        ++report.present_fence_wait_count;
         report.present_fence_used = true;
         report.present_completion_guaranteed = true;
         report.present_completion_mode = "VK_EXT_swapchain_maintenance1";
@@ -750,6 +754,7 @@ bool runFrameSequence(
                 fail(report, "vkResetFences(present) failed: " + resultName(result));
                 return false;
             }
+            ++report.present_fence_reset_count;
         } else if (present_fence_enabled) {
             report.present_fence_reset_status = "not_required_after_final_present";
         }
@@ -1576,6 +1581,9 @@ AndroidSurfaceSwapchainValidationReport runValidation(
          report.present_fence_attach_status == "success" &&
          report.present_fence_wait_status == "success" &&
          report.present_fence_destroy_status == "success" &&
+         report.present_fence_attach_count == report.frame_completed_count &&
+         report.present_fence_wait_count == report.frame_completed_count &&
+         report.present_fence_reset_count + 1U == report.frame_completed_count &&
          report.shutdown_presentation_completion_status == "present_fence_signaled");
     const bool complete = presentation_completion_valid &&
         report.loader_status == "success" &&
