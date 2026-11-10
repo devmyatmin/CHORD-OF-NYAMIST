@@ -135,6 +135,9 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     stringField(out, "present_fence_attach_status", report.present_fence_attach_status);
     stringField(out, "present_fence_wait_status", report.present_fence_wait_status);
     stringField(out, "present_fence_reset_status", report.present_fence_reset_status);
+    numberField(out, "present_fence_attach_count", report.present_fence_attach_count);
+    numberField(out, "present_fence_wait_count", report.present_fence_wait_count);
+    numberField(out, "present_fence_reset_count", report.present_fence_reset_count);
     number64Field(out, "present_fence_wait_cpu_us", report.present_fence_wait_cpu_us);
     array64Field(out, "present_fence_wait_cpu_us_samples", report.present_fence_wait_cpu_us_samples);
     stringField(out, "present_fence_destroy_status", report.present_fence_destroy_status);
