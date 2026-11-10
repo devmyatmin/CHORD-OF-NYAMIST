@@ -563,7 +563,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     }
 
     private String failureJson(String reason) {
-        return "{\n  \"schema_version\": 11,"
+        return "{\n  \"schema_version\": 12,"
                 + "\n  \"project\": \"CHORD OF NYAMIST / NYAMIST G925 R2.6\","
                 + "\n  \"status\": \"failed\","
                 + "\n  \"failure_reason\": \"" + reason + "\""
