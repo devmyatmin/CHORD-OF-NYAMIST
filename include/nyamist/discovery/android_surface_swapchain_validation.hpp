@@ -7,7 +7,7 @@
 namespace nyamist::discovery {
 
 struct AndroidSurfaceSwapchainValidationReport {
-    std::uint32_t schema_version{7U};
+    std::uint32_t schema_version{8U};
     std::string status{"unavailable"};
     std::string platform{"android"};
     std::string loader_library;
@@ -24,6 +24,28 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::string vendor_id_hex;
     std::string device_id_hex;
     std::string physical_device_api_version;
+    std::string instance_api_version;
+    std::string physical_device_properties2_query_status{"not_attempted"};
+    std::string driver_properties_query_status{"not_attempted"};
+    std::uint32_t driver_id{};
+    std::string driver_id_name{"unknown"};
+    std::string driver_name;
+    std::string driver_info;
+    std::uint32_t driver_version_raw{};
+    std::string driver_version_hex;
+    std::string driver_conformance_version;
+    std::string physical_device_uuid_hex;
+    bool vulkan_1_4_device_api_supported{};
+    std::string vulkan_1_4_support_status{"not_queried"};
+    std::string vulkan_1_4_features_query_status{"not_queried"};
+    bool vulkan_1_4_bresenham_lines_supported{};
+    bool vulkan_1_4_shader_subgroup_rotate_clustered_supported{};
+    bool vulkan_1_4_push_descriptor_supported{};
+    bool vulkan_1_4_protected_memory_supported{};
+    bool vulkan_1_4_pipeline_protected_access_required{};
+    bool vulkan_1_4_pipeline_protected_access_supported{};
+    bool vulkan_1_4_required_features_supported{};
+    std::string vulkan_1_4_required_features_status{"not_queried"};
     bool target_gpu_match{};
 
     std::string swapchain_maintenance_instance_extension_status{"not_queried"};

@@ -48,3 +48,16 @@ The shared runtime stays separate from device-specific capabilities. Platform co
 - [R2.2 swapchain recovery validation](docs/releases/NYAMIST-G925-R2.2-swapchain-resize-out-of-date-recovery.md)
 
 **Created by AMGNYA**
+## NYAMIST G925 R2.3 — Vulkan 1.4 driver audit
+
+R2.3 audits the Android public Vulkan loader and the selected Immortalis-G925
+physical-device implementation independently. It records loader/instance/
+device API versions, Vulkan driver properties, raw driver version in decimal
+and hexadecimal, conformance version and physical-device UUID. The Vulkan
+1.4 feature structure is queried only when the physical device and instance
+API versions both make that query valid.
+
+A Vulkan 1.4 loader does not turn a Vulkan 1.3 physical-device driver into
+Vulkan 1.4. R2.3 retains the stock Android vendor driver and does not replace
+the ICD or modify protected system components.
+

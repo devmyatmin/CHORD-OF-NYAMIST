@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:allowBackup="false"
-        android:label="NYAMIST G925 R2.2 Swapchain Recovery Validation"
+        android:label="NYAMIST G925 R2.3 Swapchain Recovery Validation"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity

@@ -36,6 +36,7 @@ struct VulkanDispatch {
     PFN_vkDestroyInstance destroy_instance{};
     PFN_vkEnumeratePhysicalDevices enumerate_physical_devices{};
     PFN_vkGetPhysicalDeviceProperties get_physical_device_properties{};
+    PFN_vkGetPhysicalDeviceProperties2 get_physical_device_properties2{};
     PFN_vkGetPhysicalDeviceMemoryProperties get_physical_device_memory_properties{};
     PFN_vkGetPhysicalDeviceFeatures2 get_physical_device_features2{};
     PFN_vkGetPhysicalDeviceQueueFamilyProperties get_queue_families{};
@@ -168,6 +169,51 @@ std::string versionString(std::uint32_t version) {
     return std::to_string(VK_VERSION_MAJOR(version)) + "." +
            std::to_string(VK_VERSION_MINOR(version)) + "." +
            std::to_string(VK_VERSION_PATCH(version));
+}
+
+bool versionAtLeast(std::uint32_t version, std::uint32_t major,
+                    std::uint32_t minor) {
+    return VK_VERSION_MAJOR(version) > major ||
+           (VK_VERSION_MAJOR(version) == major &&
+            VK_VERSION_MINOR(version) >= minor);
+}
+
+std::string hex32(std::uint32_t value) {
+    constexpr char digits[] = "0123456789abcdef";
+    std::string result = "0x00000000";
+    for (std::size_t index = 0; index < 8U; ++index) {
+        const std::size_t shift = (7U - index) * 4U;
+        result[index + 2U] = digits[(value >> shift) & 0xfU];
+    }
+    return result;
+}
+
+std::string uuidHex(const std::uint8_t* bytes, std::size_t count) {
+    constexpr char digits[] = "0123456789abcdef";
+    std::string result;
+    result.reserve(count * 2U);
+    for (std::size_t index = 0; index < count; ++index) {
+        result.push_back(digits[(bytes[index] >> 4U) & 0xfU]);
+        result.push_back(digits[bytes[index] & 0xfU]);
+    }
+    return result;
+}
+
+std::string driverIdName(std::uint32_t driver_id) {
+    switch (driver_id) {
+    case 8U: return "VK_DRIVER_ID_QUALCOMM_PROPRIETARY";
+    case 9U: return "VK_DRIVER_ID_ARM_PROPRIETARY";
+    case 10U: return "VK_DRIVER_ID_GOOGLE_SWIFTSHADER";
+    case 20U: return "VK_DRIVER_ID_MESA_PANVK";
+    default: return "VK_DRIVER_ID_UNKNOWN";
+    }
+}
+
+std::string conformanceVersionString(const VkConformanceVersion& version) {
+    return std::to_string(version.major) + "." +
+           std::to_string(version.minor) + "." +
+           std::to_string(version.subminor) + "." +
+           std::to_string(version.patch);
 }
 
 std::string formatName(VkFormat format) {
@@ -1751,17 +1797,27 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             }
         }
         VkApplicationInfo app_info{VK_STRUCTURE_TYPE_APPLICATION_INFO};
-        app_info.pApplicationName = "NYAMIST G925 R2.0";
+        app_info.pApplicationName = "NYAMIST G925 R2.3";
         app_info.applicationVersion = VK_MAKE_VERSION(1, 9, 0);
         app_info.pEngineName = "CHORD OF NYAMIST";
         app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-        const bool core_features2_available =
-            VK_VERSION_MAJOR(loader_api_version) > 1U ||
-            VK_VERSION_MINOR(loader_api_version) >= 1U;
-        instance_api_version = core_features2_available
-            ? VK_API_VERSION_1_1 : VK_API_VERSION_1_0;
+        // Request the highest core version exposed by the public Android
+        // loader, capped at 1.4. The physical-device version is queried
+        // separately; a 1.4 loader cannot upgrade a 1.3 GPU driver.
+        if (versionAtLeast(loader_api_version, 1U, 4U)) {
+            instance_api_version = VK_MAKE_VERSION(1, 4, 0);
+        } else if (versionAtLeast(loader_api_version, 1U, 3U)) {
+            instance_api_version = VK_MAKE_VERSION(1, 3, 0);
+        } else if (versionAtLeast(loader_api_version, 1U, 2U)) {
+            instance_api_version = VK_MAKE_VERSION(1, 2, 0);
+        } else if (versionAtLeast(loader_api_version, 1U, 1U)) {
+            instance_api_version = VK_API_VERSION_1_1;
+        } else {
+            instance_api_version = VK_API_VERSION_1_0;
+        }
         app_info.apiVersion = instance_api_version;
         report.loader_api_version = versionString(loader_api_version);
+        report.instance_api_version = versionString(instance_api_version);
 
         VkInstanceCreateInfo create_info{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
         create_info.pApplicationInfo = &app_info;
@@ -1784,6 +1840,12 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         LOAD_INSTANCE(destroy_instance, "vkDestroyInstance");
         LOAD_INSTANCE(enumerate_physical_devices, "vkEnumeratePhysicalDevices");
         LOAD_INSTANCE(get_physical_device_properties, "vkGetPhysicalDeviceProperties");
+        LOAD_INSTANCE(get_physical_device_properties2, "vkGetPhysicalDeviceProperties2");
+        if (vk.get_physical_device_properties2 == nullptr) {
+            vk.get_physical_device_properties2 =
+                reinterpret_cast<PFN_vkGetPhysicalDeviceProperties2>(
+                    vk.get_instance_proc_addr(instance, "vkGetPhysicalDeviceProperties2KHR"));
+        }
         LOAD_INSTANCE(get_physical_device_memory_properties, "vkGetPhysicalDeviceMemoryProperties");
         LOAD_INSTANCE(get_physical_device_features2, "vkGetPhysicalDeviceFeatures2");
         if (vk.get_physical_device_features2 == nullptr) {
@@ -1901,6 +1963,103 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                     return out;
                 }(properties.deviceID);
                 report.physical_device_api_version = versionString(properties.apiVersion);
+
+                // Query driver identity and the physical-device UUID through
+                // the public Vulkan properties2 API, not private driver APIs.
+                report.physical_device_properties2_query_status =
+                    vk.get_physical_device_properties2 != nullptr
+                        ? "available" : "entry_point_unavailable";
+                if (vk.get_physical_device_properties2 != nullptr) {
+                    VkPhysicalDeviceIDProperties id_properties{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES};
+                    VkPhysicalDeviceProperties2 properties2{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+                    if (versionAtLeast(properties.apiVersion, 1U, 2U)) {
+                        VkPhysicalDeviceDriverProperties driver_properties{
+                            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES};
+                        driver_properties.pNext = &id_properties;
+                        properties2.pNext = &driver_properties;
+                        vk.get_physical_device_properties2(
+                            selected_physical_device, &properties2);
+                        report.driver_properties_query_status = "success";
+                        report.driver_id = static_cast<std::uint32_t>(
+                            driver_properties.driverID);
+                        report.driver_id_name = driverIdName(report.driver_id);
+                        report.driver_name = driver_properties.driverName;
+                        report.driver_info = driver_properties.driverInfo;
+                        report.driver_version_raw = driver_properties.driverVersion;
+                        report.driver_version_hex = hex32(driver_properties.driverVersion);
+                        report.driver_conformance_version =
+                            conformanceVersionString(driver_properties.conformanceVersion);
+                        report.physical_device_uuid_hex =
+                            uuidHex(id_properties.deviceUUID, VK_UUID_SIZE);
+                    } else if (versionAtLeast(properties.apiVersion, 1U, 1U)) {
+                        properties2.pNext = &id_properties;
+                        vk.get_physical_device_properties2(
+                            selected_physical_device, &properties2);
+                        report.driver_properties_query_status =
+                            "not_core_before_vulkan_1_2";
+                        report.physical_device_uuid_hex =
+                            uuidHex(id_properties.deviceUUID, VK_UUID_SIZE);
+                    } else {
+                        report.driver_properties_query_status =
+                            "not_supported_by_physical_device_api";
+                    }
+                } else {
+                    report.driver_properties_query_status = "unavailable";
+                }
+
+                report.vulkan_1_4_device_api_supported =
+                    versionAtLeast(properties.apiVersion, 1U, 4U);
+                if (!report.vulkan_1_4_device_api_supported) {
+                    report.vulkan_1_4_support_status =
+                        "not_exposed_by_physical_device";
+                    report.vulkan_1_4_features_query_status =
+                        "skipped_physical_device_api_below_1_4";
+                    report.vulkan_1_4_required_features_status = "not_exposed";
+                } else if (!versionAtLeast(instance_api_version, 1U, 4U)) {
+                    report.vulkan_1_4_support_status = "device_api_1_4_instance_api_too_low";
+                    report.vulkan_1_4_features_query_status =
+                        "skipped_instance_api_below_1_4";
+                } else if (vk.get_physical_device_features2 == nullptr) {
+                    report.vulkan_1_4_support_status = "device_api_1_4_features2_unavailable";
+                    report.vulkan_1_4_features_query_status = "entry_point_unavailable";
+                } else {
+                    VkPhysicalDeviceVulkan14Features features14{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES};
+                    VkPhysicalDeviceFeatures2 features2{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+                    features2.pNext = &features14;
+                    vk.get_physical_device_features2(selected_physical_device, &features2);
+                    report.vulkan_1_4_features_query_status = "success";
+                    report.vulkan_1_4_bresenham_lines_supported =
+                        features14.bresenhamLines == VK_TRUE;
+                    report.vulkan_1_4_shader_subgroup_rotate_clustered_supported =
+                        features14.shaderSubgroupRotateClustered == VK_TRUE;
+                    report.vulkan_1_4_push_descriptor_supported =
+                        features14.pushDescriptor == VK_TRUE;
+                    report.vulkan_1_4_protected_memory_supported =
+                        features2.features.protectedMemory == VK_TRUE;
+                    report.vulkan_1_4_pipeline_protected_access_required =
+                        report.vulkan_1_4_protected_memory_supported;
+                    report.vulkan_1_4_pipeline_protected_access_supported =
+                        features14.pipelineProtectedAccess == VK_TRUE;
+                    report.vulkan_1_4_required_features_supported =
+                        report.vulkan_1_4_bresenham_lines_supported &&
+                        report.vulkan_1_4_shader_subgroup_rotate_clustered_supported &&
+                        report.vulkan_1_4_push_descriptor_supported &&
+                        (!report.vulkan_1_4_pipeline_protected_access_required ||
+                         report.vulkan_1_4_pipeline_protected_access_supported);
+                    report.vulkan_1_4_required_features_status =
+                        report.vulkan_1_4_required_features_supported
+                            ? "required_feature_sample_pass"
+                            : "required_feature_sample_failed";
+                    report.vulkan_1_4_support_status =
+                        report.vulkan_1_4_required_features_supported
+                            ? "api_1_4_exposed_feature_sample_pass"
+                            : "api_1_4_exposed_feature_sample_failed";
+                }
+
                 report.queue_timestamp_valid_bits = selected_queue_timestamp_valid_bits;
                 report.timestamp_compute_and_graphics_supported =
                     properties.limits.timestampComputeAndGraphics == VK_TRUE;
