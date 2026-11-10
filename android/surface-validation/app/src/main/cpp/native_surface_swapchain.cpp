@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <dlfcn.h>
@@ -565,7 +566,7 @@ bool runFrameSequence(
         VkFormat format,
         VkExtent2D extent,
         VkSemaphore& acquire_semaphore,
-        VkSemaphore& present_semaphore,
+        std::vector<VkSemaphore>& present_semaphores,
         VkQueryPool& timestamp_query_pool,
         VkCommandPool& command_pool,
         VkCommandBuffer& command_buffer,
@@ -589,14 +590,21 @@ bool runFrameSequence(
         fail(report, "Acquire semaphore creation failed: " + resultName(result));
         return false;
     }
-    result = vk.create_semaphore(
-        device, &semaphore_info, nullptr, &present_semaphore);
-    report.present_semaphore_create_status =
-        result == VK_SUCCESS ? "success" : "failed";
-    if (result != VK_SUCCESS) {
-        fail(report, "Present semaphore creation failed: " + resultName(result));
-        return false;
+    // A present-wait semaphore is associated with the acquired swapchain image.
+    // Reacquiring that same image is the Vulkan-guaranteed point at which its
+    // previous presentation wait has completed and the semaphore can be reused.
+    present_semaphores.assign(images.size(), VK_NULL_HANDLE);
+    for (std::size_t image = 0U; image < images.size(); ++image) {
+        result = vk.create_semaphore(
+            device, &semaphore_info, nullptr, &present_semaphores[image]);
+        if (result != VK_SUCCESS) {
+            report.present_semaphore_create_status = "failed";
+            fail(report, "Present semaphore creation failed for swapchain image " +
+                         std::to_string(image) + ": " + resultName(result));
+            return false;
+        }
     }
+    report.present_semaphore_create_status = "success";
 
     const bool timestamp_supported =
         report.queue_timestamp_valid_bits > 0U &&
@@ -658,7 +666,7 @@ bool runFrameSequence(
         const bool frame_ok = renderAndPresentFrame(
             vk, report, device, queue, queue_family, swapchain,
             images[image_index], format, extent, image_index,
-            acquire_semaphore, present_semaphore,
+            acquire_semaphore, present_semaphores[image_index],
             command_pool, command_buffer, image_view, render_pass, framebuffer,
             vertex_shader, fragment_shader, pipeline_layout, graphics_pipeline,
             collect_sample ? timestamp_query_pool : VK_NULL_HANDLE,
@@ -713,7 +721,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
     VkPipeline graphics_pipeline = VK_NULL_HANDLE;
     VkSemaphore acquire_semaphore = VK_NULL_HANDLE;
-    VkSemaphore present_semaphore = VK_NULL_HANDLE;
+    std::vector<VkSemaphore> present_semaphores;
     VkQueryPool timestamp_query_pool = VK_NULL_HANDLE;
     VkCommandPool command_pool = VK_NULL_HANDLE;
     VkCommandBuffer command_buffer = VK_NULL_HANDLE;
@@ -1159,7 +1167,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                     } else if (!runFrameSequence(
                                         vk, report, device, queue, selected_queue_family,
                                         swapchain, images, selected_format.format, extent,
-                                        acquire_semaphore, present_semaphore, timestamp_query_pool,
+                                        acquire_semaphore, present_semaphores, timestamp_query_pool,
                                         command_pool, command_buffer, image_view, render_pass,
                                         framebuffer, vertex_shader, fragment_shader,
                                         pipeline_layout, graphics_pipeline)) {
@@ -1280,14 +1288,21 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             cleanup_ok = false;
         }
     }
-    if (present_semaphore != VK_NULL_HANDLE) {
+    bool present_semaphores_destroyed = true;
+    for (VkSemaphore& semaphore : present_semaphores) {
+        if (semaphore == VK_NULL_HANDLE) continue;
         if (vk.destroy_semaphore != nullptr) {
-            vk.destroy_semaphore(device, present_semaphore, nullptr);
-            report.present_semaphore_destroy_status = "success";
+            vk.destroy_semaphore(device, semaphore, nullptr);
+            semaphore = VK_NULL_HANDLE;
         } else {
-            report.present_semaphore_destroy_status = "failed";
+            present_semaphores_destroyed = false;
             cleanup_ok = false;
         }
+    }
+    if (present_semaphores_destroyed && !present_semaphores.empty()) {
+        report.present_semaphore_destroy_status = "success";
+    } else if (!present_semaphores_destroyed) {
+        report.present_semaphore_destroy_status = "failed";
     }
     if (swapchain != VK_NULL_HANDLE) {
         if (vk.destroy_swapchain != nullptr) {
