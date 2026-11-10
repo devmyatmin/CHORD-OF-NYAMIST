@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:allowBackup="false"
-        android:label="NYAMIST G925 R2.1 Surface Lifecycle Validation"
+        android:label="NYAMIST G925 R2.4 Vulkan 1.4 Extension Audit"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity

@@ -1,106 +1,138 @@
-# NYAMIST G925 R2.1 — Surface Lifecycle and WSI Session Recreation
+# NYAMIST G925 R2.2 — Swapchain Resize and OUT_OF_DATE Recovery
 
-R2.1 extends the R2.0 pixel-readback validation with Android Surface lifecycle
-tracking and serialized Vulkan WSI session reconstruction.
+R2.2 extends R2.1 Surface lifecycle validation with a same-device Vulkan
+swapchain replacement probe and bounded handling for WSI result changes.
 
-## Execution model
+## Same-device oldSwapchain handoff
 
-- Android SurfaceHolder callbacks record surface creation, size changes,
-  resizes and destruction.
-- Activity pause/resume callbacks are recorded. If the Activity resumes while
-  the same Surface remains available, a new WSI validation session is queued.
-- The on-screen REBUILD VULKAN SURFACE / SWAPCHAIN button requests another
-  explicit validation session without requiring an OS Surface destruction.
-- Each request retains a strong Java reference to the framework-owned
-  Surface object. No unsupported Surface copy constructor is used. The native
-  validation function calls ANativeWindow_fromSurface and holds its own
-  ANativeWindow reference for the full session.
-- All native calls run on one single-thread executor. A newer Surface
-  generation invalidates queued stale requests. If surfaceDestroyed arrives
-  during an active native session, the callback waits for that session to
-  finish Vulkan cleanup and release its ANativeWindow before returning.
-  This keeps native use inside the SurfaceHolder validity interval.
-- Each invocation constructs a fresh WSI session. R2.1 does not yet claim an
-  in-place vkCreateSwapchainKHR oldSwapchain handoff.
+1. Build the initial FIFO Android swapchain on the selected G925 device.
+2. Re-query VkSurfaceCapabilitiesKHR, surface formats and present modes.
+3. Recompute the current extent using currentExtent or the requested Android
+   Surface dimensions clamped to the refreshed min/max extent.
+4. Create a replacement VkSwapchainKHR with oldSwapchain set to the current
+   swapchain handle, preserving the same VkDevice and Android VkSurfaceKHR.
+5. Enumerate the replacement images and destroy the retired old swapchain.
+6. Acquire one replacement image, record a layout transition from
+   UNDEFINED to PRESENT_SRC_KHR, submit the command buffer, and present it.
+7. Wait for VK_EXT_swapchain_maintenance1 present fence when available;
+   otherwise use queue-idle fallback and report the weaker completion mode.
+8. Run the regular R2.0 triangle render, timestamp and five-pixel readback
+   sequence on the replacement swapchain.
 
-## Lifecycle report
+The handoff probe intentionally does not draw scene content on its one
+replacement image. Its purpose is to prove the new chain can be acquired,
+submitted and presented while retaining the same logical device. The following
+normal frame sequence performs the actual triangle draw and pixel readback.
 
-The native schema-v6 report is preserved. Android adds a top-level
-android_surface_lifecycle object with nested schema_version 1.
+## WSI result policy
 
-It records:
+- VK_SUCCESS continues the current operation.
+- VK_SUBOPTIMAL_KHR permits the current operation to complete, then requests
+  a replacement swapchain. The replacement probe retries boundedly if the
+  new chain is still suboptimal.
+- VK_ERROR_OUT_OF_DATE_KHR requests replacement before another acquire/present.
+  The replacement probe retries up to two times after the first attempt,
+  using the latest swapchain as oldSwapchain each time.
+- Other errors remain fatal and are not silently converted to success.
 
-- Surface created, recreated, changed, destroyed and resize counts.
-- Activity pause/resume counts and current resumed state.
-- Session generation, request ID, reason, requested dimensions and result.
-- Native session started, completed, successful and skipped counts.
-- Active and maximum concurrent native session counts.
-- Whether the session was still current when it completed.
-- The serialized rebuild policy used by the Activity.
+The primary 17-frame renderer still treats an OUT_OF_DATE result as a failed
+native session, with an explicit status. Android then queues one fresh full
+WSI session retry per Surface generation after native cleanup. That fallback
+recreates the VkDevice too; it is reported separately and is not described as
+same-device swapchain recovery.
 
-A successful serialized run should report
-max_concurrent_native_sessions = 1 and native_session_active_count = 0.
-Successful Vulkan resource cleanup is still required for each native session.
+The deterministic native policy self-test verifies the result mapping.
+Actual driver-returned OUT_OF_DATE and SUBOPTIMAL results are counted
+separately. When neither occurs, the report says "not_observed"; this is not
+evidence that the driver returned OUT_OF_DATE.
 
-## Device test procedure
+## R2.2 report schema v7
 
-1. Install the R2.1 APK and open NYAMIST G925 R2.1.
-2. Wait for the initial WSI session to finish and show SUCCESS.
-3. Tap REBUILD VULKAN SURFACE / SWAPCHAIN once. Wait for the next SUCCESS.
-4. Press Home, wait briefly, then return to the app. This records Activity
-   pause/resume and automatically requests a fresh WSI session if the Surface
-   is still available. Android may also destroy and recreate the Surface.
-5. Rotate the device once if convenient; a size change should request another
-   session. Rotate back if needed.
-6. Wait for the latest session to finish, tap COPY JSON REPORT, and provide
-   the complete JSON.
+The native JSON schema v7 adds:
 
-The device must show at least two completed native sessions, no more than one
-concurrent native session, successful swapchain creation and cleanup for the
-latest session, and a successful R2.0 pixel-readback check. To claim an actual
-Surface recreation event, the report must show surface_destroyed_count >= 1
-and surface_recreated_count >= 1. If Android keeps the same Surface while the
-app is paused, the pause/resume plus manual rebuild evidence is recorded
-separately and must not be mislabeled as a Surface destroy/create cycle.
+- oldSwapchain handoff mode, attempt/success counts and old-handle destruction.
+- Replacement image query status/count.
+- Extent before/after and whether the Surface extent changed.
+- Same VkDevice reuse evidence.
+- Replacement image acquire, command submission, present and completion status.
+- Separate acquire/present SUBOPTIMAL and OUT_OF_DATE counters.
+- Bounded recovery attempt/success counters and explicit not-observed/recovered
+  status for real OUT_OF_DATE events.
+- Android lifecycle metadata includes the distinct full-session retry counter
+  used only when the primary render loop returns OUT_OF_DATE.
 
-## Current REDMI K80 Ultra result
+## R2.2 device test procedure
 
-The first R2.1 device run completed seven fresh native WSI sessions (7/7
-successful, zero skipped) with max_concurrent_native_sessions=1. Pixel
-readback and present-fence validation remained successful.
+1. Install NYAMIST G925 R2.2 and open the app.
+2. Wait for the initial SUCCESS report.
+3. Rotate the device once and allow Android to recreate or resize the Surface.
+4. Wait for the newest session to finish and copy the full JSON report.
+5. Check swapchain_recreation_status, oldSwapchain supplied/destroyed,
+   logical device reused, replacement probe acquire/submit/present and
+   completion fields, plus the R2.0 pixel and R1.9 present-fence evidence.
+6. Check swapchain_extent_changed and the actual WSI result counters. Do not
+   call it a resize pass when the extent did not change. Do not claim a real
+   OUT_OF_DATE recovery if the observed driver result count is zero.
 
-This run used six explicit manual rebuilds on Surface generation 1. It
-reported surface_destroyed_count=0, surface_recreated_count=0 and
-activity_pause_count=0. It is therefore a PASS for serialized WSI session
-reconstruction, but not yet a Surface destruction/recreation or Activity
-pause/resume pass. Complete the Home/return and rotation test before claiming
-those lifecycle events.
-
-See [R2.1 REDMI K80 Ultra evidence](../../docs/evidence/NYAMIST-G925-R2.1-redmi-k80-ultra-2026-11-10.md).
-
-## R2.1 REDMI K80 Ultra hardware result — PASS
-
-The latest supplied device report confirms six Surface creations, five
-destructions and five recreations, plus five Activity pauses and six resumes.
-It completed 16/16 native WSI sessions with zero skips, zero active sessions
-at report time, and max_concurrent_native_sessions=1. The latest session
-retained successful R2.0 pixel readback, 17/17 present-fence attaches/waits,
-and successful Vulkan cleanup.
-
-This is a Surface lifecycle and serialized WSI session HARDWARE PASS.
-The report observed zero Surface resize events; resize remains separately
-unvalidated. See [R2.1 hardware evidence](../../docs/evidence/NYAMIST-G925-R2.1-redmi-k80-ultra-2026-11-10.md).
+A successful oldSwapchain handoff with identical before/after dimensions
+proves same-device replacement but does not prove an actual resize event.
+Android's fixed currentExtent may legitimately remain unchanged for a Surface.
 
 ## Validation boundaries
 
-Hosted CI checks the Java/native build, shader compilation, APK packaging and
-lifecycle contract smoke tests. Actual Surface destruction/recreation behavior
-is device- and OS-lifecycle-dependent and requires the complete R2.1 report
-from the REDMI K80 Ultra.
+Hosted tests validate report serialization, policy classification, Java
+session-retry wiring, native compilation and APK packaging. Hardware evidence
+is required to establish replacement swapchain behavior on the MT6991 driver.
 
 This milestone does not establish FPS, sustained performance, thermal/battery
-behavior, physical-panel scanout, or game-engine compatibility.
+behavior, physical-panel scanout, game-engine compatibility or Stranded Deep
+Android compatibility.
 
 Stock Android public Vulkan loader and vendor driver only. No root, direct GPU
-device-node access, SELinux/kernel changes, vendor partition writes, or
-driver replacement.
+device-node access, SELinux/kernel changes, vendor partition writes, or driver
+replacement.
+
+## Hosted R2.2 build — PASS
+
+The current R2.2 source passed Core CI push/PR and Android APK push/PR
+workflows. The PR APK artifact (ID 13734383707) contains a valid arm64-v8a
+debug APK with an ELF64/AArch64 native library built using NDK r28c.
+
+Target-device validation is still pending. The REDMI K80 Ultra report must
+show oldSwapchain supplied, replacement-image query/acquire/submit/present,
+presentation completion, same logical device reuse, and separate actual
+SUBOPTIMAL / OUT_OF_DATE counters. A swapchain handoff with unchanged extent
+must not be described as a resize pass.
+
+## R2.3 — Vulkan 1.4 and stock-driver identity audit
+
+R2.3 requests the highest Vulkan instance API version exposed by the Android
+public loader, capped at 1.4. It does not upgrade the physical-device driver:
+loader API, instance API and physical-device API are reported separately.
+
+The report queries `VkPhysicalDeviceDriverProperties` and
+`VkPhysicalDeviceIDProperties` through `vkGetPhysicalDeviceProperties2`,
+recording driver ID/name/info, raw driver version (decimal and hexadecimal),
+conformance version and physical-device UUID.
+
+When the physical device itself advertises Vulkan 1.4 and the instance API is
+also 1.4, the app queries `VkPhysicalDeviceVulkan14Features` and checks
+Bresenham lines, clustered subgroup rotate, push descriptors, and the
+conditional protected-pipeline-access feature. This focused audit is not a
+replacement for Vulkan CTS or Android VTS.
+
+### R2.3 device test
+
+1. Install NYAMIST G925 R2.3 and run it on the REDMI K80 Ultra.
+2. Wait for the complete G925 Surface validation session.
+3. Copy the full JSON report.
+4. Review `loader_api_version`, `instance_api_version`,
+   `physical_device_api_version`, `driver_id`, `driver_name`,
+   `driver_info`, `driver_version_raw`, `driver_version_hex`,
+   `driver_conformance_version`, `physical_device_uuid` and
+   `vulkan_1_4_support_status`.
+
+A 1.4 loader with a physical-device API of 1.3 remains a Vulkan 1.3 GPU
+implementation. The app does not replace the stock vendor driver or modify
+system partitions.
+

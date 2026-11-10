@@ -29,7 +29,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private final Object lifecycleLock = new Object();
     private final ExecutorService validationExecutor =
             Executors.newSingleThreadExecutor(runnable -> {
-                Thread thread = new Thread(runnable, "nyamist-r2.1-wsi-session");
+                Thread thread = new Thread(runnable, "nyamist-r2.6-indexed-draw-session");
                 thread.setDaemon(false);
                 return thread;
             });
@@ -66,6 +66,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private int nativeSessionSkippedCount;
     private int activeNativeSessions;
     private int maxConcurrentNativeSessions;
+    private int outOfDateSessionRetryGeneration = -1;
+    private int outOfDateSessionRetryCount;
     private String lastSurfaceEvent = "waiting_for_surface";
 
     private static native String validateSurfaceNative(Surface surface, int width, int height);
@@ -80,7 +82,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         root.setPadding(pad, pad, pad, pad);
 
         TextView title = new TextView(this);
-        title.setText("CHORD OF NYAMIST — G925 R2.1");
+        title.setText("CHORD OF NYAMIST — G925 R2.6");
         title.setTextSize(20.0f);
         root.addView(title, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -156,6 +158,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             currentHolder = holder;
             surfaceAvailable = true;
             surfaceGeneration++;
+            outOfDateSessionRetryGeneration = -1;
             surfaceCreatedCount++;
             if (surfaceWasDestroyed) surfaceRecreatedCount++;
             surfaceWasDestroyed = false;
@@ -320,6 +323,10 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         boolean sessionSuccess = nativeJson.contains("\"status\": \"success\"")
                 || nativeJson.contains("\"status\":\"success\"");
         boolean sessionCurrent;
+        SurfaceHolder retryHolder = null;
+        int retryWidth = 0;
+        int retryHeight = 0;
+        boolean outOfDateRetryQueued = false;
         synchronized (lifecycleLock) {
             nativeSessionCompletedCount++;
             if (sessionSuccess) nativeSessionSuccessCount++;
@@ -327,6 +334,17 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             sessionCurrent = surfaceAvailable && sessionGeneration == surfaceGeneration
                     && requestId == latestRequestId
                     && width == currentSurfaceWidth && height == currentSurfaceHeight;
+            boolean primaryOutOfDate = nativeJson.contains("VK_ERROR_OUT_OF_DATE_KHR");
+            if (!sessionSuccess && primaryOutOfDate && sessionCurrent
+                    && outOfDateSessionRetryGeneration != sessionGeneration
+                    && currentHolder != null && currentSurfaceWidth > 0 && currentSurfaceHeight > 0) {
+                outOfDateSessionRetryGeneration = sessionGeneration;
+                outOfDateSessionRetryCount++;
+                retryHolder = currentHolder;
+                retryWidth = currentSurfaceWidth;
+                retryHeight = currentSurfaceHeight;
+                outOfDateRetryQueued = true;
+            }
             lifecycleLock.notifyAll();
         }
 
@@ -337,22 +355,32 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
 
         final String result = completeReport;
         final boolean currentAtCompletion = sessionCurrent;
+        final boolean retryQueued = outOfDateRetryQueued;
+        final SurfaceHolder queuedHolder = retryHolder;
+        final int queuedWidth = retryWidth;
+        final int queuedHeight = retryHeight;
         if (!activityDestroyed) {
             runOnUiThread(() -> {
                 if (activityDestroyed) return;
                 latestReport = result;
                 reportView.setText(result);
-                if (!currentAtCompletion) {
+                if (retryQueued) {
+                    statusView.setText("VK_ERROR_OUT_OF_DATE_KHR detected; a fresh WSI session retry is queued.");
+                } else if (!currentAtCompletion) {
                     statusView.setText(
                             "A previous Surface session finished. The current Surface session is queued.");
                 } else if (!sessionSuccess) {
-                    statusView.setText("R2.1 WSI session failed; inspect the JSON report.");
+                    statusView.setText("R2.6 WSI session failed; inspect the JSON report.");
                 } else if (result.contains("\"pixel_verification_status\": \"success\"")) {
-                    statusView.setText("R2.1 WSI session SUCCESS — pixel readback also passed.");
+                    statusView.setText("R2.6 WSI session SUCCESS — pixel readback also passed.");
                 } else {
-                    statusView.setText("R2.1 WSI session completed; inspect the validation fields.");
+                    statusView.setText("R2.6 WSI session completed; inspect the validation fields.");
                 }
             });
+        }
+        if (outOfDateRetryQueued && queuedHolder != null) {
+            scheduleValidation(queuedHolder, queuedWidth, queuedHeight,
+                    "out_of_date_full_wsi_session_retry", true);
         }
     }
 
@@ -406,6 +434,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                     + "\n    \"native_session_skipped_count\": " + nativeSessionSkippedCount + ","
                     + "\n    \"native_session_active_count\": " + activeNativeSessions + ","
                     + "\n    \"max_concurrent_native_sessions\": " + maxConcurrentNativeSessions + ","
+                    + "\n    \"out_of_date_full_session_retry_count\": " + outOfDateSessionRetryCount + ","
+                    + "\n    \"out_of_date_full_session_retry_generation\": " + outOfDateSessionRetryGeneration + ","
                     + "\n    \"last_surface_event\": \"" + lastSurfaceEvent + "\","
                     + "\n    \"session_rebuild_policy\": \"fresh_wsi_session_per_request\""
                     + "\n  }";
@@ -414,8 +444,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     }
 
     private String failureJson(String reason) {
-        return "{\n  \"schema_version\": 6,"
-                + "\n  \"project\": \"CHORD OF NYAMIST / NYAMIST G925 R2.1\","
+        return "{\n  \"schema_version\": 11,"
+                + "\n  \"project\": \"CHORD OF NYAMIST / NYAMIST G925 R2.6\","
                 + "\n  \"status\": \"failed\","
                 + "\n  \"failure_reason\": \"" + reason + "\""
                 + "\n}";
@@ -425,15 +455,15 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         try {
             File directory = getExternalFilesDir(null);
             if (directory == null) directory = getFilesDir();
-            File output = new File(directory, "nyamist-g925-r2.1-surface-lifecycle.json");
+            File output = new File(directory, "nyamist-g925-r2.6-uint8-index-probe.json");
             try (FileOutputStream stream = new FileOutputStream(output, false)) {
                 stream.write(json.getBytes(StandardCharsets.UTF_8));
             }
             String digest = sha256(json);
-            android.util.Log.i("NYAMIST_R2_1", "Report: " + output.getAbsolutePath());
-            android.util.Log.i("NYAMIST_R2_1", "SHA-256: " + digest);
+            android.util.Log.i("NYAMIST_R2_4", "Report: " + output.getAbsolutePath());
+            android.util.Log.i("NYAMIST_R2_4", "SHA-256: " + digest);
         } catch (Exception error) {
-            android.util.Log.e("NYAMIST_R2_1", "Could not save report", error);
+            android.util.Log.e("NYAMIST_R2_4", "Could not save report", error);
         }
     }
 
@@ -444,8 +474,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         }
         ClipboardManager clipboard =
                 (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R2.1 JSON", latestReport));
-        statusView.setText("R2.1 JSON report copied to clipboard.");
+        clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R2.6 JSON", latestReport));
+        statusView.setText("R2.6 JSON report copied to clipboard.");
     }
 
     @Override
