@@ -40,7 +40,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         root.setPadding(pad, pad, pad, pad);
 
         TextView title = new TextView(this);
-        title.setText("CHORD OF NYAMIST — G925 R1.9");
+        title.setText("CHORD OF NYAMIST — G925 R2.0");
         title.setTextSize(20.0f);
         root.addView(title, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -83,7 +83,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
         if (validatedCurrentSurface || width <= 0 || height <= 0) return;
         validatedCurrentSurface = true;
-        statusView.setText("Running R1.9 WSI present-fence validation with 16-frame GPU timing...");
+        statusView.setText("Running R2.0 WSI present-fence validation with 16-frame GPU timing...");
         final Surface surface = holder.getSurface();
         final int surfaceWidth = width;
         final int surfaceHeight = height;
@@ -102,14 +102,14 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                 latestReport = result;
                 reportView.setText(result);
                 if (!result.contains("\"status\": \"success\"")) {
-                    statusView.setText("R1.9 validation did not pass; inspect JSON report");
-                } else if (result.contains("\"present_fence_used\": true")) {
-                    statusView.setText("R1.9 present-fence validation: SUCCESS");
+                    statusView.setText("R2.0 validation did not pass; inspect JSON report");
+                } else if (result.contains("\"pixel_verification_status\": \"success\"")) {
+                    statusView.setText("R2.0 pixel readback validation: SUCCESS");
                 } else {
-                    statusView.setText("R1.9 frame validation passed; present fence unsupported (fallback)");
+                    statusView.setText("R2.0 pipeline completed; inspect pixel readback status");
                 }
             });
-        }, "nyamist-r1.9-validation").start();
+        }, "nyamist-r2.0-validation").start();
     }
 
     @Override
@@ -122,15 +122,15 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         try {
             File directory = getExternalFilesDir(null);
             if (directory == null) directory = getFilesDir();
-            File output = new File(directory, "nyamist-g925-r1.9-wsi-present-fence.json");
+            File output = new File(directory, "nyamist-g925-r2.0-wsi-present-fence.json");
             try (FileOutputStream stream = new FileOutputStream(output, false)) {
                 stream.write(json.getBytes(StandardCharsets.UTF_8));
             }
             String digest = sha256(json);
-            android.util.Log.i("NYAMIST_R1_9", "Report: " + output.getAbsolutePath());
-            android.util.Log.i("NYAMIST_R1_9", "SHA-256: " + digest);
+            android.util.Log.i("NYAMIST_R2_0", "Report: " + output.getAbsolutePath());
+            android.util.Log.i("NYAMIST_R2_0", "SHA-256: " + digest);
         } catch (Exception error) {
-            android.util.Log.e("NYAMIST_R1_9", "Could not save report", error);
+            android.util.Log.e("NYAMIST_R2_0", "Could not save report", error);
         }
     }
 
@@ -141,7 +141,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         }
         ClipboardManager clipboard =
                 (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R1.9 JSON", latestReport));
+        clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R2.0 JSON", latestReport));
         statusView.setText("JSON report copied to clipboard.");
     }
 
