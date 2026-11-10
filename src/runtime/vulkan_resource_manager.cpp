@@ -1,4 +1,5 @@
 #include "nyamist/runtime/vulkan_resource_manager.hpp"
+#include <utility>
 
 namespace nyamist::runtime {
 

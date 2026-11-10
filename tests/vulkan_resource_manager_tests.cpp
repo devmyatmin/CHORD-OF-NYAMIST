@@ -64,5 +64,5 @@ void testNoCompatibleMemory() {
 }
 }
 int main(){try{testCreateAndDestroy();testAllocationRollback();testBindRollback();testNoCompatibleMemory();
-std::cout<<"All NYAMIST Vulkan resource manager tests passed.\\n";return 0;}
-catch(const std::exception& e){std::cerr<<"Vulkan resource manager test failure: "<<e.what()<<'\\n';return 1;}}
+std::cout<<"All NYAMIST Vulkan resource manager tests passed.\n";return 0;}
+catch(const std::exception& e){std::cerr<<"Vulkan resource manager test failure: "<<e.what()<<'\n';return 1;}}
