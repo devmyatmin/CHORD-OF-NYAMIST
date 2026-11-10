@@ -11,14 +11,15 @@ tracking and serialized Vulkan WSI session reconstruction.
   the same Surface remains available, a new WSI validation session is queued.
 - The on-screen REBUILD VULKAN SURFACE / SWAPCHAIN button requests another
   explicit validation session without requiring an OS Surface destruction.
-- Each request receives a copied Java Surface handle. The native validation
-  function acquires its ANativeWindow reference and constructs a new Vulkan
-  instance, Android VkSurfaceKHR, logical device, swapchain, rendering
-  resources and presentation resources. It completes cleanup before returning.
+- Each request retains a strong Java reference to the framework-owned
+  Surface object. No unsupported Surface copy constructor is used. The native
+  validation function calls ANativeWindow_fromSurface and holds its own
+  ANativeWindow reference for the full session.
 - All native calls run on one single-thread executor. A newer Surface
-  generation invalidates queued stale requests. An already-running native
-  session is allowed to finish its orderly cleanup; the next valid Surface
-  session runs afterward.
+  generation invalidates queued stale requests. If surfaceDestroyed arrives
+  during an active native session, the callback waits for that session to
+  finish Vulkan cleanup and release its ANativeWindow before returning.
+  This keeps native use inside the SurfaceHolder validity interval.
 - Each invocation constructs a fresh WSI session. R2.1 does not yet claim an
   in-place vkCreateSwapchainKHR oldSwapchain handoff.
 
