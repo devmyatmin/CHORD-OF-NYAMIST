@@ -35,7 +35,7 @@ class R23Vulkan14DriverAuditContractTests(unittest.TestCase):
         self.assertIn("driver_properties.driverID", self.native)
         self.assertIn("driver_properties.driverName", self.native)
         self.assertIn("driver_properties.driverInfo", self.native)
-        self.assertIn("driver_properties.driverVersion", self.native)
+        self.assertIn("properties.driverVersion", self.native)
         self.assertIn("driver_properties.conformanceVersion", self.native)
         self.assertIn('"physical_device_uuid"', self.serializer)
 
@@ -50,12 +50,21 @@ class R23Vulkan14DriverAuditContractTests(unittest.TestCase):
         self.assertIn("features14.shaderSubgroupRotateClustered", self.native)
         self.assertIn("features14.pushDescriptor", self.native)
         self.assertIn("features14.pipelineProtectedAccess", self.native)
+        self.assertIn("VkPhysicalDeviceVulkan11Features", self.native)
+        self.assertIn("features11.protectedMemory", self.native)
         self.assertIn("skipped_physical_device_api_below_1_4", self.native)
 
     def test_app_version_and_report_path_are_r23(self):
         self.assertIn("versionCode = 230", self.gradle)
         self.assertIn('versionName = "2.3.0"', self.gradle)
         self.assertIn("nyamist-g925-r2.3-vulkan-1.4-audit.json", self.activity)
+
+    def test_android_build_uses_pinned_official_vulkan_headers(self):
+        cmake = (ROOT / "android/surface-validation/app/src/main/cpp/CMakeLists.txt").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github/workflows/r2.3-vulkan-1.4-driver-audit.yml").read_text(encoding="utf-8")
+        self.assertIn("NYAMIST_VULKAN_HEADERS_ROOT", cmake)
+        self.assertIn("v1.4.368", workflow)
+        self.assertIn("VK_HEADER_VERSION 368", workflow)
 
 
 if __name__ == "__main__":

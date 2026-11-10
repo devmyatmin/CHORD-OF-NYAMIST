@@ -1987,8 +1987,8 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                         report.driver_id_name = driverIdName(report.driver_id);
                         report.driver_name = driver_properties.driverName;
                         report.driver_info = driver_properties.driverInfo;
-                        report.driver_version_raw = driver_properties.driverVersion;
-                        report.driver_version_hex = hex32(driver_properties.driverVersion);
+                        report.driver_version_raw = properties.driverVersion;
+                        report.driver_version_hex = hex32(properties.driverVersion);
                         report.driver_conformance_version =
                             conformanceVersionString(driver_properties.conformanceVersion);
                         report.physical_device_uuid_hex =
@@ -2027,9 +2027,12 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                 } else {
                     VkPhysicalDeviceVulkan14Features features14{
                         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES};
+                    VkPhysicalDeviceVulkan11Features features11{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
                     VkPhysicalDeviceFeatures2 features2{
                         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-                    features2.pNext = &features14;
+                    features2.pNext = &features11;
+                    features11.pNext = &features14;
                     vk.get_physical_device_features2(selected_physical_device, &features2);
                     report.vulkan_1_4_features_query_status = "success";
                     report.vulkan_1_4_bresenham_lines_supported =
@@ -2039,7 +2042,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                     report.vulkan_1_4_push_descriptor_supported =
                         features14.pushDescriptor == VK_TRUE;
                     report.vulkan_1_4_protected_memory_supported =
-                        features2.features.protectedMemory == VK_TRUE;
+                        features11.protectedMemory == VK_TRUE;
                     report.vulkan_1_4_pipeline_protected_access_required =
                         report.vulkan_1_4_protected_memory_supported;
                     report.vulkan_1_4_pipeline_protected_access_supported =
