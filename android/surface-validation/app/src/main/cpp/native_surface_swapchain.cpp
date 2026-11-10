@@ -667,7 +667,7 @@ bool renderAndPresentFrame(
     render_begin.pClearValues = &clear_value;
 
     // The reusable render pass clears the acquired swapchain image, then executes
-    // the R1.9 graphics pipeline and three-vertex draw before presentation.
+    // the R2.0 graphics pipeline and three-vertex draw before presentation.
     vk.cmd_begin_render_pass(command_buffer, &render_begin, VK_SUBPASS_CONTENTS_INLINE);
     report.render_pass_begin_recorded = true;
     vk.cmd_bind_pipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -940,6 +940,10 @@ bool runFrameSequence(
         VkFence& present_fence,
         bool present_fence_enabled,
         VkQueryPool& timestamp_query_pool,
+        VkBuffer pixel_readback_buffer,
+        VkDeviceMemory pixel_readback_memory,
+        bool pixel_readback_memory_coherent,
+        bool pixel_readback_enabled,
         VkCommandPool& command_pool,
         VkCommandBuffer& command_buffer,
         VkImageView& image_view,
@@ -1011,7 +1015,7 @@ bool runFrameSequence(
         report.gpu_timestamp_status = "unsupported";
         report.gpu_timestamp_query_pool_create_status = "not_supported";
         report.gpu_timestamp_query_status = "not_supported";
-        fail(report, "R1.9 requires timestamp queries, but the selected queue or Vulkan entry points do not support them");
+        fail(report, "R2.0 requires timestamp queries, but the selected queue or Vulkan entry points do not support them");
         return false;
     }
 
@@ -1066,7 +1070,9 @@ bool runFrameSequence(
             vertex_shader, fragment_shader, pipeline_layout, graphics_pipeline,
             collect_sample ? timestamp_query_pool : VK_NULL_HANDLE,
             sample_index * 2U, present_fence, present_fence_enabled,
-            collect_sample, frame_start);
+            pixel_readback_enabled, frame_index == 0U,
+            pixel_readback_buffer, pixel_readback_memory,
+            pixel_readback_memory_coherent, collect_sample, frame_start);
         if (!frame_ok) return false;
         ++report.frame_completed_count;
 
@@ -1140,6 +1146,9 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     std::vector<VkSemaphore> present_semaphores;
     VkFence present_fence = VK_NULL_HANDLE;
     VkQueryPool timestamp_query_pool = VK_NULL_HANDLE;
+    VkBuffer pixel_readback_buffer = VK_NULL_HANDLE;
+    VkDeviceMemory pixel_readback_memory = VK_NULL_HANDLE;
+    bool pixel_readback_memory_coherent = false;
     bool maintenance_instance_extensions_enabled = false;
     bool maintenance_device_extension_supported = false;
     bool maintenance_feature_supported = false;
@@ -1247,7 +1256,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             }
         }
         VkApplicationInfo app_info{VK_STRUCTURE_TYPE_APPLICATION_INFO};
-        app_info.pApplicationName = "NYAMIST G925 R1.9";
+        app_info.pApplicationName = "NYAMIST G925 R2.0";
         app_info.applicationVersion = VK_MAKE_VERSION(1, 9, 0);
         app_info.pEngineName = "CHORD OF NYAMIST";
         app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -1280,6 +1289,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         LOAD_INSTANCE(destroy_instance, "vkDestroyInstance");
         LOAD_INSTANCE(enumerate_physical_devices, "vkEnumeratePhysicalDevices");
         LOAD_INSTANCE(get_physical_device_properties, "vkGetPhysicalDeviceProperties");
+        LOAD_INSTANCE(get_physical_device_memory_properties, "vkGetPhysicalDeviceMemoryProperties");
         LOAD_INSTANCE(get_physical_device_features2, "vkGetPhysicalDeviceFeatures2");
         if (vk.get_physical_device_features2 == nullptr) {
             vk.get_physical_device_features2 =
@@ -1486,6 +1496,15 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             LOAD_DEVICE(create_swapchain, "vkCreateSwapchainKHR");
             LOAD_DEVICE(destroy_swapchain, "vkDestroySwapchainKHR");
             LOAD_DEVICE(create_image_view, "vkCreateImageView");
+            LOAD_DEVICE(create_buffer, "vkCreateBuffer");
+            LOAD_DEVICE(destroy_buffer, "vkDestroyBuffer");
+            LOAD_DEVICE(get_buffer_memory_requirements, "vkGetBufferMemoryRequirements");
+            LOAD_DEVICE(allocate_memory, "vkAllocateMemory");
+            LOAD_DEVICE(free_memory, "vkFreeMemory");
+            LOAD_DEVICE(bind_buffer_memory, "vkBindBufferMemory");
+            LOAD_DEVICE(map_memory, "vkMapMemory");
+            LOAD_DEVICE(unmap_memory, "vkUnmapMemory");
+            LOAD_DEVICE(invalidate_mapped_memory_ranges, "vkInvalidateMappedMemoryRanges");
             LOAD_DEVICE(destroy_image_view, "vkDestroyImageView");
             LOAD_DEVICE(create_render_pass, "vkCreateRenderPass");
             LOAD_DEVICE(destroy_render_pass, "vkDestroyRenderPass");
@@ -1501,6 +1520,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             LOAD_DEVICE(cmd_end_render_pass, "vkCmdEndRenderPass");
             LOAD_DEVICE(cmd_bind_pipeline, "vkCmdBindPipeline");
             LOAD_DEVICE(cmd_draw, "vkCmdDraw");
+            LOAD_DEVICE(cmd_copy_image_to_buffer, "vkCmdCopyImageToBuffer");
             LOAD_DEVICE(get_swapchain_images, "vkGetSwapchainImagesKHR");
             LOAD_DEVICE(create_semaphore, "vkCreateSemaphore");
             LOAD_DEVICE(destroy_semaphore, "vkDestroySemaphore");
@@ -1530,6 +1550,12 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             if (vk.get_device_queue == nullptr || vk.create_swapchain == nullptr ||
                 vk.destroy_swapchain == nullptr || vk.get_swapchain_images == nullptr ||
                 vk.create_image_view == nullptr || vk.destroy_image_view == nullptr ||
+                vk.create_buffer == nullptr || vk.destroy_buffer == nullptr ||
+                vk.get_buffer_memory_requirements == nullptr ||
+                vk.allocate_memory == nullptr || vk.free_memory == nullptr ||
+                vk.bind_buffer_memory == nullptr || vk.map_memory == nullptr ||
+                vk.unmap_memory == nullptr ||
+                vk.invalidate_mapped_memory_ranges == nullptr ||
                 vk.create_render_pass == nullptr || vk.destroy_render_pass == nullptr ||
                 vk.create_framebuffer == nullptr || vk.destroy_framebuffer == nullptr ||
                 vk.create_shader_module == nullptr || vk.destroy_shader_module == nullptr ||
@@ -1537,6 +1563,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                 vk.create_graphics_pipelines == nullptr || vk.destroy_pipeline == nullptr ||
                 vk.cmd_begin_render_pass == nullptr || vk.cmd_end_render_pass == nullptr ||
                 vk.cmd_bind_pipeline == nullptr || vk.cmd_draw == nullptr ||
+                vk.cmd_copy_image_to_buffer == nullptr ||
                 vk.create_semaphore == nullptr || vk.destroy_semaphore == nullptr ||
                 vk.create_fence == nullptr || vk.destroy_fence == nullptr ||
                 vk.wait_for_fences == nullptr || vk.reset_fences == nullptr ||
@@ -1613,10 +1640,18 @@ AndroidSurfaceSwapchainValidationReport runValidation(
 
                         VkImageUsageFlags image_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
                         if ((capabilities.supportedUsageFlags &
-                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) != 0U) {
-                            report.selected_image_usage = "COLOR_ATTACHMENT";
+                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) == 0U) {
+                            fail(report, "R2.0 requires swapchain COLOR_ATTACHMENT usage");
+                        } else if ((capabilities.supportedUsageFlags &
+                                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT) == 0U) {
+                            report.swapchain_transfer_src_support_status = "not_supported";
+                            report.pixel_readback_mode = "unsupported_surface_transfer_src";
+                            report.pixel_verification_status = "unsupported";
+                            fail(report, "The Android Surface does not support VK_IMAGE_USAGE_TRANSFER_SRC_BIT for swapchain pixel verification");
                         } else {
-                            fail(report, "R1.9 requires swapchain COLOR_ATTACHMENT usage for render-pass clear");
+                            image_usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+                            report.selected_image_usage = "COLOR_ATTACHMENT|TRANSFER_SRC";
+                            report.swapchain_transfer_src_support_status = "supported";
                         }
 
                         if (report.failure_reason.empty()) {
@@ -1691,14 +1726,23 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                     report.swapchain_image_query_status = "success";
                                     report.swapchain_image_count =
                                         static_cast<std::uint32_t>(images.size());
-                                    if (report.selected_image_usage != "COLOR_ATTACHMENT") {
-                                        fail(report, "Selected swapchain usage is not COLOR_ATTACHMENT");
+                                    if (report.selected_image_usage != "COLOR_ATTACHMENT|TRANSFER_SRC") {
+                                        fail(report, "Selected swapchain usage does not include COLOR_ATTACHMENT|TRANSFER_SRC");
+                                    } else if (!createPixelReadbackResources(
+                                        vk, report, selected_physical_device, device,
+                                        pixel_readback_buffer, pixel_readback_memory,
+                                        pixel_readback_memory_coherent)) {
+                                        if (report.failure_reason.empty()) {
+                                            fail(report, "Pixel readback buffer initialization failed");
+                                        }
                                     } else if (!runFrameSequence(
                                         vk, report, device, queue, selected_queue_family,
                                         swapchain, images, selected_format.format, extent,
                                         acquire_semaphore, present_semaphores,
                                         present_fence, maintenance_feature_supported,
                                         timestamp_query_pool,
+                                        pixel_readback_buffer, pixel_readback_memory,
+                                        pixel_readback_memory_coherent, true,
                                         command_pool, command_buffer, image_view, render_pass,
                                         framebuffer, vertex_shader, fragment_shader,
                                         pipeline_layout, graphics_pipeline)) {
