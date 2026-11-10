@@ -19,7 +19,7 @@ void testUnavailableReportIsExplicit() {
     check(json.find("\"schema_version\": 6") != std::string::npos,
           "schema version must be serialized");
     check(json.find("NYAMIST G925 R2.0") != std::string::npos,
-          "R1.9 identity must be serialized");
+          "R2.0 identity must be serialized");
     check(json.find("\"status\": \"unavailable\"") != std::string::npos,
           "missing native surface must be reported as unavailable");
     check(json.find("\"frame_content_written\": false") != std::string::npos,
