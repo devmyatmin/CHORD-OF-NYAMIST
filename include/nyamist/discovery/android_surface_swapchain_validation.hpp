@@ -7,7 +7,7 @@
 namespace nyamist::discovery {
 
 struct AndroidSurfaceSwapchainValidationReport {
-    std::uint32_t schema_version{6U};
+    std::uint32_t schema_version{7U};
     std::string status{"unavailable"};
     std::string platform{"android"};
     std::string loader_library;
@@ -85,6 +85,35 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::string swapchain_create_status{"not_attempted"};
     std::string swapchain_image_query_status{"not_attempted"};
     std::uint32_t swapchain_image_count{};
+
+    std::string swapchain_recreation_status{"not_attempted"};
+    std::string swapchain_recreation_mode{"old_swapchain_handoff"};
+    std::uint32_t swapchain_recreation_attempt_count{};
+    std::uint32_t swapchain_recreation_success_count{};
+    bool swapchain_old_handle_supplied{};
+    std::string swapchain_old_destroy_status{"not_required"};
+    std::string swapchain_recreated_image_query_status{"not_attempted"};
+    std::uint32_t swapchain_recreated_image_count{};
+    std::uint32_t swapchain_extent_before_width{};
+    std::uint32_t swapchain_extent_before_height{};
+    std::uint32_t swapchain_extent_after_width{};
+    std::uint32_t swapchain_extent_after_height{};
+    bool swapchain_extent_changed{};
+    bool swapchain_logical_device_reused{};
+    std::string swapchain_recreation_probe_acquire_status{"not_attempted"};
+    std::string swapchain_recreation_probe_submit_status{"not_attempted"};
+    std::string swapchain_recreation_probe_present_status{"not_attempted"};
+    std::string swapchain_recreation_probe_completion_status{"not_attempted"};
+    std::uint32_t swapchain_recreation_probe_present_count{};
+    bool swapchain_recreation_probe_rendered{};
+    std::uint32_t swapchain_acquire_suboptimal_count{};
+    std::uint32_t swapchain_present_suboptimal_count{};
+    std::uint32_t swapchain_acquire_out_of_date_count{};
+    std::uint32_t swapchain_present_out_of_date_count{};
+    std::uint32_t swapchain_out_of_date_recovery_attempt_count{};
+    std::uint32_t swapchain_out_of_date_recovery_success_count{};
+    std::string swapchain_result_policy_status{"not_tested"};
+    std::string swapchain_out_of_date_recovery_status{"not_observed"};
     std::string semaphore_create_status{"not_attempted"};
     std::string present_semaphore_create_status{"not_attempted"};
     std::string image_acquire_status{"not_attempted"};
