@@ -29,7 +29,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private final Object lifecycleLock = new Object();
     private final ExecutorService validationExecutor =
             Executors.newSingleThreadExecutor(runnable -> {
-                Thread thread = new Thread(runnable, "nyamist-r2.1-wsi-session");
+                Thread thread = new Thread(runnable, "nyamist-r2.2-wsi-session");
                 thread.setDaemon(false);
                 return thread;
             });
@@ -350,7 +350,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                 } else if (result.contains("\"pixel_verification_status\": \"success\"")) {
                     statusView.setText("R2.2 WSI session SUCCESS — pixel readback also passed.");
                 } else {
-                    statusView.setText("R2.1 WSI session completed; inspect the validation fields.");
+                    statusView.setText("R2.2 WSI session completed; inspect the validation fields.");
                 }
             });
         }
@@ -414,7 +414,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     }
 
     private String failureJson(String reason) {
-        return "{\n  \"schema_version\": 6,"
+        return "{\n  \"schema_version\": 7,"
                 + "\n  \"project\": \"CHORD OF NYAMIST / NYAMIST G925 R2.2\","
                 + "\n  \"status\": \"failed\","
                 + "\n  \"failure_reason\": \"" + reason + "\""
