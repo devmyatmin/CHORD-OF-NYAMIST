@@ -274,7 +274,7 @@ void testSuccessfulSwapchainReportContract() {
           "supported feature bits must be serialized");
     check(json.find(R"("vulkan_1_4_promoted_features_not_supported": ["VK_KHR_line_rasterization.bresenhamLines"])") != std::string::npos,
           "unsupported feature bits must be serialized");
-    check(json.find(R"("vulkan_1_4_promoted_features_implicitly_supported": ["VK_KHR_push_descriptor.pushDescriptor (implicit via VK_KHR_push_descriptor)"])") != std::string::npos,
+    check(json.find(R"json("vulkan_1_4_promoted_features_implicitly_supported": ["VK_KHR_push_descriptor.pushDescriptor (implicit via VK_KHR_push_descriptor)"])json") != std::string::npos,
           "pre-1.4 push descriptors must be reported as implicitly supported when the extension is advertised");
     check(json.find(R"json("vulkan_1_4_promoted_features_not_applicable": ["VK_KHR_load_store_op_none (no feature bit)", "VK_KHR_map_memory2 (no feature bit)"])json") != std::string::npos,
           "promoted extensions without feature bits must be explicit");
