@@ -39,12 +39,23 @@ Validated on head `32174daba4be00b408994c77dd6771751af6cf31`:
 - Artifact `nyamist-g925-r2.4-vulkan-1.4-audit-apk`, ID `13736912937`.
 - Artifact ZIP SHA-256: `6d165b014926dc0de7b91117b4303f7ad5638236d887a39d6002a5293a6c5db9`.
 
-## Hardware validation — PENDING
+## Hardware validation — PASS
 
-A fresh R2.4 APK installation and schema-v9 JSON report from the REDMI K80 Ultra are still required.
+Validated on REDMI K80 Ultra / Android 16 / MT6991 / Mali-G925-Immortalis MC12 with an installed R2.4 APK (versionCode 240 / versionName 2.4.0). The schema-v9 report returned `status=success`, `target_gpu_match=true`, and a successful promoted-extension inventory.
 
-## Expected hardware interpretation
+- Inventory scope: `extension_name_advertisement_on_pre_1_4_device`.
+- Coverage: `partial_advertisement`; 15 of 16 names advertised, one not advertised.
+- Advertised names: all 15 names listed in the report, including the KHR maintenance, push-descriptor, shader, line-rasterization, and EXT pipeline families.
+- Not advertised: `VK_EXT_host_image_copy`.
+- Physical-device API remains 1.3.278; loader and instance remain 1.4.0.
+- Pixel readback, triangle detection, present-fence completion, and cleanup all succeeded.
 
-The previously observed stock G925 driver exposed physical-device API 1.3.278. R2.4 will enumerate extension names for that API-1.3 physical device. The results establish which promoted extension names the installed driver advertises; they will not upgrade or relabel the physical-device API version.
+`VK_EXT_host_image_copy` is promoted into Vulkan 1.4 but optional in Vulkan 1.4; its absence here is an inventory observation, not a Vulkan 1.4 compliance failure. This phase checks extension-name advertisement only, not extension feature enablement or complete feature/limit conformance.
+
+Full redacted hardware evidence: [NYAMIST-G925-R2.4-redmi-k80-ultra-2026-11-10.md](../evidence/NYAMIST-G925-R2.4-redmi-k80-ultra-2026-11-10.md).
+
+## Hardware interpretation
+
+The stock G925 physical device exposes API 1.3.278. R2.4 enumerated the promoted extension names on that selected API-1.3 physical device. Loader/instance API 1.4.0 does not upgrade or relabel the physical-device API version.
 
 No root, direct GPU device-node access, kernel/SELinux modification, vendor-partition write, or replacement ICD is used.
