@@ -16,9 +16,9 @@ void testUnavailableReportIsExplicit() {
     report.native_window_status = "not_available";
     report.failure_reason = "No Android Surface was supplied";
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 9") != std::string::npos,
+    check(json.find("\"schema_version\": 10") != std::string::npos,
           "schema version must be serialized");
-    check(json.find("NYAMIST G925 R2.4") != std::string::npos,
+    check(json.find("NYAMIST G925 R2.5") != std::string::npos,
           "R2.2 identity must be serialized");
     check(json.find("\"status\": \"unavailable\"") != std::string::npos,
           "missing native surface must be reported as unavailable");
@@ -64,6 +64,28 @@ void testSuccessfulSwapchainReportContract() {
         "VK_KHR_line_rasterization", "VK_EXT_host_image_copy"};
     report.vulkan_1_4_promoted_extensions_not_advertised = {
         "VK_KHR_dynamic_rendering_local_read", "VK_KHR_global_priority"};
+    report.vulkan_1_4_promoted_feature_query_status = "success";
+    report.vulkan_1_4_promoted_feature_query_scope =
+        "advertised_extension_feature_structs_on_pre_1_4_device";
+    report.vulkan_1_4_promoted_feature_total_count = 21U;
+    report.vulkan_1_4_promoted_feature_queried_count = 2U;
+    report.vulkan_1_4_promoted_feature_supported_count = 1U;
+    report.vulkan_1_4_promoted_feature_not_supported_count = 1U;
+    report.vulkan_1_4_promoted_feature_not_advertised_count = 1U;
+    report.vulkan_1_4_promoted_feature_implicitly_supported_count = 1U;
+    report.vulkan_1_4_promoted_feature_query_failed_count = 0U;
+    report.vulkan_1_4_promoted_feature_not_queryable_count = 0U;
+    report.vulkan_1_4_promoted_features_supported = {
+        "VK_KHR_global_priority.globalPriorityQuery"};
+    report.vulkan_1_4_promoted_features_not_supported = {
+        "VK_KHR_line_rasterization.bresenhamLines"};
+    report.vulkan_1_4_promoted_features_not_advertised = {
+        "VK_EXT_host_image_copy.hostImageCopy"};
+    report.vulkan_1_4_promoted_features_implicitly_supported = {
+        "VK_KHR_push_descriptor.pushDescriptor (implicit via VK_KHR_push_descriptor)"};
+    report.vulkan_1_4_promoted_features_not_applicable = {
+        "VK_KHR_load_store_op_none (no feature bit)",
+        "VK_KHR_map_memory2 (no feature bit)"};
     report.target_gpu_match = true;
     report.swapchain_extension_status = "success";
     report.queue_family_status = "success";
@@ -204,8 +226,8 @@ void testSuccessfulSwapchainReportContract() {
     report.swapchain_out_of_date_recovery_status = "not_observed";
 
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 9") != std::string::npos,
-          "R2.4 schema version must be serialized");
+    check(json.find("\"schema_version\": 10") != std::string::npos,
+          "R2.5 schema version must be serialized");
     check(json.find(R"("present_fence_used": true)") != std::string::npos,
           "present fence use must be serialized");
     check(json.find(R"("present_fence_attach_count": 17)") != std::string::npos,
@@ -244,6 +266,18 @@ void testSuccessfulSwapchainReportContract() {
           "advertised extension names must be serialized");
     check(json.find(R"("vulkan_1_4_promoted_extensions_not_advertised": ["VK_KHR_dynamic_rendering_local_read", "VK_KHR_global_priority"])") != std::string::npos,
           "not-advertised extension names must be serialized");
+    check(json.find(R"("vulkan_1_4_promoted_feature_total_count": 21)") != std::string::npos,
+          "R2.5 feature-bit count must be serialized");
+    check(json.find(R"("vulkan_1_4_promoted_feature_query_status": "success")") != std::string::npos,
+          "R2.5 feature query status must be serialized");
+    check(json.find(R"("vulkan_1_4_promoted_features_supported": ["VK_KHR_global_priority.globalPriorityQuery"])") != std::string::npos,
+          "supported feature bits must be serialized");
+    check(json.find(R"("vulkan_1_4_promoted_features_not_supported": ["VK_KHR_line_rasterization.bresenhamLines"])") != std::string::npos,
+          "unsupported feature bits must be serialized");
+    check(json.find(R"json("vulkan_1_4_promoted_features_implicitly_supported": ["VK_KHR_push_descriptor.pushDescriptor (implicit via VK_KHR_push_descriptor)"])json") != std::string::npos,
+          "pre-1.4 push descriptors must be reported as implicitly supported when the extension is advertised");
+    check(json.find(R"json("vulkan_1_4_promoted_features_not_applicable": ["VK_KHR_load_store_op_none (no feature bit)", "VK_KHR_map_memory2 (no feature bit)"])json") != std::string::npos,
+          "promoted extensions without feature bits must be explicit");
     check(json.find("\"selected_present_mode\": \"FIFO\"") != std::string::npos,
           "FIFO presentation mode must be serialized");
     check(json.find(R"("swapchain_recreation_status": "success")") != std::string::npos,

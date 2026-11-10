@@ -7,7 +7,7 @@
 namespace nyamist::discovery {
 
 struct AndroidSurfaceSwapchainValidationReport {
-    std::uint32_t schema_version{9U};
+    std::uint32_t schema_version{10U};
     std::string status{"unavailable"};
     std::string platform{"android"};
     std::string loader_library;
@@ -54,6 +54,27 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::uint32_t vulkan_1_4_promoted_extension_not_advertised_count{};
     std::vector<std::string> vulkan_1_4_promoted_extensions_supported;
     std::vector<std::string> vulkan_1_4_promoted_extensions_not_advertised;
+
+    // R2.5 records feature-bit query results separately from extension-name
+    // advertisement. Vulkan 1.3 devices use only advertised extension feature
+    // structs; the Vulkan 1.4 aggregate feature struct is never chained on them.
+    std::string vulkan_1_4_promoted_feature_query_status{"not_queried"};
+    std::string vulkan_1_4_promoted_feature_query_scope{"not_queried"};
+    std::uint32_t vulkan_1_4_promoted_feature_total_count{21U};
+    std::uint32_t vulkan_1_4_promoted_feature_queried_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_supported_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_not_supported_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_not_advertised_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_implicitly_supported_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_query_failed_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_not_queryable_count{};
+    std::vector<std::string> vulkan_1_4_promoted_features_supported;
+    std::vector<std::string> vulkan_1_4_promoted_features_not_supported;
+    std::vector<std::string> vulkan_1_4_promoted_features_not_advertised;
+    std::vector<std::string> vulkan_1_4_promoted_features_implicitly_supported;
+    std::vector<std::string> vulkan_1_4_promoted_features_query_failed;
+    std::vector<std::string> vulkan_1_4_promoted_features_not_queryable;
+    std::vector<std::string> vulkan_1_4_promoted_features_not_applicable;
     bool target_gpu_match{};
 
     std::string swapchain_maintenance_instance_extension_status{"not_queried"};

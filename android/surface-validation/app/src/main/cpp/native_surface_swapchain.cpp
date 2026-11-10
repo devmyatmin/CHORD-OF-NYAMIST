@@ -2132,6 +2132,343 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                             : "api_1_4_exposed_feature_sample_failed";
                 }
 
+                // R2.5 queries individual promoted feature structures only
+                // when their extension is advertised on this selected device.
+                // A pre-1.4 physical device must never receive the Vulkan 1.4
+                // aggregate feature structure in its Features2 pNext chain.
+                report.vulkan_1_4_promoted_feature_total_count = 21U;
+                report.vulkan_1_4_promoted_features_not_applicable = {
+                    "VK_KHR_load_store_op_none (no feature bit)",
+                    "VK_KHR_map_memory2 (no feature bit)"
+                };
+
+                auto record_promoted_feature = [&](const char* name, VkBool32 supported) {
+                    ++report.vulkan_1_4_promoted_feature_queried_count;
+                    if (supported == VK_TRUE) {
+                        report.vulkan_1_4_promoted_features_supported.emplace_back(name);
+                        ++report.vulkan_1_4_promoted_feature_supported_count;
+                    } else {
+                        report.vulkan_1_4_promoted_features_not_supported.emplace_back(name);
+                        ++report.vulkan_1_4_promoted_feature_not_supported_count;
+                    }
+                };
+                auto record_not_advertised = [&](std::initializer_list<const char*> names) {
+                    for (const char* name : names) {
+                        report.vulkan_1_4_promoted_features_not_advertised.emplace_back(name);
+                        ++report.vulkan_1_4_promoted_feature_not_advertised_count;
+                    }
+                };
+                auto record_query_failed = [&](std::initializer_list<const char*> names) {
+                    for (const char* name : names) {
+                        report.vulkan_1_4_promoted_features_query_failed.emplace_back(name);
+                        ++report.vulkan_1_4_promoted_feature_query_failed_count;
+                    }
+                };
+                auto record_not_queryable = [&](std::initializer_list<const char*> names) {
+                    for (const char* name : names) {
+                        report.vulkan_1_4_promoted_features_not_queryable.emplace_back(name);
+                        ++report.vulkan_1_4_promoted_feature_not_queryable_count;
+                    }
+                };
+
+                if (versionAtLeast(properties.apiVersion, 1U, 4U)) {
+                    report.vulkan_1_4_promoted_feature_query_scope =
+                        "vulkan_1_4_core_features2_on_api_1_4_device";
+                    if (!versionAtLeast(instance_api_version, 1U, 4U)) {
+                        record_not_queryable({
+                            "VK_KHR_global_priority.globalPriorityQuery",
+                            "VK_KHR_shader_subgroup_rotate.shaderSubgroupRotate",
+                            "VK_KHR_shader_subgroup_rotate.shaderSubgroupRotateClustered",
+                            "VK_KHR_shader_float_controls2.shaderFloatControls2",
+                            "VK_KHR_shader_expect_assume.shaderExpectAssume",
+                            "VK_KHR_line_rasterization.rectangularLines",
+                            "VK_KHR_line_rasterization.bresenhamLines",
+                            "VK_KHR_line_rasterization.smoothLines",
+                            "VK_KHR_line_rasterization.stippledRectangularLines",
+                            "VK_KHR_line_rasterization.stippledBresenhamLines",
+                            "VK_KHR_line_rasterization.stippledSmoothLines",
+                            "VK_KHR_vertex_attribute_divisor.vertexAttributeInstanceRateDivisor",
+                            "VK_KHR_vertex_attribute_divisor.vertexAttributeInstanceRateZeroDivisor",
+                            "VK_KHR_index_type_uint8.indexTypeUint8",
+                            "VK_KHR_dynamic_rendering_local_read.dynamicRenderingLocalRead",
+                            "VK_KHR_maintenance5.maintenance5",
+                            "VK_KHR_maintenance6.maintenance6",
+                            "VK_EXT_pipeline_protected_access.pipelineProtectedAccess",
+                            "VK_EXT_pipeline_robustness.pipelineRobustness",
+                            "VK_EXT_host_image_copy.hostImageCopy",
+                            "VK_KHR_push_descriptor.pushDescriptor"
+                        });
+                        report.vulkan_1_4_promoted_feature_query_status =
+                            "skipped_instance_api_below_1_4";
+                    } else if (vk.get_physical_device_features2 == nullptr) {
+                        record_query_failed({
+                            "VK_KHR_global_priority.globalPriorityQuery",
+                            "VK_KHR_shader_subgroup_rotate.shaderSubgroupRotate",
+                            "VK_KHR_shader_subgroup_rotate.shaderSubgroupRotateClustered",
+                            "VK_KHR_shader_float_controls2.shaderFloatControls2",
+                            "VK_KHR_shader_expect_assume.shaderExpectAssume",
+                            "VK_KHR_line_rasterization.rectangularLines",
+                            "VK_KHR_line_rasterization.bresenhamLines",
+                            "VK_KHR_line_rasterization.smoothLines",
+                            "VK_KHR_line_rasterization.stippledRectangularLines",
+                            "VK_KHR_line_rasterization.stippledBresenhamLines",
+                            "VK_KHR_line_rasterization.stippledSmoothLines",
+                            "VK_KHR_vertex_attribute_divisor.vertexAttributeInstanceRateDivisor",
+                            "VK_KHR_vertex_attribute_divisor.vertexAttributeInstanceRateZeroDivisor",
+                            "VK_KHR_index_type_uint8.indexTypeUint8",
+                            "VK_KHR_dynamic_rendering_local_read.dynamicRenderingLocalRead",
+                            "VK_KHR_maintenance5.maintenance5",
+                            "VK_KHR_maintenance6.maintenance6",
+                            "VK_EXT_pipeline_protected_access.pipelineProtectedAccess",
+                            "VK_EXT_pipeline_robustness.pipelineRobustness",
+                            "VK_EXT_host_image_copy.hostImageCopy",
+                            "VK_KHR_push_descriptor.pushDescriptor"
+                        });
+                        report.vulkan_1_4_promoted_feature_query_status = "entry_point_unavailable";
+                    } else {
+                        VkPhysicalDeviceVulkan14Features features14{
+                            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES};
+                        VkPhysicalDeviceFeatures2 features2{
+                            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+                        features2.pNext = &features14;
+                        vk.get_physical_device_features2(selected_physical_device, &features2);
+                        report.vulkan_1_4_promoted_feature_query_status = "success";
+                        record_promoted_feature("VK_KHR_global_priority.globalPriorityQuery",
+                                                features14.globalPriorityQuery);
+                        record_promoted_feature("VK_KHR_shader_subgroup_rotate.shaderSubgroupRotate",
+                                                features14.shaderSubgroupRotate);
+                        record_promoted_feature("VK_KHR_shader_subgroup_rotate.shaderSubgroupRotateClustered",
+                                                features14.shaderSubgroupRotateClustered);
+                        record_promoted_feature("VK_KHR_shader_float_controls2.shaderFloatControls2",
+                                                features14.shaderFloatControls2);
+                        record_promoted_feature("VK_KHR_shader_expect_assume.shaderExpectAssume",
+                                                features14.shaderExpectAssume);
+                        record_promoted_feature("VK_KHR_line_rasterization.rectangularLines",
+                                                features14.rectangularLines);
+                        record_promoted_feature("VK_KHR_line_rasterization.bresenhamLines",
+                                                features14.bresenhamLines);
+                        record_promoted_feature("VK_KHR_line_rasterization.smoothLines",
+                                                features14.smoothLines);
+                        record_promoted_feature("VK_KHR_line_rasterization.stippledRectangularLines",
+                                                features14.stippledRectangularLines);
+                        record_promoted_feature("VK_KHR_line_rasterization.stippledBresenhamLines",
+                                                features14.stippledBresenhamLines);
+                        record_promoted_feature("VK_KHR_line_rasterization.stippledSmoothLines",
+                                                features14.stippledSmoothLines);
+                        record_promoted_feature("VK_KHR_vertex_attribute_divisor.vertexAttributeInstanceRateDivisor",
+                                                features14.vertexAttributeInstanceRateDivisor);
+                        record_promoted_feature("VK_KHR_vertex_attribute_divisor.vertexAttributeInstanceRateZeroDivisor",
+                                                features14.vertexAttributeInstanceRateZeroDivisor);
+                        record_promoted_feature("VK_KHR_index_type_uint8.indexTypeUint8",
+                                                features14.indexTypeUint8);
+                        record_promoted_feature("VK_KHR_dynamic_rendering_local_read.dynamicRenderingLocalRead",
+                                                features14.dynamicRenderingLocalRead);
+                        record_promoted_feature("VK_KHR_maintenance5.maintenance5",
+                                                features14.maintenance5);
+                        record_promoted_feature("VK_KHR_maintenance6.maintenance6",
+                                                features14.maintenance6);
+                        record_promoted_feature("VK_EXT_pipeline_protected_access.pipelineProtectedAccess",
+                                                features14.pipelineProtectedAccess);
+                        record_promoted_feature("VK_EXT_pipeline_robustness.pipelineRobustness",
+                                                features14.pipelineRobustness);
+                        record_promoted_feature("VK_EXT_host_image_copy.hostImageCopy",
+                                                features14.hostImageCopy);
+                        record_promoted_feature("VK_KHR_push_descriptor.pushDescriptor",
+                                                features14.pushDescriptor);
+                    }
+                } else {
+                    report.vulkan_1_4_promoted_feature_query_scope =
+                        "advertised_extension_feature_structs_on_pre_1_4_device";
+                    // VK_KHR_push_descriptor did not define an extension
+                    // feature bit before Vulkan 1.4. Its advertised extension
+                    // implicitly guarantees push-descriptor support; Vulkan 1.4
+                    // adds an explicit feature bit for the same functionality.
+                    if (hasDeviceExtension(selected_physical_device_extensions,
+                                           "VK_KHR_push_descriptor")) {
+                        report.vulkan_1_4_promoted_features_implicitly_supported.emplace_back(
+                            "VK_KHR_push_descriptor.pushDescriptor (implicit via VK_KHR_push_descriptor)");
+                        ++report.vulkan_1_4_promoted_feature_implicitly_supported_count;
+                    } else {
+                        record_not_advertised({"VK_KHR_push_descriptor.pushDescriptor"});
+                    }
+
+                    VkPhysicalDeviceDynamicRenderingLocalReadFeaturesKHR dynamic_local_read{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_LOCAL_READ_FEATURES_KHR};
+                    VkPhysicalDeviceGlobalPriorityQueryFeaturesKHR global_priority{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GLOBAL_PRIORITY_QUERY_FEATURES_KHR};
+                    VkPhysicalDeviceIndexTypeUint8FeaturesKHR index_type_uint8{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_KHR};
+                    VkPhysicalDeviceLineRasterizationFeaturesKHR line_rasterization{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_KHR};
+                    VkPhysicalDeviceMaintenance5FeaturesKHR maintenance5{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR};
+                    VkPhysicalDeviceMaintenance6FeaturesKHR maintenance6{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_6_FEATURES_KHR};
+                    VkPhysicalDeviceShaderExpectAssumeFeaturesKHR shader_expect_assume{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_EXPECT_ASSUME_FEATURES_KHR};
+                    VkPhysicalDeviceShaderFloatControls2FeaturesKHR shader_float_controls2{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT_CONTROLS_2_FEATURES_KHR};
+                    VkPhysicalDeviceShaderSubgroupRotateFeaturesKHR shader_subgroup_rotate{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_ROTATE_FEATURES_KHR};
+                    VkPhysicalDeviceVertexAttributeDivisorFeaturesKHR vertex_attribute_divisor{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_FEATURES_KHR};
+                    VkPhysicalDeviceHostImageCopyFeaturesEXT host_image_copy{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT};
+                    VkPhysicalDevicePipelineProtectedAccessFeaturesEXT pipeline_protected_access{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_PROTECTED_ACCESS_FEATURES_EXT};
+                    VkPhysicalDevicePipelineRobustnessFeaturesEXT pipeline_robustness{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_ROBUSTNESS_FEATURES_EXT};
+
+                    VkPhysicalDeviceFeatures2 promoted_features2{
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+                    void** feature_tail = &promoted_features2.pNext;
+                    bool any_promoted_feature_struct_queued = false;
+                    auto append_if_advertised = [&](const char* extension_name,
+                                                    auto& feature_struct,
+                                                    std::initializer_list<const char*> feature_names) {
+                        if (!hasDeviceExtension(selected_physical_device_extensions,
+                                                extension_name)) {
+                            record_not_advertised(feature_names);
+                            return;
+                        }
+                        if (vk.get_physical_device_features2 == nullptr) {
+                            record_query_failed(feature_names);
+                            return;
+                        }
+                        feature_struct.pNext = nullptr;
+                        *feature_tail = &feature_struct;
+                        feature_tail = &feature_struct.pNext;
+                        any_promoted_feature_struct_queued = true;
+                    };
+
+                    append_if_advertised("VK_KHR_dynamic_rendering_local_read",
+                        dynamic_local_read, {
+                            "VK_KHR_dynamic_rendering_local_read.dynamicRenderingLocalRead"});
+                    append_if_advertised("VK_KHR_global_priority",
+                        global_priority, {
+                            "VK_KHR_global_priority.globalPriorityQuery"});
+                    append_if_advertised("VK_KHR_index_type_uint8",
+                        index_type_uint8, {
+                            "VK_KHR_index_type_uint8.indexTypeUint8"});
+                    append_if_advertised("VK_KHR_line_rasterization",
+                        line_rasterization, {
+                            "VK_KHR_line_rasterization.rectangularLines",
+                            "VK_KHR_line_rasterization.bresenhamLines",
+                            "VK_KHR_line_rasterization.smoothLines",
+                            "VK_KHR_line_rasterization.stippledRectangularLines",
+                            "VK_KHR_line_rasterization.stippledBresenhamLines",
+                            "VK_KHR_line_rasterization.stippledSmoothLines"});
+                    append_if_advertised("VK_KHR_maintenance5",
+                        maintenance5, {"VK_KHR_maintenance5.maintenance5"});
+                    append_if_advertised("VK_KHR_maintenance6",
+                        maintenance6, {"VK_KHR_maintenance6.maintenance6"});
+                    append_if_advertised("VK_KHR_shader_expect_assume",
+                        shader_expect_assume, {"VK_KHR_shader_expect_assume.shaderExpectAssume"});
+                    append_if_advertised("VK_KHR_shader_float_controls2",
+                        shader_float_controls2, {"VK_KHR_shader_float_controls2.shaderFloatControls2"});
+                    append_if_advertised("VK_KHR_shader_subgroup_rotate",
+                        shader_subgroup_rotate, {
+                            "VK_KHR_shader_subgroup_rotate.shaderSubgroupRotate",
+                            "VK_KHR_shader_subgroup_rotate.shaderSubgroupRotateClustered"});
+                    append_if_advertised("VK_KHR_vertex_attribute_divisor",
+                        vertex_attribute_divisor, {
+                            "VK_KHR_vertex_attribute_divisor.vertexAttributeInstanceRateDivisor",
+                            "VK_KHR_vertex_attribute_divisor.vertexAttributeInstanceRateZeroDivisor"});
+                    append_if_advertised("VK_EXT_host_image_copy",
+                        host_image_copy, {"VK_EXT_host_image_copy.hostImageCopy"});
+                    append_if_advertised("VK_EXT_pipeline_protected_access",
+                        pipeline_protected_access, {
+                            "VK_EXT_pipeline_protected_access.pipelineProtectedAccess"});
+                    append_if_advertised("VK_EXT_pipeline_robustness",
+                        pipeline_robustness, {"VK_EXT_pipeline_robustness.pipelineRobustness"});
+
+                    if (any_promoted_feature_struct_queued) {
+                        *feature_tail = nullptr;
+                        vk.get_physical_device_features2(selected_physical_device,
+                                                         &promoted_features2);
+                        report.vulkan_1_4_promoted_feature_query_status = "success";
+                        if (hasDeviceExtension(selected_physical_device_extensions,
+                                               "VK_KHR_dynamic_rendering_local_read"))
+                            record_promoted_feature(
+                                "VK_KHR_dynamic_rendering_local_read.dynamicRenderingLocalRead",
+                                dynamic_local_read.dynamicRenderingLocalRead);
+                        if (hasDeviceExtension(selected_physical_device_extensions,
+                                               "VK_KHR_global_priority"))
+                            record_promoted_feature("VK_KHR_global_priority.globalPriorityQuery",
+                                                    global_priority.globalPriorityQuery);
+                        if (hasDeviceExtension(selected_physical_device_extensions,
+                                               "VK_KHR_index_type_uint8"))
+                            record_promoted_feature("VK_KHR_index_type_uint8.indexTypeUint8",
+                                                    index_type_uint8.indexTypeUint8);
+                        if (hasDeviceExtension(selected_physical_device_extensions,
+                                               "VK_KHR_line_rasterization")) {
+                            record_promoted_feature("VK_KHR_line_rasterization.rectangularLines",
+                                                    line_rasterization.rectangularLines);
+                            record_promoted_feature("VK_KHR_line_rasterization.bresenhamLines",
+                                                    line_rasterization.bresenhamLines);
+                            record_promoted_feature("VK_KHR_line_rasterization.smoothLines",
+                                                    line_rasterization.smoothLines);
+                            record_promoted_feature("VK_KHR_line_rasterization.stippledRectangularLines",
+                                                    line_rasterization.stippledRectangularLines);
+                            record_promoted_feature("VK_KHR_line_rasterization.stippledBresenhamLines",
+                                                    line_rasterization.stippledBresenhamLines);
+                            record_promoted_feature("VK_KHR_line_rasterization.stippledSmoothLines",
+                                                    line_rasterization.stippledSmoothLines);
+                        }
+                        if (hasDeviceExtension(selected_physical_device_extensions,
+                                               "VK_KHR_maintenance5"))
+                            record_promoted_feature("VK_KHR_maintenance5.maintenance5",
+                                                    maintenance5.maintenance5);
+                        if (hasDeviceExtension(selected_physical_device_extensions,
+                                               "VK_KHR_maintenance6"))
+                            record_promoted_feature("VK_KHR_maintenance6.maintenance6",
+                                                    maintenance6.maintenance6);
+                        if (hasDeviceExtension(selected_physical_device_extensions,
+                                               "VK_KHR_shader_expect_assume"))
+                            record_promoted_feature("VK_KHR_shader_expect_assume.shaderExpectAssume",
+                                                    shader_expect_assume.shaderExpectAssume);
+                        if (hasDeviceExtension(selected_physical_device_extensions,
+                                               "VK_KHR_shader_float_controls2"))
+                            record_promoted_feature("VK_KHR_shader_float_controls2.shaderFloatControls2",
+                                                    shader_float_controls2.shaderFloatControls2);
+                        if (hasDeviceExtension(selected_physical_device_extensions,
+                                               "VK_KHR_shader_subgroup_rotate")) {
+                            record_promoted_feature("VK_KHR_shader_subgroup_rotate.shaderSubgroupRotate",
+                                                    shader_subgroup_rotate.shaderSubgroupRotate);
+                            record_promoted_feature(
+                                "VK_KHR_shader_subgroup_rotate.shaderSubgroupRotateClustered",
+                                shader_subgroup_rotate.shaderSubgroupRotateClustered);
+                        }
+                        if (hasDeviceExtension(selected_physical_device_extensions,
+                                               "VK_KHR_vertex_attribute_divisor")) {
+                            record_promoted_feature(
+                                "VK_KHR_vertex_attribute_divisor.vertexAttributeInstanceRateDivisor",
+                                vertex_attribute_divisor.vertexAttributeInstanceRateDivisor);
+                            record_promoted_feature(
+                                "VK_KHR_vertex_attribute_divisor.vertexAttributeInstanceRateZeroDivisor",
+                                vertex_attribute_divisor.vertexAttributeInstanceRateZeroDivisor);
+                        }
+                        if (hasDeviceExtension(selected_physical_device_extensions,
+                                               "VK_EXT_host_image_copy"))
+                            record_promoted_feature("VK_EXT_host_image_copy.hostImageCopy",
+                                                    host_image_copy.hostImageCopy);
+                        if (hasDeviceExtension(selected_physical_device_extensions,
+                                               "VK_EXT_pipeline_protected_access"))
+                            record_promoted_feature(
+                                "VK_EXT_pipeline_protected_access.pipelineProtectedAccess",
+                                pipeline_protected_access.pipelineProtectedAccess);
+                        if (hasDeviceExtension(selected_physical_device_extensions,
+                                               "VK_EXT_pipeline_robustness"))
+                            record_promoted_feature("VK_EXT_pipeline_robustness.pipelineRobustness",
+                                                    pipeline_robustness.pipelineRobustness);
+                    } else {
+                        report.vulkan_1_4_promoted_feature_query_status =
+                            report.vulkan_1_4_promoted_feature_query_failed_count > 0U
+                                ? "entry_point_unavailable"
+                                : "no_advertised_queryable_feature_structs";
+                    }
+                }
+
                 report.queue_timestamp_valid_bits = selected_queue_timestamp_valid_bits;
                 report.timestamp_compute_and_graphics_supported =
                     properties.limits.timestampComputeAndGraphics == VK_TRUE;
