@@ -4,6 +4,8 @@
 
 **Report-version note:** the previously committed REDMI K80 Ultra hardware evidence is the original schema-v11 report. The updated Part 1 app emits native schema v12, which adds live-resize-window timing fields while preserving the existing R2.2–R2.6 evidence fields. Historical schema-v11 evidence is retained as-is; new device evidence must identify schema v12.
 
+The native C++ JSON serialization regression test and the R2.3/R2.4 historical contract tests now assert the current schema-v12 envelope; the original committed device evidence remains schema v11 and is not rewritten.
+
 **Hosted validation: PASS. Target-device same-device oldSwapchain handoff: HARDWARE PASS (2026-11-10). Actual extent change and real SUBOPTIMAL / OUT_OF_DATE emission/recovery: NOT OBSERVED.**
 
 ## Objective
