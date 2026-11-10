@@ -1,9 +1,9 @@
-name: NYAMIST G925 R2.6 Vulkan 1.4 Promoted-Feature Capability Audit
+name: NYAMIST G925 R2.6 — uint8 index enablement and indexed-draw functional probe
 
 on:
   push:
     branches:
-      - feature/g925-r2.6-promoted-index-type-uint8-functional-probe
+      - feature/g925-r2.6-index-type-uint8-functional-probe
   pull_request:
     branches:
       - feature/g925-r2.3-vulkan-1.4-driver-audit
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  build-android-r2-5:
+  build-android-r2-6:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -55,7 +55,8 @@ jobs:
             tools.tests.test_r2_2_swapchain_recovery_contract \
             tools.tests.test_r2_3_vulkan_1_4_driver_audit \
             tools.tests.test_r2_4_vulkan_1_4_promoted_extensions \
-            tools.tests.test_r2_5_vulkan_1_4_promoted_feature_capabilities \\\n            tools.tests.test_r2_6_index_type_uint8_functional_probe -v
+            tools.tests.test_r2_5_vulkan_1_4_promoted_feature_capabilities \
+            tools.tests.test_r2_6_index_type_uint8_functional_probe -v
 
       - name: Build arm64 Android APK
         working-directory: android/surface-validation
