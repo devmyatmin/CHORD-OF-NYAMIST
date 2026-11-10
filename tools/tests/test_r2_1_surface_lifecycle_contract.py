@@ -114,7 +114,10 @@ class R21SurfaceLifecycleContractTests(unittest.TestCase):
         self.assertIn("validateSurfaceNative(sessionSurface, width, height, liveResizeMode)", self.activity)
         self.assertIn("latestLiveResizeReport = completeReport", self.activity)
         self.assertIn("nyamist-g925-r2.2-live-wsi-resize-window.json", self.activity)
-        self.assertIn("latestLiveResizeReport.isEmpty() ? latestReport : latestLiveResizeReport", self.activity)
+        self.assertIn("copyLatestButton.setOnClickListener(view -> copyReport(false))", self.activity)
+        self.assertIn("copyLiveButton.setOnClickListener(view -> copyReport(true))", self.activity)
+        self.assertIn("String reportToCopy = liveWsi ? latestLiveResizeReport : latestReport", self.activity)
+        self.assertIn("session_current_at_completion", self.activity)
 
     def test_triangle_viewport_preserves_shape_across_surface_aspect_ratios(self):
         self.assertIn("std::min(extent.width, extent.height)", self.native)
