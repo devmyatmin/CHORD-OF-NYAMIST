@@ -16,9 +16,9 @@ void testUnavailableReportIsExplicit() {
     report.native_window_status = "not_available";
     report.failure_reason = "No Android Surface was supplied";
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 4") != std::string::npos,
+    check(json.find("\"schema_version\": 5") != std::string::npos,
           "schema version must be serialized");
-    check(json.find("NYAMIST G925 R1.8") != std::string::npos,
+    check(json.find("NYAMIST G925 R1.9") != std::string::npos,
           "R1.7 identity must be serialized");
     check(json.find("\"status\": \"unavailable\"") != std::string::npos,
           "missing native surface must be reported as unavailable");
@@ -111,7 +111,37 @@ void testSuccessfulSwapchainReportContract() {
     report.instance_destroy_status = "success";
     report.native_window_release_status = "success";
 
+    report.loader_api_version = "1.1";
+    report.swapchain_maintenance_instance_extension_status = "enabled";
+    report.swapchain_maintenance_device_extension_status = "supported";
+    report.swapchain_maintenance_feature_status = "enabled";
+    report.swapchain_maintenance_feature_supported = true;
+    report.present_fence_used = true;
+    report.present_completion_guaranteed = true;
+    report.present_completion_mode = "VK_EXT_swapchain_maintenance1";
+    report.present_fence_entry_points_status = "success";
+    report.present_fence_create_status = "success";
+    report.present_fence_attach_status = "success";
+    report.present_fence_wait_status = "success";
+    report.present_fence_reset_status = "success";
+    report.present_fence_wait_cpu_us = 42U;
+    report.present_fence_wait_cpu_us_samples = {40U, 42U, 45U};
+    report.present_fence_destroy_status = "success";
+    report.shutdown_presentation_completion_status = "present_fence_signaled";
+
     const auto json = nyamist::discovery::toJson(report);
+    check(json.find("\"schema_version\": 5") != std::string::npos,
+          "R1.9 schema version must be serialized");
+    check(json.find(R"("present_fence_used": true)") != std::string::npos,
+          "present fence use must be serialized");
+    check(json.find(R"("present_completion_guaranteed": true)") != std::string::npos,
+          "presentation completion guarantee must be serialized");
+    check(json.find(R"("present_completion_mode": "VK_EXT_swapchain_maintenance1")") != std::string::npos,
+          "present completion mode must be serialized");
+    check(json.find(R"("present_fence_wait_cpu_us_samples": [40, 42, 45])") != std::string::npos,
+          "present fence wait samples must be serialized");
+    check(json.find(R"("shutdown_presentation_completion_status": "present_fence_signaled")") != std::string::npos,
+          "shutdown presentation completion must be serialized");
     check(json.find("\"target_gpu_match\": true") != std::string::npos,
           "target GPU match must be serialized");
     check(json.find("\"selected_present_mode\": \"FIFO\"") != std::string::npos,
@@ -158,7 +188,7 @@ void testSuccessfulSwapchainReportContract() {
 
 void testMultiFrameTimingSerialization() {
     nyamist::discovery::AndroidSurfaceSwapchainValidationReport report;
-    report.schema_version = 4U;
+    report.schema_version = 5U;
     report.frame_target_count = 16U;
     report.frame_completed_count = 17U;
     report.warmup_frame_count = 1U;
