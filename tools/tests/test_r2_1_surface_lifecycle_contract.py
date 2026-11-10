@@ -70,6 +70,15 @@ class R21SurfaceLifecycleContractTests(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertIn(field, self.activity)
 
+    def test_surface_destruction_waits_for_native_cleanup(self):
+        destroy_body = self.activity.split("public void surfaceDestroyed(", 1)[1].split(
+            "private void requestManualRebuild(", 1
+        )[0]
+        self.assertIn("while (activeNativeSessions > 0)", destroy_body)
+        self.assertIn("lifecycleLock.wait()", destroy_body)
+        self.assertIn("lifecycleLock.notifyAll()", self.activity)
+        self.assertIn("ANativeWindow_fromSurface", self.native)
+
     def test_native_invocation_rebuilds_a_fresh_wsi_session(self):
         self.assertIn("ANativeWindow_fromSurface", self.native)
         self.assertIn("create_android_surface", self.native)
