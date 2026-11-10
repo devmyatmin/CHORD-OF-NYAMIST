@@ -29,6 +29,7 @@ void printUsage() {
         << "  nyamist-cli discover [--output <report.json>]\n"
         << "  nyamist-cli validate-device [--output <report.json>]\n"
         << "  nyamist-cli validate-submit [--output <report.json>]\n"
+        << "  nyamist-cli runtime-vulkan-smoke\n"
         << "  nyamist-cli inspect-panvk <report.env>\n"
         << "  nyamist-cli inspect-device <report.env>\n"
         << "  nyamist-cli inspect-dxvk <report.env>\n"
@@ -176,33 +177,33 @@ int runRuntimeVulkanSmoke() {
     nyamist::runtime::VulkanLoaderAdapter loader;
     std::string error;
     if (!loader.open(&error)) {
-        std::cerr << "Vulkan loader unavailable: " << error << '\\n';
+        std::cerr << "Vulkan loader unavailable: " << error << '\n';
         return 1;
     }
 
     nyamist::runtime::VulkanBackendSession backend(loader.dispatch());
     if (!backend.initialize()) {
         std::cerr << "NYAMIST Vulkan backend initialization failed: "
-                  << backend.status().error << '\\n';
+                  << backend.status().error << '\n';
         backend.shutdown();
         loader.close();
         return 1;
     }
 
-    std::cout << "NYAMIST Vulkan backend initialized\\n"
-              << "Graphics queue family: " << backend.status().graphics_queue_family << '\\n';
+    std::cout << "NYAMIST Vulkan backend initialized\n"
+              << "Graphics queue family: " << backend.status().graphics_queue_family << '\n';
     if (!backend.submit_smoke_command()) {
         std::cerr << "Vulkan smoke submission failed: "
-                  << backend.status().error << '\\n';
+                  << backend.status().error << '\n';
         backend.shutdown();
         loader.close();
         return 1;
     }
 
-    std::cout << "Empty command submitted and fence-wait completed\\n"
+    std::cout << "Empty command submitted and fence-wait completed\n"
               << "Completed smoke submissions: "
-              << backend.status().completed_smoke_submissions << '\\n'
-              << "Rendering: not tested by this command\\n";
+              << backend.status().completed_smoke_submissions << '\n'
+              << "Rendering: not tested by this command\n";
     backend.shutdown();
     loader.close();
     return 0;
