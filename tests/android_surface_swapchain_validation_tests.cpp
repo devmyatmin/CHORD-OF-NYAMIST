@@ -16,9 +16,9 @@ void testUnavailableReportIsExplicit() {
     report.native_window_status = "not_available";
     report.failure_reason = "No Android Surface was supplied";
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 10") != std::string::npos,
+    check(json.find("\"schema_version\": 11") != std::string::npos,
           "schema version must be serialized");
-    check(json.find("NYAMIST G925 R2.5") != std::string::npos,
+    check(json.find("NYAMIST G925 R2.6") != std::string::npos,
           "R2.2 identity must be serialized");
     check(json.find("\"status\": \"unavailable\"") != std::string::npos,
           "missing native surface must be reported as unavailable");
@@ -87,6 +87,22 @@ void testSuccessfulSwapchainReportContract() {
         "VK_KHR_load_store_op_none (no feature bit)",
         "VK_KHR_map_memory2 (no feature bit)"};
     report.target_gpu_match = true;
+    report.index_type_uint8_extension_status = "advertised";
+    report.index_type_uint8_feature_support_status = "supported";
+    report.index_type_uint8_feature_enable_status = "enabled";
+    report.index_type_uint8_buffer_create_status = "success";
+    report.index_type_uint8_memory_allocate_status = "success";
+    report.index_type_uint8_memory_bind_status = "success";
+    report.index_type_uint8_memory_map_status = "success";
+    report.index_type_uint8_upload_status = "success";
+    report.index_type_uint8_memory_unmap_status = "success";
+    report.index_type_uint8_draw_entry_points_status = "success";
+    report.index_type_uint8_draw_record_status = "success";
+    report.index_type_uint8_draw_recorded = true;
+    report.index_type_uint8_draw_index_count = 3U;
+    report.index_type_uint8_probe_status = "success";
+    report.index_type_uint8_buffer_destroy_status = "success";
+    report.index_type_uint8_memory_free_status = "success";
     report.swapchain_extension_status = "success";
     report.queue_family_status = "success";
     report.graphics_queue_supported = true;
@@ -226,8 +242,8 @@ void testSuccessfulSwapchainReportContract() {
     report.swapchain_out_of_date_recovery_status = "not_observed";
 
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 10") != std::string::npos,
-          "R2.5 schema version must be serialized");
+    check(json.find("\"schema_version\": 11") != std::string::npos,
+          "R2.6 schema version must be serialized");
     check(json.find(R"("present_fence_used": true)") != std::string::npos,
           "present fence use must be serialized");
     check(json.find(R"("present_fence_attach_count": 17)") != std::string::npos,
@@ -246,6 +262,14 @@ void testSuccessfulSwapchainReportContract() {
           "shutdown presentation completion must be serialized");
     check(json.find("\"target_gpu_match\": true") != std::string::npos,
           "G925 target match must be serialized");
+    check(json.find(R"("index_type_uint8_feature_enable_status": "enabled")") != std::string::npos,
+          "uint8 index feature enablement must be serialized");
+    check(json.find(R"("index_type_uint8_draw_recorded": true)") != std::string::npos,
+          "uint8 indexed draw recording must be serialized");
+    check(json.find(R"("index_type_uint8_draw_index_count": 3)") != std::string::npos,
+          "uint8 indexed draw count must be serialized");
+    check(json.find(R"("index_type_uint8_probe_status": "success")") != std::string::npos,
+          "uint8 index functional probe status must be serialized");
     check(json.find(R"("driver_id": 9)") != std::string::npos,
           "Vulkan driver ID must be serialized");
     check(json.find(R"("driver_id_name": "VK_DRIVER_ID_ARM_PROPRIETARY")") != std::string::npos,
@@ -267,9 +291,9 @@ void testSuccessfulSwapchainReportContract() {
     check(json.find(R"("vulkan_1_4_promoted_extensions_not_advertised": ["VK_KHR_dynamic_rendering_local_read", "VK_KHR_global_priority"])") != std::string::npos,
           "not-advertised extension names must be serialized");
     check(json.find(R"("vulkan_1_4_promoted_feature_total_count": 21)") != std::string::npos,
-          "R2.5 feature-bit count must be serialized");
+          "R2.5 retained feature-bit count must be serialized");
     check(json.find(R"("vulkan_1_4_promoted_feature_query_status": "success")") != std::string::npos,
-          "R2.5 feature query status must be serialized");
+          "R2.5 retained feature query status must be serialized");
     check(json.find(R"("vulkan_1_4_promoted_features_supported": ["VK_KHR_global_priority.globalPriorityQuery"])") != std::string::npos,
           "supported feature bits must be serialized");
     check(json.find(R"("vulkan_1_4_promoted_features_not_supported": ["VK_KHR_line_rasterization.bresenhamLines"])") != std::string::npos,

@@ -26,8 +26,8 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
     def test_r22_report_contract_is_preserved_in_schema_v8(self):
         # R2.3 extends the native report schema while retaining the R2.2
         # oldSwapchain and OUT_OF_DATE evidence fields.
-        self.assertIn("schema_version{10U}", self.header)
-        self.assertIn("NYAMIST G925 R2.5", self.serializer)
+        self.assertIn("schema_version{11U}", self.header)
+        self.assertIn("NYAMIST G925 R2.6", self.serializer)
         self.assertIn("swapchain_recreation_status", self.header)
         self.assertIn("swapchain_out_of_date_recovery_status", self.header)
 
@@ -67,8 +67,8 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
         self.assertIn("swapchain_extent_after_height", self.header)
 
     def test_app_build_identity_is_r23_with_r22_recovery_fields(self):
-        self.assertIn("R2.5 WSI session", self.activity)
-        self.assertIn("nyamist-g925-r2.5-vulkan-1.4-audit.json", self.activity)
+        self.assertIn("R2.6 WSI session", self.activity)
+        self.assertIn("nyamist-g925-r2.6-uint8-index-probe.json", self.activity)
         self.assertIn("out_of_date_full_session_retry_count", self.activity)
         self.assertIn("out_of_date_full_wsi_session_retry", self.activity)
         self.assertIn("out_of_date_full_session_retry_count", self.activity)

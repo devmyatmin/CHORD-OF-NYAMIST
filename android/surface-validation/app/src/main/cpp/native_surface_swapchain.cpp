@@ -98,6 +98,8 @@ struct VulkanDispatch {
     PFN_vkCmdEndRenderPass cmd_end_render_pass{};
     PFN_vkCmdBindPipeline cmd_bind_pipeline{};
     PFN_vkCmdDraw cmd_draw{};
+    PFN_vkCmdBindIndexBuffer cmd_bind_index_buffer{};
+    PFN_vkCmdDrawIndexed cmd_draw_indexed{};
     PFN_vkCmdCopyImageToBuffer cmd_copy_image_to_buffer{};
     PFN_vkGetSwapchainImagesKHR get_swapchain_images{};
     PFN_vkCreateSemaphore create_semaphore{};
@@ -346,6 +348,112 @@ bool createPixelReadbackResources(
     return true;
 }
 
+bool createUint8IndexProbeResources(
+        VulkanDispatch& vk,
+        AndroidSurfaceSwapchainValidationReport& report,
+        VkPhysicalDevice physical_device,
+        VkDevice device,
+        VkBuffer& index_buffer,
+        VkDeviceMemory& index_memory) {
+    if (report.index_type_uint8_feature_enable_status != "enabled") {
+        const std::string support = report.index_type_uint8_feature_support_status;
+        report.index_type_uint8_probe_status = support;
+        report.index_type_uint8_buffer_create_status = "not_required";
+        report.index_type_uint8_memory_allocate_status = "not_required";
+        report.index_type_uint8_memory_bind_status = "not_required";
+        report.index_type_uint8_memory_map_status = "not_required";
+        report.index_type_uint8_upload_status = "not_required";
+        report.index_type_uint8_memory_unmap_status = "not_required";
+        return true;
+    }
+
+    if (vk.get_physical_device_memory_properties == nullptr ||
+        vk.create_buffer == nullptr || vk.get_buffer_memory_requirements == nullptr ||
+        vk.allocate_memory == nullptr || vk.bind_buffer_memory == nullptr ||
+        vk.map_memory == nullptr || vk.unmap_memory == nullptr) {
+        report.index_type_uint8_probe_status = "entry_point_unavailable";
+        fail(report, "R2.6 uint8 index-buffer resource entry points are unavailable");
+        return false;
+    }
+
+    VkBufferCreateInfo buffer_info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    buffer_info.size = 3U;
+    buffer_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VkResult result = vk.create_buffer(device, &buffer_info, nullptr, &index_buffer);
+    report.index_type_uint8_buffer_create_status =
+        result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        report.index_type_uint8_probe_status = "buffer_create_failed";
+        fail(report, "R2.6 vkCreateBuffer(uint8 index) failed: " + resultName(result));
+        return false;
+    }
+
+    VkMemoryRequirements requirements{};
+    vk.get_buffer_memory_requirements(device, index_buffer, &requirements);
+    VkPhysicalDeviceMemoryProperties memory_properties{};
+    vk.get_physical_device_memory_properties(physical_device, &memory_properties);
+
+    std::uint32_t coherent_memory_type = UINT32_MAX;
+    for (std::uint32_t index = 0U; index < memory_properties.memoryTypeCount; ++index) {
+        if ((requirements.memoryTypeBits & (1U << index)) == 0U) continue;
+        const VkMemoryPropertyFlags flags =
+            memory_properties.memoryTypes[index].propertyFlags;
+        if ((flags & (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) ==
+                    (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+            coherent_memory_type = index;
+            break;
+        }
+    }
+    if (coherent_memory_type == UINT32_MAX) {
+        report.index_type_uint8_memory_allocate_status =
+            "host_visible_coherent_memory_unavailable";
+        report.index_type_uint8_probe_status = "memory_type_unavailable";
+        fail(report, "R2.6 uint8 index probe requires HOST_VISIBLE|HOST_COHERENT memory");
+        return false;
+    }
+
+    VkMemoryAllocateInfo allocation_info{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+    allocation_info.allocationSize = requirements.size;
+    allocation_info.memoryTypeIndex = coherent_memory_type;
+    result = vk.allocate_memory(device, &allocation_info, nullptr, &index_memory);
+    report.index_type_uint8_memory_allocate_status =
+        result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        report.index_type_uint8_probe_status = "memory_allocate_failed";
+        fail(report, "R2.6 vkAllocateMemory(uint8 index) failed: " + resultName(result));
+        return false;
+    }
+
+    result = vk.bind_buffer_memory(device, index_buffer, index_memory, 0U);
+    report.index_type_uint8_memory_bind_status =
+        result == VK_SUCCESS ? "success" : "failed";
+    if (result != VK_SUCCESS) {
+        report.index_type_uint8_probe_status = "memory_bind_failed";
+        fail(report, "R2.6 vkBindBufferMemory(uint8 index) failed: " + resultName(result));
+        return false;
+    }
+
+    void* mapped = nullptr;
+    result = vk.map_memory(device, index_memory, 0U, VK_WHOLE_SIZE, 0U, &mapped);
+    report.index_type_uint8_memory_map_status =
+        result == VK_SUCCESS && mapped != nullptr ? "success" : "failed";
+    if (result != VK_SUCCESS || mapped == nullptr) {
+        report.index_type_uint8_probe_status = "memory_map_failed";
+        fail(report, "R2.6 vkMapMemory(uint8 index) failed: " + resultName(result));
+        return false;
+    }
+
+    constexpr std::array<std::uint8_t, 3> indices{0U, 1U, 2U};
+    std::memcpy(mapped, indices.data(), indices.size());
+    report.index_type_uint8_upload_status = "success";
+    vk.unmap_memory(device, index_memory);
+    report.index_type_uint8_memory_unmap_status = "success";
+    return true;
+}
+
 bool verifyPixelReadback(
         VulkanDispatch& vk,
         AndroidSurfaceSwapchainValidationReport& report,
@@ -487,6 +595,8 @@ bool renderAndPresentFrame(
         VkBuffer pixel_readback_buffer,
         VkDeviceMemory pixel_readback_memory,
         bool pixel_readback_memory_coherent,
+        VkBuffer uint8_index_buffer,
+        bool uint8_index_probe_enabled,
         bool collect_frame_sample,
         std::chrono::steady_clock::time_point frame_start) {
     VkImageViewCreateInfo image_view_info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
@@ -759,7 +869,28 @@ bool renderAndPresentFrame(
     vk.cmd_bind_pipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                          graphics_pipeline);
     report.graphics_pipeline_bind_recorded = true;
-    vk.cmd_draw(command_buffer, 3U, 1U, 0U, 0U);
+    if (uint8_index_probe_enabled && perform_pixel_readback) {
+        // Make the first/readback frame an indexed-only draw. Pixel readback
+        // therefore proves the uint8 index path rendered the triangle; a
+        // preceding non-indexed draw cannot mask a failed indexed draw.
+        if (uint8_index_buffer == VK_NULL_HANDLE ||
+            vk.cmd_bind_index_buffer == nullptr || vk.cmd_draw_indexed == nullptr) {
+            report.index_type_uint8_draw_entry_points_status = "unavailable";
+            report.index_type_uint8_draw_record_status = "failed";
+            report.index_type_uint8_probe_status = "draw_entry_point_unavailable";
+            fail(report, "R2.6 uint8 indexed draw entry points or index buffer are unavailable");
+            return false;
+        }
+        report.index_type_uint8_draw_entry_points_status = "success";
+        vk.cmd_bind_index_buffer(command_buffer, uint8_index_buffer, 0U,
+                                 VK_INDEX_TYPE_UINT8_KHR);
+        vk.cmd_draw_indexed(command_buffer, 3U, 1U, 0, 0U, 0U);
+        report.index_type_uint8_draw_record_status = "success";
+        report.index_type_uint8_draw_recorded = true;
+        report.index_type_uint8_draw_index_count = 3U;
+    } else {
+        vk.cmd_draw(command_buffer, 3U, 1U, 0U, 0U);
+    }
     report.draw_call_recorded = true;
     report.draw_vertex_count = 3U;
     vk.cmd_end_render_pass(command_buffer);
@@ -968,10 +1099,17 @@ bool renderAndPresentFrame(
         return false;
     }
 
-    if (perform_pixel_readback &&
-        !verifyPixelReadback(vk, report, device, pixel_readback_memory,
-                             format, extent, pixel_readback_memory_coherent)) {
-        return false;
+    if (perform_pixel_readback) {
+        if (!verifyPixelReadback(vk, report, device, pixel_readback_memory,
+                                 format, extent, pixel_readback_memory_coherent)) {
+            if (uint8_index_probe_enabled) {
+                report.index_type_uint8_probe_status = "pixel_readback_failed";
+            }
+            return false;
+        }
+        if (uint8_index_probe_enabled) {
+            report.index_type_uint8_probe_status = "success";
+        }
     }
 
     report.frame_content_written = true;
@@ -1036,6 +1174,8 @@ bool runFrameSequence(
         VkBuffer pixel_readback_buffer,
         VkDeviceMemory pixel_readback_memory,
         bool pixel_readback_memory_coherent,
+        VkBuffer uint8_index_buffer,
+        bool uint8_index_probe_enabled,
         bool pixel_readback_enabled,
         VkCommandPool& command_pool,
         VkCommandBuffer& command_buffer,
@@ -1172,7 +1312,8 @@ bool runFrameSequence(
             sample_index * 2U, present_fence, present_fence_enabled,
             pixel_readback_enabled, frame_index == 0U,
             pixel_readback_buffer, pixel_readback_memory,
-            pixel_readback_memory_coherent, collect_sample, frame_start);
+            pixel_readback_memory_coherent, uint8_index_buffer,
+            uint8_index_probe_enabled, collect_sample, frame_start);
         if (!frame_ok) return false;
         ++report.frame_completed_count;
 
@@ -1708,6 +1849,9 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     VkQueryPool timestamp_query_pool = VK_NULL_HANDLE;
     VkBuffer pixel_readback_buffer = VK_NULL_HANDLE;
     VkDeviceMemory pixel_readback_memory = VK_NULL_HANDLE;
+    VkBuffer uint8_index_buffer = VK_NULL_HANDLE;
+    VkDeviceMemory uint8_index_memory = VK_NULL_HANDLE;
+    bool index_type_uint8_feature_enabled = false;
     bool pixel_readback_memory_coherent = false;
     bool maintenance_instance_extensions_enabled = false;
     bool maintenance_device_extension_supported = false;
@@ -2525,6 +2669,41 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         }
     }
 
+    const std::string uint8_index_feature_name =
+        "VK_KHR_index_type_uint8.indexTypeUint8";
+    const auto contains_feature = [&](const std::vector<std::string>& values) {
+        return std::find(values.begin(), values.end(), uint8_index_feature_name) !=
+               values.end();
+    };
+    const bool uint8_index_extension_advertised =
+        selected_physical_device_extensions_enumerated &&
+        hasDeviceExtension(selected_physical_device_extensions,
+                           VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME);
+    const bool uint8_index_core_path = report.vulkan_1_4_device_api_supported;
+    report.index_type_uint8_extension_status =
+        uint8_index_core_path ? "core_vulkan_1_4" :
+        (uint8_index_extension_advertised ? "advertised" : "not_advertised");
+
+    // Preserve R2.5's per-feature classification. A feature omitted because
+    // its query failed or was not queryable must never be mislabeled unsupported.
+    if (contains_feature(report.vulkan_1_4_promoted_features_supported)) {
+        report.index_type_uint8_feature_support_status = "supported";
+        index_type_uint8_feature_enabled = true;
+    } else if (contains_feature(report.vulkan_1_4_promoted_features_not_supported)) {
+        report.index_type_uint8_feature_support_status = "not_supported";
+    } else if (contains_feature(report.vulkan_1_4_promoted_features_not_advertised)) {
+        report.index_type_uint8_extension_status = "not_advertised";
+        report.index_type_uint8_feature_support_status = "not_advertised";
+    } else if (contains_feature(report.vulkan_1_4_promoted_features_query_failed)) {
+        report.index_type_uint8_feature_support_status = "query_failed";
+    } else if (contains_feature(report.vulkan_1_4_promoted_features_not_queryable)) {
+        report.index_type_uint8_feature_support_status = "not_queryable";
+    } else if (report.vulkan_1_4_promoted_feature_query_status != "success") {
+        report.index_type_uint8_feature_support_status = "query_failed";
+    } else {
+        report.index_type_uint8_feature_support_status = "unclassified";
+    }
+
     if (report.failure_reason.empty() && selected_physical_device != VK_NULL_HANDLE) {
         const float priority = 1.0F;
         VkDeviceQueueCreateInfo queue_info{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
@@ -2534,13 +2713,32 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         std::vector<const char*> device_extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
         VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT maintenance_features_enable{
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT};
+        VkPhysicalDeviceIndexTypeUint8FeaturesKHR uint8_index_features_enable{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_KHR};
         if (maintenance_feature_supported) {
             device_extensions.push_back(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
             maintenance_features_enable.swapchainMaintenance1 = VK_TRUE;
             report.swapchain_maintenance_feature_status = "enabled";
         }
+        if (index_type_uint8_feature_enabled) {
+            if (!report.vulkan_1_4_device_api_supported) {
+                device_extensions.push_back(VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME);
+            }
+            uint8_index_features_enable.indexTypeUint8 = VK_TRUE;
+            report.index_type_uint8_feature_enable_status = "requested";
+        } else {
+            report.index_type_uint8_feature_enable_status =
+                "not_enabled_" + report.index_type_uint8_feature_support_status;
+        }
         VkDeviceCreateInfo device_info{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
-        device_info.pNext = maintenance_feature_supported ? &maintenance_features_enable : nullptr;
+        if (maintenance_feature_supported && index_type_uint8_feature_enabled) {
+            maintenance_features_enable.pNext = &uint8_index_features_enable;
+            device_info.pNext = &maintenance_features_enable;
+        } else if (maintenance_feature_supported) {
+            device_info.pNext = &maintenance_features_enable;
+        } else if (index_type_uint8_feature_enabled) {
+            device_info.pNext = &uint8_index_features_enable;
+        }
         device_info.queueCreateInfoCount = 1U;
         device_info.pQueueCreateInfos = &queue_info;
         device_info.enabledExtensionCount =
@@ -2550,8 +2748,14 @@ AndroidSurfaceSwapchainValidationReport runValidation(
         const VkResult result = vk.create_device(selected_physical_device, &device_info,
                                                  nullptr, &device);
         if (!isUsable(result)) {
+            if (index_type_uint8_feature_enabled) {
+                report.index_type_uint8_feature_enable_status = "device_create_failed";
+            }
             fail(report, "vkCreateDevice for VK_KHR_swapchain failed: " + resultName(result));
         } else {
+            if (index_type_uint8_feature_enabled) {
+                report.index_type_uint8_feature_enable_status = "enabled";
+            }
 #define LOAD_DEVICE(member, symbol) \
             vk.member = reinterpret_cast<decltype(vk.member)>(vk.get_device_proc_addr(device, symbol))
             LOAD_DEVICE(destroy_device, "vkDestroyDevice");
@@ -2583,6 +2787,8 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             LOAD_DEVICE(cmd_end_render_pass, "vkCmdEndRenderPass");
             LOAD_DEVICE(cmd_bind_pipeline, "vkCmdBindPipeline");
             LOAD_DEVICE(cmd_draw, "vkCmdDraw");
+            LOAD_DEVICE(cmd_bind_index_buffer, "vkCmdBindIndexBuffer");
+            LOAD_DEVICE(cmd_draw_indexed, "vkCmdDrawIndexed");
             LOAD_DEVICE(cmd_copy_image_to_buffer, "vkCmdCopyImageToBuffer");
             LOAD_DEVICE(get_swapchain_images, "vkGetSwapchainImagesKHR");
             LOAD_DEVICE(create_semaphore, "vkCreateSemaphore");
@@ -2626,6 +2832,8 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                 vk.create_graphics_pipelines == nullptr || vk.destroy_pipeline == nullptr ||
                 vk.cmd_begin_render_pass == nullptr || vk.cmd_end_render_pass == nullptr ||
                 vk.cmd_bind_pipeline == nullptr || vk.cmd_draw == nullptr ||
+                (index_type_uint8_feature_enabled &&
+                 (vk.cmd_bind_index_buffer == nullptr || vk.cmd_draw_indexed == nullptr)) ||
                 vk.cmd_copy_image_to_buffer == nullptr ||
                 vk.create_semaphore == nullptr || vk.destroy_semaphore == nullptr ||
                 vk.create_fence == nullptr || vk.destroy_fence == nullptr ||
@@ -2802,6 +3010,12 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                         if (report.failure_reason.empty()) {
                                             fail(report, "R2.2 oldSwapchain recreation/probe failed");
                                         }
+                                    } else if (!createUint8IndexProbeResources(
+                                        vk, report, selected_physical_device, device,
+                                        uint8_index_buffer, uint8_index_memory)) {
+                                        if (report.failure_reason.empty()) {
+                                            fail(report, "R2.6 uint8 index probe resource initialization failed");
+                                        }
                                     } else if (!createPixelReadbackResources(
                                         vk, report, selected_physical_device, device,
                                         pixel_readback_buffer, pixel_readback_memory,
@@ -2816,7 +3030,8 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                         present_fence, maintenance_feature_supported,
                                         timestamp_query_pool,
                                         pixel_readback_buffer, pixel_readback_memory,
-                                        pixel_readback_memory_coherent, true,
+                                        pixel_readback_memory_coherent,
+                                        uint8_index_buffer, index_type_uint8_feature_enabled, true,
                                         command_pool, command_buffer, image_view, render_pass,
                                         framebuffer, vertex_shader, fragment_shader,
                                         pipeline_layout, graphics_pipeline)) {
@@ -2865,6 +3080,24 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             report.present_fence_destroy_status = "success";
         } else {
             report.present_fence_destroy_status = "failed";
+            cleanup_ok = false;
+        }
+    }
+    if (uint8_index_buffer != VK_NULL_HANDLE) {
+        if (vk.destroy_buffer != nullptr) {
+            vk.destroy_buffer(device, uint8_index_buffer, nullptr);
+            report.index_type_uint8_buffer_destroy_status = "success";
+        } else {
+            report.index_type_uint8_buffer_destroy_status = "failed";
+            cleanup_ok = false;
+        }
+    }
+    if (uint8_index_memory != VK_NULL_HANDLE) {
+        if (vk.free_memory != nullptr) {
+            vk.free_memory(device, uint8_index_memory, nullptr);
+            report.index_type_uint8_memory_free_status = "success";
+        } else {
+            report.index_type_uint8_memory_free_status = "failed";
             cleanup_ok = false;
         }
     }
@@ -3058,7 +3291,25 @@ AndroidSurfaceSwapchainValidationReport runValidation(
          report.present_fence_wait_count == report.frame_completed_count &&
          report.present_fence_reset_count + 1U == report.frame_completed_count &&
          report.shutdown_presentation_completion_status == "present_fence_signaled");
-    const bool complete = presentation_completion_valid &&
+    const bool uint8_index_probe_valid =
+        index_type_uint8_feature_enabled
+            ? (report.index_type_uint8_feature_enable_status == "enabled" &&
+               report.index_type_uint8_buffer_create_status == "success" &&
+               report.index_type_uint8_memory_allocate_status == "success" &&
+               report.index_type_uint8_memory_bind_status == "success" &&
+               report.index_type_uint8_memory_map_status == "success" &&
+               report.index_type_uint8_upload_status == "success" &&
+               report.index_type_uint8_memory_unmap_status == "success" &&
+               report.index_type_uint8_draw_entry_points_status == "success" &&
+               report.index_type_uint8_draw_record_status == "success" &&
+               report.index_type_uint8_draw_recorded &&
+               report.index_type_uint8_draw_index_count == 3U &&
+               report.index_type_uint8_probe_status == "success" &&
+               report.index_type_uint8_buffer_destroy_status == "success" &&
+               report.index_type_uint8_memory_free_status == "success")
+            : (report.index_type_uint8_probe_status == "not_supported" ||
+               report.index_type_uint8_probe_status == "not_advertised");
+    const bool complete = presentation_completion_valid && uint8_index_probe_valid &&
         report.loader_status == "success" &&
         report.instance_create_status == "success" &&
         report.surface_extension_status == "success" &&
