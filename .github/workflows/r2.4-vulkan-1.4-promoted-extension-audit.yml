@@ -1,4 +1,4 @@
-name: NYAMIST G925 R2.4 Vulkan 1.4 Driver Identity and Capability Audit
+name: NYAMIST G925 R2.4 Vulkan 1.4 Promoted-Extension Inventory
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  build-android-r2-3:
+  build-android-r2-4:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout

@@ -80,12 +80,12 @@ void array64Field(std::ostringstream& out, const char* name,
 
 void stringArrayField(std::ostringstream& out, const char* name,
                       const std::vector<std::string>& values) {
-    out << "  \\"" << name << "\\": [";
+    out << "  \"" << name << "\": [";
     for (std::size_t index = 0; index < values.size(); ++index) {
         if (index != 0U) out << ", ";
-        out << "\\\"" << escapeJson(values[index]) << "\\\"";
+        out << "\"" << escapeJson(values[index]) << "\"";
     }
-    out << "],\\n";
+    out << "],\n";
 }
 
 void summary64Fields(std::ostringstream& out, const char* prefix,
