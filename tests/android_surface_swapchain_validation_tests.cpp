@@ -68,7 +68,7 @@ void testSuccessfulSwapchainReportContract() {
     report.pixel_readback_sample_count = 5U;
     report.pixel_readback_sample_labels =
         "top_left,top_right,bottom_left,bottom_right,triangle_center";
-    report.pixel_expected_clear_rgba8 = {53U, 104U, 153U, 255U};
+    report.pixel_expected_clear_rgba8 = {53U, 105U, 153U, 255U};
     report.pixel_rgba8_samples = {
         53U,104U,153U,255U, 53U,104U,153U,255U,
         53U,104U,153U,255U, 53U,104U,153U,255U,
