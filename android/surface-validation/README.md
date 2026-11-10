@@ -63,6 +63,21 @@ and surface_recreated_count >= 1. If Android keeps the same Surface while the
 app is paused, the pause/resume plus manual rebuild evidence is recorded
 separately and must not be mislabeled as a Surface destroy/create cycle.
 
+## Current REDMI K80 Ultra result
+
+The first R2.1 device run completed seven fresh native WSI sessions (7/7
+successful, zero skipped) with max_concurrent_native_sessions=1. Pixel
+readback and present-fence validation remained successful.
+
+This run used six explicit manual rebuilds on Surface generation 1. It
+reported surface_destroyed_count=0, surface_recreated_count=0 and
+activity_pause_count=0. It is therefore a PASS for serialized WSI session
+reconstruction, but not yet a Surface destruction/recreation or Activity
+pause/resume pass. Complete the Home/return and rotation test before claiming
+those lifecycle events.
+
+See [R2.1 REDMI K80 Ultra evidence](../../docs/evidence/NYAMIST-G925-R2.1-redmi-k80-ultra-2026-11-10.md).
+
 ## Validation boundaries
 
 Hosted CI checks the Java/native build, shader compilation, APK packaging and
