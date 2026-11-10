@@ -54,7 +54,7 @@ class R24PromotedExtensionInventoryContractTests(unittest.TestCase):
         self.assertIn("promoted_functionality_is_in_core_api", self.native)
 
     def test_report_separates_advertised_and_not_advertised_names(self):
-        self.assertIn("schema_version{11U}", self.header)
+        self.assertIn("schema_version{12U}", self.header)
         self.assertIn("vulkan_1_4_promoted_extensions_supported", self.header)
         self.assertIn("vulkan_1_4_promoted_extensions_not_advertised", self.header)
         self.assertIn("stringArrayField(", self.serializer)
@@ -62,7 +62,7 @@ class R24PromotedExtensionInventoryContractTests(unittest.TestCase):
         self.assertIn("vulkan_1_4_promoted_extension_coverage_status", self.serializer)
 
     def test_app_identity_is_current_r26(self):
-        self.assertIn('schema_version\\": 11', self.activity)
+        self.assertIn('schema_version\\": 12', self.activity)
         self.assertIn("versionCode = 260", self.gradle)
         self.assertIn('versionName = "2.6.0"', self.gradle)
         self.assertIn("nyamist-g925-r2.6-uint8-index-probe.json", self.activity)
