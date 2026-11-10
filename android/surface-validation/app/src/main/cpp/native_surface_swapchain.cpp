@@ -98,6 +98,8 @@ struct VulkanDispatch {
     PFN_vkCmdBeginRenderPass cmd_begin_render_pass{};
     PFN_vkCmdEndRenderPass cmd_end_render_pass{};
     PFN_vkCmdBindPipeline cmd_bind_pipeline{};
+    PFN_vkCmdSetViewport cmd_set_viewport{};
+    PFN_vkCmdSetScissor cmd_set_scissor{};
     PFN_vkCmdDraw cmd_draw{};
     PFN_vkCmdBindIndexBuffer cmd_bind_index_buffer{};
     PFN_vkCmdDrawIndexed cmd_draw_indexed{};
@@ -681,6 +683,26 @@ bool renderAndPresentFrame(
         return false;
     }
 
+    // Viewport/scissor are computed from the current swapchain extent for every
+    // frame. They must not be frozen into a reusable graphics-pipeline object:
+    // Surface rotations/resizes can leave that object alive across WSI sessions.
+    const std::uint32_t render_viewport_extent =
+        std::min(extent.width, extent.height);
+    const std::uint32_t render_viewport_x =
+        (extent.width - render_viewport_extent) / 2U;
+    const std::uint32_t render_viewport_y =
+        (extent.height - render_viewport_extent) / 2U;
+    VkViewport render_viewport{};
+    render_viewport.x = static_cast<float>(render_viewport_x);
+    render_viewport.y = static_cast<float>(render_viewport_y);
+    render_viewport.width = static_cast<float>(render_viewport_extent);
+    render_viewport.height = static_cast<float>(render_viewport_extent);
+    render_viewport.minDepth = 0.0F;
+    render_viewport.maxDepth = 1.0F;
+    VkRect2D render_scissor{};
+    render_scissor.offset = {0, 0};
+    render_scissor.extent = extent;
+
     if (graphics_pipeline == VK_NULL_HANDLE) {
         VkShaderModuleCreateInfo vertex_shader_info{
             VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
@@ -734,32 +756,22 @@ bool renderAndPresentFrame(
         input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         input_assembly.primitiveRestartEnable = VK_FALSE;
 
-        // Preserve the triangle's clip-space proportions for portrait and
-        // landscape Surfaces. The render pass still clears/presents the full
-        // swapchain image; only the triangle draw viewport is aspect-fitted.
-        const std::uint32_t render_viewport_extent =
-            std::min(extent.width, extent.height);
-        const std::uint32_t render_viewport_x =
-            (extent.width - render_viewport_extent) / 2U;
-        const std::uint32_t render_viewport_y =
-            (extent.height - render_viewport_extent) / 2U;
-
-        VkViewport viewport{};
-        viewport.x = static_cast<float>(render_viewport_x);
-        viewport.y = static_cast<float>(render_viewport_y);
-        viewport.width = static_cast<float>(render_viewport_extent);
-        viewport.height = static_cast<float>(render_viewport_extent);
-        viewport.minDepth = 0.0F;
-        viewport.maxDepth = 1.0F;
-        VkRect2D scissor{};
-        scissor.offset = {0, 0};
-        scissor.extent = extent;
+        // Viewport and scissor are dynamic; current extent-derived values are
+        // supplied with vkCmdSetViewport/vkCmdSetScissor for every frame.
         VkPipelineViewportStateCreateInfo viewport_state{
             VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
         viewport_state.viewportCount = 1U;
-        viewport_state.pViewports = &viewport;
+        viewport_state.pViewports = nullptr;
         viewport_state.scissorCount = 1U;
-        viewport_state.pScissors = &scissor;
+        viewport_state.pScissors = nullptr;
+        const VkDynamicState dynamic_states[] = {
+            VK_DYNAMIC_STATE_VIEWPORT,
+            VK_DYNAMIC_STATE_SCISSOR
+        };
+        VkPipelineDynamicStateCreateInfo dynamic_state_info{
+            VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+        dynamic_state_info.dynamicStateCount = 2U;
+        dynamic_state_info.pDynamicStates = dynamic_states;
 
         VkPipelineRasterizationStateCreateInfo rasterization{
             VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
@@ -794,6 +806,7 @@ bool renderAndPresentFrame(
         pipeline_info.pVertexInputState = &vertex_input;
         pipeline_info.pInputAssemblyState = &input_assembly;
         pipeline_info.pViewportState = &viewport_state;
+        pipeline_info.pDynamicState = &dynamic_state_info;
         pipeline_info.pRasterizationState = &rasterization;
         pipeline_info.pMultisampleState = &multisampling;
         pipeline_info.pColorBlendState = &color_blending;
@@ -879,6 +892,8 @@ bool renderAndPresentFrame(
     report.render_pass_begin_recorded = true;
     vk.cmd_bind_pipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                          graphics_pipeline);
+    vk.cmd_set_viewport(command_buffer, 0U, 1U, &render_viewport);
+    vk.cmd_set_scissor(command_buffer, 0U, 1U, &render_scissor);
     report.graphics_pipeline_bind_recorded = true;
     if (uint8_index_probe_enabled && perform_pixel_readback) {
         // Make the first/readback frame an indexed-only draw. Pixel readback
@@ -2829,6 +2844,8 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             LOAD_DEVICE(cmd_begin_render_pass, "vkCmdBeginRenderPass");
             LOAD_DEVICE(cmd_end_render_pass, "vkCmdEndRenderPass");
             LOAD_DEVICE(cmd_bind_pipeline, "vkCmdBindPipeline");
+            LOAD_DEVICE(cmd_set_viewport, "vkCmdSetViewport");
+            LOAD_DEVICE(cmd_set_scissor, "vkCmdSetScissor");
             LOAD_DEVICE(cmd_draw, "vkCmdDraw");
             LOAD_DEVICE(cmd_bind_index_buffer, "vkCmdBindIndexBuffer");
             LOAD_DEVICE(cmd_draw_indexed, "vkCmdDrawIndexed");
@@ -2874,7 +2891,9 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                 vk.create_pipeline_layout == nullptr || vk.destroy_pipeline_layout == nullptr ||
                 vk.create_graphics_pipelines == nullptr || vk.destroy_pipeline == nullptr ||
                 vk.cmd_begin_render_pass == nullptr || vk.cmd_end_render_pass == nullptr ||
-                vk.cmd_bind_pipeline == nullptr || vk.cmd_draw == nullptr ||
+                vk.cmd_bind_pipeline == nullptr ||
+                vk.cmd_set_viewport == nullptr || vk.cmd_set_scissor == nullptr ||
+                vk.cmd_draw == nullptr ||
                 (index_type_uint8_feature_enabled &&
                  (vk.cmd_bind_index_buffer == nullptr || vk.cmd_draw_indexed == nullptr)) ||
                 vk.cmd_copy_image_to_buffer == nullptr ||
