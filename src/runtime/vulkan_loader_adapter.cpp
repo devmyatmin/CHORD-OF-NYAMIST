@@ -27,10 +27,6 @@ struct VulkanLoaderAdapter::Impl {
         if constexpr (std::is_pointer_v<T>) return reinterpret_cast<NativeHandle>(value);
         else return static_cast<NativeHandle>(value);
     }
-    template <typename T> static T fromNative(NativeHandle value) {
-        if constexpr (std::is_pointer_v<T>) return reinterpret_cast<T>(value);
-        else return static_cast<T>(value);
-    }
     template <typename T> T instanceProc(const char* name) const {
         return reinterpret_cast<T>(get_instance_proc_addr(instance, name));
     }
@@ -88,10 +84,13 @@ struct VulkanLoaderAdapter::Impl {
         info.queueCreateInfoCount=1;info.pQueueCreateInfos=&queueInfo;
         const VkResult result=create(self.physical,&info,nullptr,&self.device);
         if(result!=VK_SUCCESS){if(error)*error="vkCreateDevice failed: "+std::to_string(result);return false;}
+        // Publish the handle before loading device dispatch so session rollback
+        // can destroy the device if vkGetDeviceProcAddr resolution fails.
+        *out=toNative(self.device);
         self.get_device_proc_addr=reinterpret_cast<PFN_vkGetDeviceProcAddr>(
             self.get_instance_proc_addr(self.instance,"vkGetDeviceProcAddr"));
         if(!self.get_device_proc_addr){if(error)*error="vkGetDeviceProcAddr unavailable";return false;}
-        *out=toNative(self.device);return true;
+        return true;
     }
     static bool getQueue(void* opaque, NativeHandle, std::uint32_t family,
                          NativeHandle* out, std::string* error) {
