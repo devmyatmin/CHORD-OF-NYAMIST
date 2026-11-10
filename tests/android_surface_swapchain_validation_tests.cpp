@@ -243,7 +243,7 @@ void testSuccessfulSwapchainReportContract() {
 
     const auto json = nyamist::discovery::toJson(report);
     check(json.find("\"schema_version\": 11") != std::string::npos,
-          "R2.5 schema version must be serialized");
+          "R2.6 schema version must be serialized");
     check(json.find(R"("present_fence_used": true)") != std::string::npos,
           "present fence use must be serialized");
     check(json.find(R"("present_fence_attach_count": 17)") != std::string::npos,
@@ -291,9 +291,9 @@ void testSuccessfulSwapchainReportContract() {
     check(json.find(R"("vulkan_1_4_promoted_extensions_not_advertised": ["VK_KHR_dynamic_rendering_local_read", "VK_KHR_global_priority"])") != std::string::npos,
           "not-advertised extension names must be serialized");
     check(json.find(R"("vulkan_1_4_promoted_feature_total_count": 21)") != std::string::npos,
-          "R2.5 feature-bit count must be serialized");
+          "R2.5 retained feature-bit count must be serialized");
     check(json.find(R"("vulkan_1_4_promoted_feature_query_status": "success")") != std::string::npos,
-          "R2.5 feature query status must be serialized");
+          "R2.5 retained feature query status must be serialized");
     check(json.find(R"("vulkan_1_4_promoted_features_supported": ["VK_KHR_global_priority.globalPriorityQuery"])") != std::string::npos,
           "supported feature bits must be serialized");
     check(json.find(R"("vulkan_1_4_promoted_features_not_supported": ["VK_KHR_line_rasterization.bresenhamLines"])") != std::string::npos,
