@@ -358,7 +358,10 @@ int main(int argc, char** argv) {
     if (command == "validate-device") {
         return runValidateDevice(argc, argv);
     }
-    if (command == "runtime-vulkan-smoke" && argc == 2) {\n        return runRuntimeVulkanSmoke();\n    }\n    if (command == "validate-submit") {
+    if (command == "runtime-vulkan-smoke" && argc == 2) {
+        return runRuntimeVulkanSmoke();
+    }
+    if (command == "validate-submit") {
         return runValidateSubmit(argc, argv);
     }
     if (command == "inspect-panvk" && argc == 3) {
