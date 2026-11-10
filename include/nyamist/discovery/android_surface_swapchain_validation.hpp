@@ -7,7 +7,7 @@
 namespace nyamist::discovery {
 
 struct AndroidSurfaceSwapchainValidationReport {
-    std::uint32_t schema_version{7U};
+    std::uint32_t schema_version{11U};
     std::string status{"unavailable"};
     std::string platform{"android"};
     std::string loader_library;
@@ -24,7 +24,77 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::string vendor_id_hex;
     std::string device_id_hex;
     std::string physical_device_api_version;
+    std::string instance_api_version;
+    std::string physical_device_properties2_query_status{"not_attempted"};
+    std::string driver_properties_query_status{"not_attempted"};
+    std::uint32_t driver_id{};
+    std::string driver_id_name{"unknown"};
+    std::string driver_name;
+    std::string driver_info;
+    std::uint32_t driver_version_raw{};
+    std::string driver_version_hex;
+    std::string driver_conformance_version;
+    std::string physical_device_uuid_hex;
+    bool vulkan_1_4_device_api_supported{};
+    std::string vulkan_1_4_support_status{"not_queried"};
+    std::string vulkan_1_4_features_query_status{"not_queried"};
+    bool vulkan_1_4_bresenham_lines_supported{};
+    bool vulkan_1_4_shader_subgroup_rotate_clustered_supported{};
+    bool vulkan_1_4_push_descriptor_supported{};
+    bool vulkan_1_4_protected_memory_supported{};
+    bool vulkan_1_4_pipeline_protected_access_required{};
+    bool vulkan_1_4_pipeline_protected_access_supported{};
+    bool vulkan_1_4_required_features_supported{};
+    std::string vulkan_1_4_required_features_status{"not_queried"};
+    std::string vulkan_1_4_promoted_extension_inventory_status{"not_queried"};
+    std::string vulkan_1_4_promoted_extension_inventory_scope{"not_queried"};
+    std::string vulkan_1_4_promoted_extension_coverage_status{"not_queried"};
+    std::uint32_t vulkan_1_4_promoted_extension_total_count{16U};
+    std::uint32_t vulkan_1_4_promoted_extension_supported_count{};
+    std::uint32_t vulkan_1_4_promoted_extension_not_advertised_count{};
+    std::vector<std::string> vulkan_1_4_promoted_extensions_supported;
+    std::vector<std::string> vulkan_1_4_promoted_extensions_not_advertised;
+
+    // R2.5 records feature-bit query results separately from extension-name
+    // advertisement. Vulkan 1.3 devices use only advertised extension feature
+    // structs; the Vulkan 1.4 aggregate feature struct is never chained on them.
+    std::string vulkan_1_4_promoted_feature_query_status{"not_queried"};
+    std::string vulkan_1_4_promoted_feature_query_scope{"not_queried"};
+    std::uint32_t vulkan_1_4_promoted_feature_total_count{21U};
+    std::uint32_t vulkan_1_4_promoted_feature_queried_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_supported_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_not_supported_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_not_advertised_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_implicitly_supported_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_query_failed_count{};
+    std::uint32_t vulkan_1_4_promoted_feature_not_queryable_count{};
+    std::vector<std::string> vulkan_1_4_promoted_features_supported;
+    std::vector<std::string> vulkan_1_4_promoted_features_not_supported;
+    std::vector<std::string> vulkan_1_4_promoted_features_not_advertised;
+    std::vector<std::string> vulkan_1_4_promoted_features_implicitly_supported;
+    std::vector<std::string> vulkan_1_4_promoted_features_query_failed;
+    std::vector<std::string> vulkan_1_4_promoted_features_not_queryable;
+    std::vector<std::string> vulkan_1_4_promoted_features_not_applicable;
     bool target_gpu_match{};
+
+    // R2.6 enables and functionally probes VK_KHR_index_type_uint8 only when
+    // the selected device reported the feature bit as supported in R2.5.
+    std::string index_type_uint8_extension_status{"not_queried"};
+    std::string index_type_uint8_feature_support_status{"not_queried"};
+    std::string index_type_uint8_feature_enable_status{"not_attempted"};
+    std::string index_type_uint8_buffer_create_status{"not_attempted"};
+    std::string index_type_uint8_memory_allocate_status{"not_attempted"};
+    std::string index_type_uint8_memory_bind_status{"not_attempted"};
+    std::string index_type_uint8_memory_map_status{"not_attempted"};
+    std::string index_type_uint8_upload_status{"not_attempted"};
+    std::string index_type_uint8_memory_unmap_status{"not_attempted"};
+    std::string index_type_uint8_draw_entry_points_status{"not_attempted"};
+    std::string index_type_uint8_draw_record_status{"not_attempted"};
+    bool index_type_uint8_draw_recorded{};
+    std::uint32_t index_type_uint8_draw_index_count{};
+    std::string index_type_uint8_probe_status{"not_attempted"};
+    std::string index_type_uint8_buffer_destroy_status{"not_required"};
+    std::string index_type_uint8_memory_free_status{"not_required"};
 
     std::string swapchain_maintenance_instance_extension_status{"not_queried"};
     std::string swapchain_maintenance_device_extension_status{"not_queried"};

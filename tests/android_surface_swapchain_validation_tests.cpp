@@ -16,9 +16,9 @@ void testUnavailableReportIsExplicit() {
     report.native_window_status = "not_available";
     report.failure_reason = "No Android Surface was supplied";
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 7") != std::string::npos,
+    check(json.find("\"schema_version\": 11") != std::string::npos,
           "schema version must be serialized");
-    check(json.find("NYAMIST G925 R2.2") != std::string::npos,
+    check(json.find("NYAMIST G925 R2.6") != std::string::npos,
           "R2.2 identity must be serialized");
     check(json.find("\"status\": \"unavailable\"") != std::string::npos,
           "missing native surface must be reported as unavailable");
@@ -40,7 +40,69 @@ void testSuccessfulSwapchainReportContract() {
     report.vendor_id_hex = "0x13b5";
     report.device_id_hex = "0xd8300010";
     report.physical_device_api_version = "1.3.278";
+    report.instance_api_version = "1.4.0";
+    report.physical_device_properties2_query_status = "available";
+    report.driver_properties_query_status = "success";
+    report.driver_id = 9U;
+    report.driver_id_name = "VK_DRIVER_ID_ARM_PROPRIETARY";
+    report.driver_name = "Arm Proprietary";
+    report.driver_info = "test driver build";
+    report.driver_version_raw = 0x12345678U;
+    report.driver_version_hex = "0x12345678";
+    report.driver_conformance_version = "1.4.0.0";
+    report.physical_device_uuid_hex = "00112233445566778899aabbccddeeff";
+    report.vulkan_1_4_support_status = "not_exposed_by_physical_device";
+    report.vulkan_1_4_features_query_status = "skipped_physical_device_api_below_1_4";
+    report.vulkan_1_4_promoted_extension_inventory_status = "success";
+    report.vulkan_1_4_promoted_extension_inventory_scope =
+        "extension_name_advertisement_on_pre_1_4_device";
+    report.vulkan_1_4_promoted_extension_coverage_status = "partial_advertisement";
+    report.vulkan_1_4_promoted_extension_total_count = 16U;
+    report.vulkan_1_4_promoted_extension_supported_count = 2U;
+    report.vulkan_1_4_promoted_extension_not_advertised_count = 14U;
+    report.vulkan_1_4_promoted_extensions_supported = {
+        "VK_KHR_line_rasterization", "VK_EXT_host_image_copy"};
+    report.vulkan_1_4_promoted_extensions_not_advertised = {
+        "VK_KHR_dynamic_rendering_local_read", "VK_KHR_global_priority"};
+    report.vulkan_1_4_promoted_feature_query_status = "success";
+    report.vulkan_1_4_promoted_feature_query_scope =
+        "advertised_extension_feature_structs_on_pre_1_4_device";
+    report.vulkan_1_4_promoted_feature_total_count = 21U;
+    report.vulkan_1_4_promoted_feature_queried_count = 2U;
+    report.vulkan_1_4_promoted_feature_supported_count = 1U;
+    report.vulkan_1_4_promoted_feature_not_supported_count = 1U;
+    report.vulkan_1_4_promoted_feature_not_advertised_count = 1U;
+    report.vulkan_1_4_promoted_feature_implicitly_supported_count = 1U;
+    report.vulkan_1_4_promoted_feature_query_failed_count = 0U;
+    report.vulkan_1_4_promoted_feature_not_queryable_count = 0U;
+    report.vulkan_1_4_promoted_features_supported = {
+        "VK_KHR_global_priority.globalPriorityQuery"};
+    report.vulkan_1_4_promoted_features_not_supported = {
+        "VK_KHR_line_rasterization.bresenhamLines"};
+    report.vulkan_1_4_promoted_features_not_advertised = {
+        "VK_EXT_host_image_copy.hostImageCopy"};
+    report.vulkan_1_4_promoted_features_implicitly_supported = {
+        "VK_KHR_push_descriptor.pushDescriptor (implicit via VK_KHR_push_descriptor)"};
+    report.vulkan_1_4_promoted_features_not_applicable = {
+        "VK_KHR_load_store_op_none (no feature bit)",
+        "VK_KHR_map_memory2 (no feature bit)"};
     report.target_gpu_match = true;
+    report.index_type_uint8_extension_status = "advertised";
+    report.index_type_uint8_feature_support_status = "supported";
+    report.index_type_uint8_feature_enable_status = "enabled";
+    report.index_type_uint8_buffer_create_status = "success";
+    report.index_type_uint8_memory_allocate_status = "success";
+    report.index_type_uint8_memory_bind_status = "success";
+    report.index_type_uint8_memory_map_status = "success";
+    report.index_type_uint8_upload_status = "success";
+    report.index_type_uint8_memory_unmap_status = "success";
+    report.index_type_uint8_draw_entry_points_status = "success";
+    report.index_type_uint8_draw_record_status = "success";
+    report.index_type_uint8_draw_recorded = true;
+    report.index_type_uint8_draw_index_count = 3U;
+    report.index_type_uint8_probe_status = "success";
+    report.index_type_uint8_buffer_destroy_status = "success";
+    report.index_type_uint8_memory_free_status = "success";
     report.swapchain_extension_status = "success";
     report.queue_family_status = "success";
     report.graphics_queue_supported = true;
@@ -180,8 +242,8 @@ void testSuccessfulSwapchainReportContract() {
     report.swapchain_out_of_date_recovery_status = "not_observed";
 
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 7") != std::string::npos,
-          "R2.2 schema version must be serialized");
+    check(json.find("\"schema_version\": 11") != std::string::npos,
+          "R2.6 schema version must be serialized");
     check(json.find(R"("present_fence_used": true)") != std::string::npos,
           "present fence use must be serialized");
     check(json.find(R"("present_fence_attach_count": 17)") != std::string::npos,
@@ -199,7 +261,47 @@ void testSuccessfulSwapchainReportContract() {
     check(json.find(R"("shutdown_presentation_completion_status": "present_fence_signaled")") != std::string::npos,
           "shutdown presentation completion must be serialized");
     check(json.find("\"target_gpu_match\": true") != std::string::npos,
-          "target GPU match must be serialized");
+          "G925 target match must be serialized");
+    check(json.find(R"("index_type_uint8_feature_enable_status": "enabled")") != std::string::npos,
+          "uint8 index feature enablement must be serialized");
+    check(json.find(R"("index_type_uint8_draw_recorded": true)") != std::string::npos,
+          "uint8 indexed draw recording must be serialized");
+    check(json.find(R"("index_type_uint8_draw_index_count": 3)") != std::string::npos,
+          "uint8 indexed draw count must be serialized");
+    check(json.find(R"("index_type_uint8_probe_status": "success")") != std::string::npos,
+          "uint8 index functional probe status must be serialized");
+    check(json.find(R"("driver_id": 9)") != std::string::npos,
+          "Vulkan driver ID must be serialized");
+    check(json.find(R"("driver_id_name": "VK_DRIVER_ID_ARM_PROPRIETARY")") != std::string::npos,
+          "Arm driver ID must be named");
+    check(json.find(R"("driver_version_hex": "0x12345678")") != std::string::npos,
+          "raw Vulkan driver version must be preserved");
+    check(json.find(R"("physical_device_uuid": "00112233445566778899aabbccddeeff")") != std::string::npos,
+          "physical-device UUID must be serialized");
+    check(json.find(R"("vulkan_1_4_support_status": "not_exposed_by_physical_device")") != std::string::npos,
+          "a Vulkan 1.3 device must not be misreported as Vulkan 1.4");
+    check(json.find(R"("vulkan_1_4_promoted_extension_inventory_status": "success")") != std::string::npos,
+          "promoted extension inventory status must be serialized");
+    check(json.find(R"("vulkan_1_4_promoted_extension_total_count": 16)") != std::string::npos,
+          "all 16 promoted extension names must be counted");
+    check(json.find(R"("vulkan_1_4_promoted_extension_supported_count": 2)") != std::string::npos,
+          "advertised extension count must be serialized");
+    check(json.find(R"("vulkan_1_4_promoted_extensions_supported": ["VK_KHR_line_rasterization", "VK_EXT_host_image_copy"])") != std::string::npos,
+          "advertised extension names must be serialized");
+    check(json.find(R"("vulkan_1_4_promoted_extensions_not_advertised": ["VK_KHR_dynamic_rendering_local_read", "VK_KHR_global_priority"])") != std::string::npos,
+          "not-advertised extension names must be serialized");
+    check(json.find(R"("vulkan_1_4_promoted_feature_total_count": 21)") != std::string::npos,
+          "R2.5 retained feature-bit count must be serialized");
+    check(json.find(R"("vulkan_1_4_promoted_feature_query_status": "success")") != std::string::npos,
+          "R2.5 retained feature query status must be serialized");
+    check(json.find(R"("vulkan_1_4_promoted_features_supported": ["VK_KHR_global_priority.globalPriorityQuery"])") != std::string::npos,
+          "supported feature bits must be serialized");
+    check(json.find(R"("vulkan_1_4_promoted_features_not_supported": ["VK_KHR_line_rasterization.bresenhamLines"])") != std::string::npos,
+          "unsupported feature bits must be serialized");
+    check(json.find(R"json("vulkan_1_4_promoted_features_implicitly_supported": ["VK_KHR_push_descriptor.pushDescriptor (implicit via VK_KHR_push_descriptor)"])json") != std::string::npos,
+          "pre-1.4 push descriptors must be reported as implicitly supported when the extension is advertised");
+    check(json.find(R"json("vulkan_1_4_promoted_features_not_applicable": ["VK_KHR_load_store_op_none (no feature bit)", "VK_KHR_map_memory2 (no feature bit)"])json") != std::string::npos,
+          "promoted extensions without feature bits must be explicit");
     check(json.find("\"selected_present_mode\": \"FIFO\"") != std::string::npos,
           "FIFO presentation mode must be serialized");
     check(json.find(R"("swapchain_recreation_status": "success")") != std::string::npos,

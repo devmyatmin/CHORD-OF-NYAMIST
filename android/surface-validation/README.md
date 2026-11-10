@@ -104,3 +104,35 @@ presentation completion, same logical device reuse, and separate actual
 SUBOPTIMAL / OUT_OF_DATE counters. A swapchain handoff with unchanged extent
 must not be described as a resize pass.
 
+## R2.3 — Vulkan 1.4 and stock-driver identity audit
+
+R2.3 requests the highest Vulkan instance API version exposed by the Android
+public loader, capped at 1.4. It does not upgrade the physical-device driver:
+loader API, instance API and physical-device API are reported separately.
+
+The report queries `VkPhysicalDeviceDriverProperties` and
+`VkPhysicalDeviceIDProperties` through `vkGetPhysicalDeviceProperties2`,
+recording driver ID/name/info, raw driver version (decimal and hexadecimal),
+conformance version and physical-device UUID.
+
+When the physical device itself advertises Vulkan 1.4 and the instance API is
+also 1.4, the app queries `VkPhysicalDeviceVulkan14Features` and checks
+Bresenham lines, clustered subgroup rotate, push descriptors, and the
+conditional protected-pipeline-access feature. This focused audit is not a
+replacement for Vulkan CTS or Android VTS.
+
+### R2.3 device test
+
+1. Install NYAMIST G925 R2.3 and run it on the REDMI K80 Ultra.
+2. Wait for the complete G925 Surface validation session.
+3. Copy the full JSON report.
+4. Review `loader_api_version`, `instance_api_version`,
+   `physical_device_api_version`, `driver_id`, `driver_name`,
+   `driver_info`, `driver_version_raw`, `driver_version_hex`,
+   `driver_conformance_version`, `physical_device_uuid` and
+   `vulkan_1_4_support_status`.
+
+A 1.4 loader with a physical-device API of 1.3 remains a Vulkan 1.3 GPU
+implementation. The app does not replace the stock vendor driver or modify
+system partitions.
+

@@ -48,3 +48,40 @@ The shared runtime stays separate from device-specific capabilities. Platform co
 - [R2.2 swapchain recovery validation](docs/releases/NYAMIST-G925-R2.2-swapchain-resize-out-of-date-recovery.md)
 
 **Created by AMGNYA**
+## NYAMIST G925 R2.3 — Vulkan 1.4 driver audit
+
+R2.3 audits the Android public Vulkan loader and the selected Immortalis-G925
+physical-device implementation independently. It records loader/instance/
+device API versions, Vulkan driver properties, raw driver version in decimal
+and hexadecimal, conformance version and physical-device UUID. The Vulkan
+1.4 feature structure is queried only when the physical device and instance
+API versions both make that query valid.
+
+A Vulkan 1.4 loader does not turn a Vulkan 1.3 physical-device driver into
+Vulkan 1.4. R2.3 retains the stock Android vendor driver and does not replace
+the ICD or modify protected system components.
+
+
+
+### R2.3 hardware audit result (2026-11-10)
+
+On REDMI K80 Ultra / Mali-G925-Immortalis MC12, the Vulkan loader and instance
+reported 1.4.0 while the selected physical device reported 1.3.278. The Arm
+proprietary driver reported conformance version 1.3.8.0. R2.3 hardware audit
+passed and conclusively records that Vulkan 1.4 is **not exposed** by the
+currently installed physical-device driver. This does not establish an
+individual Vulkan 1.4 feature failure because the 1.4 feature query was
+skipped on the 1.3 device.
+
+Primary triangle draw and pixel readback, GPU timestamps, present fences, and
+same-device oldSwapchain handoff passed. Extent did not change and no actual
+OUT_OF_DATE/SUBOPTIMAL result was observed; resize and recovery remain
+unvalidated. See
+`docs/evidence/NYAMIST-G925-R2.3-device-audit-2026-11-10.md`.
+
+
+## NYAMIST G925 R2.4 — Vulkan 1.4 promoted-extension inventory
+
+R2.4 adds a device-side inventory of the 16 extension families promoted into Vulkan 1.4. On pre-1.4 physical devices, it records exact extension-name advertisement using `vkEnumerateDeviceExtensionProperties`, separating advertised names from names not advertised by the selected physical device. On Vulkan 1.4-or-newer devices, it identifies the promoted functionality as core rather than falsely reporting absent extension aliases as unsupported.
+
+This is an **extension-name inventory only**. It does not claim the Vulkan 1.4 core API, does not query every extension feature structure, and does not certify Vulkan 1.4 feature/limit compliance. The stock REDMI K80 Ultra physical-device API remains the R2.3-observed 1.3.278 until a new on-device R2.4 report proves otherwise.
