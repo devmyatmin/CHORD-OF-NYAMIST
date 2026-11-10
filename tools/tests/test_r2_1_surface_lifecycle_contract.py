@@ -70,6 +70,13 @@ class R21SurfaceLifecycleContractTests(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertIn(field, self.activity)
 
+    def test_activity_resume_forces_a_fresh_wsi_session_on_existing_surface(self):
+        resume_body = self.activity.split("protected void onResume()", 1)[1].split(
+            "protected void onPause()", 1
+        )[0]
+        self.assertIn('scheduleValidation(holderToRebuild, width, height, "activity_resumed", true)',
+                      resume_body)
+
     def test_surface_destruction_waits_for_native_cleanup(self):
         destroy_body = self.activity.split("public void surfaceDestroyed(", 1)[1].split(
             "private void requestManualRebuild(", 1
