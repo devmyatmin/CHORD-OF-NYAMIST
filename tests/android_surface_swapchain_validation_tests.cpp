@@ -124,6 +124,9 @@ void testSuccessfulSwapchainReportContract() {
     report.present_fence_attach_status = "success";
     report.present_fence_wait_status = "success";
     report.present_fence_reset_status = "success";
+    report.present_fence_attach_count = 17U;
+    report.present_fence_wait_count = 17U;
+    report.present_fence_reset_count = 16U;
     report.present_fence_wait_cpu_us = 42U;
     report.present_fence_wait_cpu_us_samples = {40U, 42U, 45U};
     report.present_fence_destroy_status = "success";
@@ -134,6 +137,12 @@ void testSuccessfulSwapchainReportContract() {
           "R1.9 schema version must be serialized");
     check(json.find(R"("present_fence_used": true)") != std::string::npos,
           "present fence use must be serialized");
+    check(json.find(R"("present_fence_attach_count": 17)") != std::string::npos,
+          "all 17 present operations must carry a fence");
+    check(json.find(R"("present_fence_wait_count": 17)") != std::string::npos,
+          "all 17 present fences must be waited");
+    check(json.find(R"("present_fence_reset_count": 16)") != std::string::npos,
+          "only the first 16 present-fence reuse cycles are reset");
     check(json.find(R"("present_completion_guaranteed": true)") != std::string::npos,
           "presentation completion guarantee must be serialized");
     check(json.find(R"("present_completion_mode": "VK_EXT_swapchain_maintenance1")") != std::string::npos,
