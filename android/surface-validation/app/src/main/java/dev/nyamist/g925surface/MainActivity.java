@@ -137,10 +137,16 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         root.addView(rebuildButton, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        Button copyButton = new Button(this);
-        copyButton.setText("COPY JSON REPORT");
-        copyButton.setOnClickListener(view -> copyReport());
-        root.addView(copyButton, new LinearLayout.LayoutParams(
+        Button copyLatestButton = new Button(this);
+        copyLatestButton.setText("COPY LATEST SESSION REPORT");
+        copyLatestButton.setOnClickListener(view -> copyReport(false));
+        root.addView(copyLatestButton, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        Button copyLiveButton = new Button(this);
+        copyLiveButton.setText("COPY LIVE WSI REPORT");
+        copyLiveButton.setOnClickListener(view -> copyReport(true));
+        root.addView(copyLiveButton, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         ScrollView scroll = new ScrollView(this);
@@ -589,20 +595,26 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         }
     }
 
-    private void copyReport() {
-        String reportToCopy = latestLiveResizeReport.isEmpty() ? latestReport : latestLiveResizeReport;
+    private void copyReport(boolean liveWsi) {
+        String reportToCopy = liveWsi ? latestLiveResizeReport : latestReport;
         if (reportToCopy.isEmpty()) {
-            statusView.setText("No report is available yet.");
+            statusView.setText(liveWsi
+                    ? "No Live WSI report is available yet."
+                    : "No session report is available yet.");
             return;
         }
         ClipboardManager clipboard =
                 (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         clipboard.setPrimaryClip(ClipData.newPlainText(
-                latestLiveResizeReport.isEmpty() ? "NYAMIST R2.6 JSON" : "NYAMIST R2.2 Live WSI Resize JSON",
+                liveWsi ? "NYAMIST R2.2 Live WSI Resize JSON" : "NYAMIST latest Surface session JSON",
                 reportToCopy));
-        statusView.setText(latestLiveResizeReport.isEmpty()
-                ? "R2.6 JSON report copied to clipboard."
-                : "Live WSI resize-window JSON report copied to clipboard.");
+        String copiedMessage = liveWsi
+                ? "Dedicated Live WSI report copied."
+                : "Latest Surface session report copied.";
+        if (reportToCopy.contains("\"session_current_at_completion\": false")) {
+            copiedMessage += " WARNING: this session was superseded by a newer Surface state.";
+        }
+        statusView.setText(copiedMessage);
     }
 
     @Override
