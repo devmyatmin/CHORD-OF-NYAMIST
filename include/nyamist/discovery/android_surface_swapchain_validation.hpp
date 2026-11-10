@@ -7,7 +7,7 @@
 namespace nyamist::discovery {
 
 struct AndroidSurfaceSwapchainValidationReport {
-    std::uint32_t schema_version{5U};
+    std::uint32_t schema_version{6U};
     std::string status{"unavailable"};
     std::string platform{"android"};
     std::string loader_library;
@@ -58,6 +58,27 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::string selected_surface_format;
     std::string selected_present_mode;
     std::string selected_image_usage;
+    std::string swapchain_transfer_src_support_status{"not_queried"};
+    std::string pixel_readback_mode{"not_attempted"};
+    std::string pixel_readback_source{"not_attempted"};
+    std::string pixel_readback_buffer_create_status{"not_attempted"};
+    std::string pixel_readback_memory_allocate_status{"not_attempted"};
+    std::string pixel_readback_bind_status{"not_attempted"};
+    std::string pixel_readback_memory_type{"not_selected"};
+    std::uint64_t pixel_readback_allocation_size{};
+    std::uint64_t pixel_readback_byte_count{};
+    bool pixel_readback_recorded{};
+    std::string pixel_readback_copy_status{"not_attempted"};
+    std::string pixel_readback_map_status{"not_attempted"};
+    std::string pixel_readback_invalidate_status{"not_required"};
+    std::string pixel_readback_unmap_status{"not_attempted"};
+    std::uint32_t pixel_readback_sample_count{};
+    std::string pixel_readback_sample_labels;
+    std::vector<std::uint64_t> pixel_expected_clear_rgba8;
+    std::vector<std::uint64_t> pixel_rgba8_samples;
+    bool pixel_background_samples_match_clear{};
+    bool pixel_triangle_center_detected{};
+    std::string pixel_verification_status{"not_attempted"};
     std::uint32_t extent_width{};
     std::uint32_t extent_height{};
 
@@ -118,6 +139,8 @@ struct AndroidSurfaceSwapchainValidationReport {
     double timestamp_period_ns{};
 
     std::string cleanup_status{"not_attempted"};
+    std::string pixel_readback_buffer_destroy_status{"not_required"};
+    std::string pixel_readback_memory_free_status{"not_required"};
     std::string semaphore_destroy_status{"not_required"};
     std::string present_semaphore_destroy_status{"not_required"};
     std::string command_buffer_free_status{"not_required"};
