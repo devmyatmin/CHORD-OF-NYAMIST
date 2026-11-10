@@ -19,7 +19,8 @@ bool VulkanBackendSession::initialize() {
         dispatch_.create_device == nullptr ||
         dispatch_.get_queue == nullptr ||
         dispatch_.destroy_device == nullptr ||
-        dispatch_.destroy_instance == nullptr) {
+        dispatch_.destroy_instance == nullptr ||
+        dispatch_.submit_empty_command_and_wait == nullptr) {
         status_.error = "Vulkan backend dispatch table is incomplete";
         return false;
     }
@@ -56,6 +57,26 @@ bool VulkanBackendSession::initialize() {
     }
 
     status_.initialized = true;
+    return true;
+}
+
+bool VulkanBackendSession::submit_smoke_command() {
+    if (!status_.initialized || status_.device == 0U || status_.graphics_queue == 0U) {
+        status_.error = "Cannot submit a command before backend initialization";
+        status_.last_submission_status = "rejected_not_initialized";
+        return false;
+    }
+
+    status_.error.clear();
+    if (!dispatch_.submit_empty_command_and_wait(
+            status_.device, status_.graphics_queue, &status_.error)) {
+        if (status_.error.empty()) status_.error = "Vulkan smoke command submission failed";
+        status_.last_submission_status = "failed";
+        return false;
+    }
+
+    ++status_.completed_smoke_submissions;
+    status_.last_submission_status = "success";
     return true;
 }
 
