@@ -16,9 +16,9 @@ void testUnavailableReportIsExplicit() {
     report.native_window_status = "not_available";
     report.failure_reason = "No Android Surface was supplied";
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 5") != std::string::npos,
+    check(json.find("\"schema_version\": 6") != std::string::npos,
           "schema version must be serialized");
-    check(json.find("NYAMIST G925 R1.9") != std::string::npos,
+    check(json.find("NYAMIST G925 R2.0") != std::string::npos,
           "R1.9 identity must be serialized");
     check(json.find("\"status\": \"unavailable\"") != std::string::npos,
           "missing native surface must be reported as unavailable");
@@ -50,7 +50,33 @@ void testSuccessfulSwapchainReportContract() {
     report.present_mode_count = 1U;
     report.selected_surface_format = "B8G8R8A8_SRGB / SRGB_NONLINEAR";
     report.selected_present_mode = "FIFO";
-    report.selected_image_usage = "COLOR_ATTACHMENT";
+    report.selected_image_usage = "COLOR_ATTACHMENT|TRANSFER_SRC";
+    report.swapchain_transfer_src_support_status = "supported";
+    report.pixel_readback_mode = "swapchain_transfer_src";
+    report.pixel_readback_source = "acquired_swapchain_image";
+    report.pixel_readback_buffer_create_status = "success";
+    report.pixel_readback_memory_allocate_status = "success";
+    report.pixel_readback_bind_status = "success";
+    report.pixel_readback_memory_type = "HOST_VISIBLE|HOST_COHERENT";
+    report.pixel_readback_allocation_size = 32U;
+    report.pixel_readback_byte_count = 20U;
+    report.pixel_readback_recorded = true;
+    report.pixel_readback_copy_status = "success";
+    report.pixel_readback_map_status = "success";
+    report.pixel_readback_invalidate_status = "not_required_host_coherent";
+    report.pixel_readback_unmap_status = "success";
+    report.pixel_readback_sample_count = 5U;
+    report.pixel_readback_sample_labels =
+        "top_left,top_right,bottom_left,bottom_right,triangle_center";
+    report.pixel_expected_clear_rgba8 = {53U, 104U, 153U, 255U};
+    report.pixel_rgba8_samples = {
+        53U,104U,153U,255U, 53U,104U,153U,255U,
+        53U,104U,153U,255U, 53U,104U,153U,255U,
+        173U,149U,158U,255U
+    };
+    report.pixel_background_samples_match_clear = true;
+    report.pixel_triangle_center_detected = true;
+    report.pixel_verification_status = "success";
     report.extent_width = 1080U;
     report.extent_height = 2400U;
     report.swapchain_create_status = "success";
@@ -94,6 +120,8 @@ void testSuccessfulSwapchainReportContract() {
     report.image_presented = true;
     report.queue_idle_status = "success";
     report.cleanup_status = "success";
+    report.pixel_readback_buffer_destroy_status = "success";
+    report.pixel_readback_memory_free_status = "success";
     report.semaphore_destroy_status = "success";
     report.present_semaphore_destroy_status = "success";
     report.command_buffer_free_status = "success";
@@ -133,8 +161,8 @@ void testSuccessfulSwapchainReportContract() {
     report.shutdown_presentation_completion_status = "present_fence_signaled";
 
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 5") != std::string::npos,
-          "R1.9 schema version must be serialized");
+    check(json.find("\"schema_version\": 6") != std::string::npos,
+          "R2.0 schema version must be serialized");
     check(json.find(R"("present_fence_used": true)") != std::string::npos,
           "present fence use must be serialized");
     check(json.find(R"("present_fence_attach_count": 17)") != std::string::npos,
@@ -155,6 +183,21 @@ void testSuccessfulSwapchainReportContract() {
           "target GPU match must be serialized");
     check(json.find("\"selected_present_mode\": \"FIFO\"") != std::string::npos,
           "FIFO presentation mode must be serialized");
+    check(json.find(R"("swapchain_transfer_src_support_status": "supported")") != std::string::npos,
+          "swapchain transfer-source support must be serialized");
+    check(json.find(R"("pixel_readback_mode": "swapchain_transfer_src")") != std::string::npos,
+          "pixel readback mode must be serialized");
+    check(json.find(R"("pixel_readback_byte_count": 20)") != std::string::npos,
+          "pixel readback byte count must be serialized");
+    check(json.find(R"("pixel_readback_sample_count": 5)") != std::string::npos,
+          "five sample locations must be serialized");
+    check(json.find(R"("pixel_background_samples_match_clear": true)") != std::string::npos,
+          "clear-color background verification must be serialized");
+    check(json.find(R"("pixel_triangle_center_detected": true)") != std::string::npos,
+          "triangle center verification must be serialized");
+    check(json.find(R"("pixel_verification_status": "success")") != std::string::npos,
+          "pixel verification result must be serialized");
+
     check(json.find("\"swapchain_image_count\": 3") != std::string::npos,
           "swapchain images must be counted");
     check(json.find("\"image_acquired\": true") != std::string::npos,
@@ -197,7 +240,7 @@ void testSuccessfulSwapchainReportContract() {
 
 void testMultiFrameTimingSerialization() {
     nyamist::discovery::AndroidSurfaceSwapchainValidationReport report;
-    report.schema_version = 5U;
+    report.schema_version = 6U;
     report.frame_target_count = 16U;
     report.frame_completed_count = 17U;
     report.warmup_frame_count = 1U;
@@ -211,7 +254,7 @@ void testMultiFrameTimingSerialization() {
     report.gpu_frame_time_ns_samples = {800000U, 600000U, 700000U, 900000U};
     const auto json = nyamist::discovery::toJson(report);
     check(json.find(R"("frame_target_count": 16)") != std::string::npos,
-          "R1.8 frame target must be serialized");
+          "R2.0 frame target must be serialized");
     check(json.find(R"("frame_completed_count": 17)") != std::string::npos,
           "warm-up plus sample count must be serialized");
     check(json.find(R"("frame_total_cpu_us_samples": [100, 200, 300, 400])") != std::string::npos,
@@ -234,7 +277,7 @@ void testMultiFrameTimingSerialization() {
 
 void testFallbackDoesNotClaimPresentationCompletion() {
     nyamist::discovery::AndroidSurfaceSwapchainValidationReport report;
-    report.schema_version = 5U;
+    report.schema_version = 6U;
     report.present_fence_used = false;
     report.present_completion_guaranteed = false;
     report.present_completion_mode = "per_image_reacquire_fallback";
