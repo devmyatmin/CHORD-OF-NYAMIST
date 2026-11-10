@@ -38,6 +38,9 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::string present_fence_attach_status{"not_attempted"};
     std::string present_fence_wait_status{"not_attempted"};
     std::string present_fence_reset_status{"not_attempted"};
+    std::uint32_t present_fence_attach_count{};
+    std::uint32_t present_fence_wait_count{};
+    std::uint32_t present_fence_reset_count{};
     std::string present_fence_destroy_status{"not_required"};
     std::uint64_t present_fence_wait_cpu_us{};
     std::vector<std::uint64_t> present_fence_wait_cpu_us_samples;
