@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/g925-r2.4-vulkan-1.4-promoted-extension-audit
+      - feature/g925-r2.3-vulkan-1.4-driver-audit
   pull_request:
     branches:
       - feature/g925-r2.3-vulkan-1.4-driver-audit
