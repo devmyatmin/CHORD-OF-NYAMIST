@@ -75,14 +75,27 @@ or event-triggered recovery. See
 
 ## Part 1 — actual Surface resize instrumentation
 
-The Android lifecycle report is upgraded to schema version 2. It retains the
-last valid dimensions across Surface recreation and records first/latest
-dimensions, resize from/to dimensions, orientation configuration changes,
-and a controlled 220dp ↔ 320dp SurfaceView resize control. Hosted tests and
-an arm64 Android build cover the instrumentation. **Target-device Part 1
-acceptance remains pending** until a report shows a real nonzero resize count
-and differing dimensions. This does not automatically imply a real Vulkan
-SUBOPTIMAL or OUT_OF_DATE result.
+The Android lifecycle report is schema version 2. It retains the last valid
+Surface dimensions across Surface recreation and records initial/latest
+dimensions, resize from/to dimensions, and orientation changes. A controlled
+220dp ↔ 320dp SurfaceView control verifies Android Surface dimension changes.
+The native validation report is schema version 12 and includes a dedicated
+Live WSI Resize Window mode: two timed pauses, one immediately before
+swapchain-image acquire and one after queue submit but before present, while
+the original VkDevice and swapchain probe remain active. This lets a Surface
+resize race the real acquire/present operations. The app stores and copies
+the live-window report separately from later queued sessions.
+
+Hosted tests and an arm64 Android build cover this harness. **Target-device
+resize, rotation and driver-result evidence remain pending** until a device
+report proves them. SUBOPTIMAL / OUT_OF_DATE claims require nonzero respective
+driver-result counters. OUT_OF_DATE recovery additionally requires an
+explicit recovery-success count. The timed pause and policy self-test alone
+are not hardware evidence.
+
+## Part 1 live WSI resize-window harness
+
+The dedicated Part 1 APK holds the same-device oldSwapchain probe at two points while the Android SurfaceView dimensions change: before vkAcquireNextImageKHR, then after vkQueueSubmit and before vkQueuePresentKHR. The report records whether the mode was enabled, the number of pauses at each point, and total pause duration. Java preserves the live-window report separately from the subsequently queued normal Surface session. This improves the chance of observing driver-returned WSI status codes; it cannot force the driver to return them.
 
 ## Device acceptance criteria
 
