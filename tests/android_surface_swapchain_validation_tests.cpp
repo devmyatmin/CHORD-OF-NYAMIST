@@ -213,17 +213,16 @@ void testSuccessfulSwapchainReportContract() {
           "shutdown presentation completion must be serialized");
     check(json.find("\"target_gpu_match\": true") != std::string::npos,
           "G925 target match must be serialized");
-    check(json.find(String.raw`"driver_id": 9`) != std::string::npos,
+    check(json.find(R"("driver_id": 9)") != std::string::npos,
           "Vulkan driver ID must be serialized");
-    check(json.find(String.raw`"driver_id_name": "VK_DRIVER_ID_ARM_PROPRIETARY"`) != std::string::npos,
+    check(json.find(R"("driver_id_name": "VK_DRIVER_ID_ARM_PROPRIETARY")") != std::string::npos,
           "Arm driver ID must be named");
-    check(json.find(String.raw`"driver_version_hex": "0x12345678"`) != std::string::npos,
+    check(json.find(R"("driver_version_hex": "0x12345678")") != std::string::npos,
           "raw Vulkan driver version must be preserved");
-    check(json.find(String.raw`"physical_device_uuid": "00112233445566778899aabbccddeeff"`) != std::string::npos,
+    check(json.find(R"("physical_device_uuid": "00112233445566778899aabbccddeeff")") != std::string::npos,
           "physical-device UUID must be serialized");
-    check(json.find(String.raw`"vulkan_1_4_support_status": "not_exposed_by_physical_device"`) != std::string::npos,
+    check(json.find(R"("vulkan_1_4_support_status": "not_exposed_by_physical_device")") != std::string::npos,
           "a Vulkan 1.3 device must not be misreported as Vulkan 1.4");
-          "target GPU match must be serialized");
     check(json.find("\"selected_present_mode\": \"FIFO\"") != std::string::npos,
           "FIFO presentation mode must be serialized");
     check(json.find(R"("swapchain_recreation_status": "success")") != std::string::npos,
