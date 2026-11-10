@@ -356,7 +356,10 @@ bool createUint8IndexProbeResources(
         VkBuffer& index_buffer,
         VkDeviceMemory& index_memory) {
     if (report.index_type_uint8_feature_enable_status != "enabled") {
-        report.index_type_uint8_probe_status = "not_supported";
+        const support = report.index_type_uint8_feature_support_status;
+        report.index_type_uint8_probe_status =
+            (support == "not_supported" || support == "not_advertised")
+                ? support : support;
         report.index_type_uint8_buffer_create_status = "not_required";
         report.index_type_uint8_memory_allocate_status = "not_required";
         report.index_type_uint8_memory_bind_status = "not_required";
@@ -2670,31 +2673,37 @@ AndroidSurfaceSwapchainValidationReport runValidation(
 
     const std::string uint8_index_feature_name =
         "VK_KHR_index_type_uint8.indexTypeUint8";
-    const bool uint8_index_bit_supported =
-        std::find(report.vulkan_1_4_promoted_features_supported.begin(),
-                  report.vulkan_1_4_promoted_features_supported.end(),
-                  uint8_index_feature_name) !=
-        report.vulkan_1_4_promoted_features_supported.end();
+    const auto contains_feature = [&](const std::vector<std::string>& values) {
+        return std::find(values.begin(), values.end(), uint8_index_feature_name) !=
+               values.end();
+    };
     const bool uint8_index_extension_advertised =
         selected_physical_device_extensions_enumerated &&
         hasDeviceExtension(selected_physical_device_extensions,
                            VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME);
-    if (report.vulkan_1_4_device_api_supported && uint8_index_bit_supported) {
-        report.index_type_uint8_extension_status = "core_vulkan_1_4";
+    const bool uint8_index_core_path = report.vulkan_1_4_device_api_supported;
+    report.index_type_uint8_extension_status =
+        uint8_index_core_path ? "core_vulkan_1_4" :
+        (uint8_index_extension_advertised ? "advertised" : "not_advertised");
+
+    // Preserve R2.5's per-feature classification. A feature omitted because
+    // its query failed or was not queryable must never be mislabeled unsupported.
+    if (contains_feature(report.vulkan_1_4_promoted_features_supported)) {
         report.index_type_uint8_feature_support_status = "supported";
         index_type_uint8_feature_enabled = true;
-    } else if (uint8_index_extension_advertised && uint8_index_bit_supported) {
-        report.index_type_uint8_extension_status = "advertised";
-        report.index_type_uint8_feature_support_status = "supported";
-        index_type_uint8_feature_enabled = true;
-    } else if (!uint8_index_extension_advertised &&
-               !report.vulkan_1_4_device_api_supported) {
+    } else if (contains_feature(report.vulkan_1_4_promoted_features_not_supported)) {
+        report.index_type_uint8_feature_support_status = "not_supported";
+    } else if (contains_feature(report.vulkan_1_4_promoted_features_not_advertised)) {
         report.index_type_uint8_extension_status = "not_advertised";
         report.index_type_uint8_feature_support_status = "not_advertised";
+    } else if (contains_feature(report.vulkan_1_4_promoted_features_query_failed)) {
+        report.index_type_uint8_feature_support_status = "query_failed";
+    } else if (contains_feature(report.vulkan_1_4_promoted_features_not_queryable)) {
+        report.index_type_uint8_feature_support_status = "not_queryable";
+    } else if (report.vulkan_1_4_promoted_feature_query_status != "success") {
+        report.index_type_uint8_feature_support_status = "query_failed";
     } else {
-        report.index_type_uint8_extension_status =
-            uint8_index_extension_advertised ? "advertised" : "core_vulkan_1_4";
-        report.index_type_uint8_feature_support_status = "not_supported";
+        report.index_type_uint8_feature_support_status = "unclassified";
     }
 
     if (report.failure_reason.empty() && selected_physical_device != VK_NULL_HANDLE) {
@@ -3293,7 +3302,8 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                report.index_type_uint8_probe_status == "success" &&
                report.index_type_uint8_buffer_destroy_status == "success" &&
                report.index_type_uint8_memory_free_status == "success")
-            : (report.index_type_uint8_probe_status == "not_supported");
+            : (report.index_type_uint8_probe_status == "not_supported" ||
+           report.index_type_uint8_probe_status == "not_advertised");
     const bool complete = presentation_completion_valid && uint8_index_probe_valid &&
         report.loader_status == "success" &&
         report.instance_create_status == "success" &&
