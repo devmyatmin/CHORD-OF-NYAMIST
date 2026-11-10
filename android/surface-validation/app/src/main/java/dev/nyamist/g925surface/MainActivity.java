@@ -41,7 +41,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
 
     private boolean surfaceAvailable;
     private boolean surfaceWasDestroyed;
-    private boolean activityDestroyed;
+    private volatile boolean activityDestroyed;
     private boolean activityResumed;
     private int surfaceGeneration;
     private int currentSurfaceWidth;
