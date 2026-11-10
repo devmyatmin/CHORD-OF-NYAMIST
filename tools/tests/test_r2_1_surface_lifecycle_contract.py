@@ -60,6 +60,18 @@ class R21SurfaceLifecycleContractTests(unittest.TestCase):
             "surface_changed_count",
             "surface_destroyed_count",
             "surface_resize_count",
+            "surface_resize_observed",
+            "surface_initial_width",
+            "surface_initial_height",
+            "surface_last_known_width",
+            "surface_last_known_height",
+            "surface_last_resize_from_width",
+            "surface_last_resize_from_height",
+            "surface_last_resize_to_width",
+            "surface_last_resize_to_height",
+            "surface_resize_test_toggle_count",
+            "configuration_change_count",
+            "last_configuration_orientation",
             "activity_resume_count",
             "activity_pause_count",
             "native_session_started_count",
@@ -69,6 +81,29 @@ class R21SurfaceLifecycleContractTests(unittest.TestCase):
         ):
             with self.subTest(field=field):
                 self.assertIn(field, self.activity)
+
+    def test_resize_detection_survives_surface_destruction_and_recreation(self):
+        changed_body = self.activity.split("public void surfaceChanged(", 1)[1].split(
+            "private void toggleSurfaceTestSize(", 1
+        )[0]
+        created_body = self.activity.split("public void surfaceCreated(", 1)[1].split(
+            "public void surfaceChanged(", 1
+        )[0]
+        self.assertIn("lastKnownSurfaceWidth", changed_body)
+        self.assertIn("lastKnownSurfaceHeight", changed_body)
+        self.assertIn("lastResizeFromWidth = previousWidth", changed_body)
+        self.assertIn("lastResizeToWidth = width", changed_body)
+        self.assertIn("currentSurfaceWidth = 0", created_body)
+        self.assertNotIn("lastKnownSurfaceWidth = 0", created_body)
+
+    def test_rotation_and_controlled_surface_resize_are_reported(self):
+        self.assertIn("onConfigurationChanged(Configuration newConfig)", self.activity)
+        self.assertIn("Configuration.ORIENTATION_PORTRAIT", self.activity)
+        self.assertIn("Configuration.ORIENTATION_LANDSCAPE", self.activity)
+        self.assertIn("INCREASE SURFACE SIZE (WSI RESIZE TEST)", self.activity)
+        self.assertIn("RESTORE SURFACE SIZE (220dp)", self.activity)
+        self.assertIn("params.height = dp(expanded ? 320 : 220)", self.activity)
+        self.assertIn("\\\"schema_version\\\": 2", self.activity)
 
     def test_activity_resume_forces_a_fresh_wsi_session_on_existing_surface(self):
         resume_body = self.activity.split("protected void onResume()", 1)[1].split(
