@@ -1,114 +1,107 @@
-# DX11 → Vulkan validation plan for REDMI K80 Ultra
+# D3D11 → NYAMIST Vulkan validation
 
 ## Goal
 
-Run a real Direct3D 11 application through a maintained translation/runtime stack on Android, then add NYAMIST as a non-invasive profiling and policy sidecar.
+Validate NYAMIST's own D3D11 runtime and Vulkan backend on REDMI K80 Ultra / MT6991 / Immortalis-G925 MC12.
 
-This document distinguishes the layers:
+The active path is:
 
-- A D3D11 game issues Direct3D 11 and DXGI API calls.
-- Wine plus a compatible CPU execution layer provides the Windows API / executable environment.
-- DXVK implements the D3D11-to-Vulkan translation.
-- The Android Vulkan loader selects an app-local Vulkan ICD.
-- PanVK kbase is the experimental Vulkan ICD candidate for the Mali kbase kernel interface.
-- The vendor `mali_kbase` kernel driver remains the kernel-side hardware interface.
-- Immortalis-G925 executes the GPU work.
+```text
+D3D11 application
+  -> Windows API / ABI compatibility host
+  -> NYAMIST D3D11 runtime and translator
+  -> NYAMIST Vulkan backend
+  -> Android Vulkan loader (libvulkan.so)
+  -> installed vendor Vulkan GPU driver
+  -> Immortalis-G925 MC12
+```
 
-Vulkan does not parse or execute D3D11 API calls by itself. DXVK is the translation component. PanVK must implement the Vulkan features that the selected DXVK build actually uses.
+PanPlay, PanVK, and DXVK are not part of the active path. Historical reports from those components may be retained as provenance/reference data, but they cannot count as NYAMIST runtime validation.
 
-## Current K80 Ultra evidence
+## Current evidence and limits
 
-The user's Termux `vulkaninfo` capture enumerated the stock ARM proprietary Mali-G925-Immortalis MC12 driver:
+The device has previously enumerated its stock ARM proprietary Mali-G925 Vulkan driver through Termux. Recorded evidence includes Vulkan 1.3.278 device API and driver version 49.1.0. This proves the system loader/vendor-driver path can be queried; it does not prove that NYAMIST creates its own logical device, submits work, or presents frames.
 
-- Device API version: Vulkan 1.3.278
-- Driver version: 49.1.0
-- Driver ID: ARM proprietary
-- Device-local heap 0: 10.97 GiB
-- Device-local heap 1: 100 MiB
-- Memory types: four
-  - Type 0: device-local, host-visible, host-coherent
-  - Type 1: device-local, host-visible, host-cached
-  - Type 2: device-local, lazily allocated
-  - Type 3: device-local, protected
-- The filtered output did not contain `VK_EXT_memory_budget`, `heapBudget`, or `heapUsage`.
+A previous offscreen triangle/pixel-readback test was reported as passing in the engineering work. Treat that as a foundation, not as proof of a complete runtime or D3D11 compatibility. Android WSI resize/out-of-date recovery and NYAMIST D3D11 translation still require explicit end-to-end tests.
 
-This proves physical-device enumeration through the stock Android Vulkan driver in Termux. It does not prove that the same features are exposed by PanVK or that DXVK can create a D3D11 device.
+Legacy PanVK/DXVK game-session measurements are historical external-stack evidence only. They must not be presented as NYAMIST game-performance results.
 
-### Separate app-local PanVK RC5 evidence
+## Gate A — NYAMIST Vulkan device backend
 
-A separate PanPlay/PanProbe record reports that the app-local Mesa PanVK RC5 build loaded successfully, enumerated one device, identified the G925-family kbase GPU as `gpu_id 0xd8300015`, and passed PanProbe 41/41. This is separate from the stock-driver `vulkaninfo` capture above. It establishes PanVK load/device-probe success only; it does not establish Android surface/swapchain presentation, DXVK D3D11 device creation, or sustained real-game rendering.
+- Link to Android's existing Vulkan loader using the NDK Vulkan headers/library.
+- Create a NYAMIST-owned VkInstance.
+- Enumerate and record the physical device from live calls.
+- Query queue-family properties and select a graphics queue.
+- Create a NYAMIST-owned VkDevice and queue.
+- Create a command pool and submit a minimal command buffer.
+- Record every VkResult and clean up all handles on failure.
 
-The 10.97 GiB heap is not free memory and is not a per-game allocation guarantee. Since the memory-budget extension was not found in this capture, do not infer available GPU memory from heap size. Use allocation success/failure and process/runtime telemetry where available.
+**Pass:** NYAMIST itself creates a logical device and successfully submits a command buffer on the target phone.
 
-### Nov 8, 2026 — Stranded Deep DX11 real-game session
+## Gate B — resources and offscreen rendering
 
-The user-provided PanPlay SessionLogs and matching PerfRecorder export contain a sustained Stranded Deep session on the REDMI K80 Ultra:
+- Create a buffer and image with validated usage flags.
+- Query memory requirements and select a compatible memory type.
+- Allocate and bind memory.
+- Create image view, render pass/dynamic-rendering path, and minimal graphics pipeline.
+- Draw a deterministic triangle.
+- Synchronize with a fence and read back pixels.
+- Compare selected pixels against expected values.
 
-- Session duration: 519 seconds; PerfRecorder duration: 489.130544 seconds.
-- DXVK: 3.1.1-5-arm64ec; API: D3D11; selected feature level: D3D_FEATURE_LEVEL_11_0; maximum supported feature level: D3D_FEATURE_LEVEL_11_1. The importer now records these as separate fields so the maximum capability cannot be mistaken for the level actually selected.
-- DXGI log selected device: Mali-G925-Immortalis MC12, PanVK string 26.2.99. The separate session/device manifest reports Mesa PanVK 26.3.0-devel (git-795ca7ff3e). Treat this version-string difference as an unresolved provenance/version-reporting discrepancy until the exact ICD binary/build is matched.
-- DXVK logged actual swapchain properties: BGRA8 UNORM, SRGB nonlinear color space, IMMEDIATE present mode, 1280x720 buffer, four images.
-- PerfRecorder: 41,868 frames; average 85.5968 FPS; low1Fps 4.6416; low01Fps 0.6783; P50 3.867 ms; P95 43.983 ms; P99 63.733 ms; 11,766 stutters.
-- Device telemetry: average/max GPU load 72.0%/100%; average/max game CPU 24.2%/41.1%; RAM peak 3,515.8 MiB; video-memory peak 2,208 MiB; minimum available RAM 2,043 MiB; battery temperature average/max 40.1/42.1 C; average/max power 5.13/8.46 W.
-- Session ended by user through overlay; crash=false, but exit_code is null. Clean process exit is not confirmed.
-- Assessment: sustained duration, frame samples, P95, and device telemetry pass; process exit remains incomplete. Vulkan Present success/failure counters are not exported.
+**Pass:** repeatable pixel output matches expected values on the target device.
 
-Interpretation: the DXVK log proves D3D11 device creation and swapchain setup, not that a frame was successfully presented. The average FPS is not sufficient to describe smoothness: the reported P95/P99 frame times and low-FPS fields show severe frame-pacing concerns that need review against the raw PerfRecorder CSV. Keep render validation at discovered-only and production_ready=false until explicit Present evidence and clean process-exit evidence are available. Do not tune performance overrides from this single run.
+## Gate C — Android WSI and presentation
 
-## Safe NYAMIST memory policy
+- Create an app-owned Android surface.
+- Query surface support, formats, capabilities, and present modes.
+- Create a swapchain with a supported configuration.
+- Acquire, submit, and present frames with correct semaphore/fence handling.
+- Handle surface loss, pause/resume, resize, `VK_SUBOPTIMAL_KHR`, and `VK_ERROR_OUT_OF_DATE_KHR`.
+- Record successful and failed acquire/present results.
 
-Until a runtime exposes a reliable memory budget:
+**Pass:** stable visible presentation and successful swapchain recreation on the target device.
 
-1. NYAMIST itself should not reserve large GPU allocations.
-2. Keep the profiling database and recommendation cache CPU-side and size-capped.
-3. Treat the Vulkan memory type flags as allocation constraints, not as performance rankings.
-4. Use host-coherent memory only where the resource usage and memory-type compatibility permit it.
-5. Host-cached memory may help CPU readback, but mapping and synchronization must follow Vulkan rules.
-6. Lazily allocated memory is not a general upload/storage heap.
-7. Protected memory is not ordinary CPU-mappable memory.
-8. Let DXVK and the Vulkan driver own their shader, pipeline, and resource allocations. NYAMIST must not rewrite DXVK cache files.
-9. If allocation telemetry is unavailable, use conservative fixed limits and graceful fallback rather than guessing free memory.
+## Gate D — D3D11 translator vertical slice
 
-## DX11-first validation gates
+Begin with a deliberately small supported subset:
 
-### Gate A — Vulkan ICD
+- NYAMIST D3D11 device and immediate context.
+- Vertex buffer and input layout.
+- One vertex shader and one pixel shader.
+- Render-target view.
+- Basic viewport/scissor and rasterizer state.
+- One draw and Present.
 
-- Keep the stock vendor driver intact and select PanVK only through the supported app-local/launcher mechanism.
-- The recorded RC5 app-local test passed load and device enumeration with PanProbe 41/41.
-- Still verify a graphics surface/swapchain render-and-present test in the actual PanPlay path; the PanProbe score alone does not prove presentation.
-- Capture device name, driver identity, API version, extensions, feature bits, memory properties, and logs from that same app/container process.
+Choose a DXBC-to-SPIR-V compiler path only after checking source availability, license, Android ARM64 build support, and shader-model coverage. Do not silently substitute DXVK or another D3D11 runtime.
 
-### Gate B — DXVK
+**Pass:** a standalone D3D11 test application calls NYAMIST interfaces and produces the expected pixels through the NYAMIST Vulkan backend.
 
-- Pin the exact DXVK build and record its required Vulkan extensions/features.
-- Confirm the compatibility runtime can launch a known D3D11 test application.
-- Confirm DXVK creates a D3D11 device and selects the intended Vulkan physical device/ICD. The Nov 8 Stranded Deep log now provides D3D11 feature-level and actual swapchain-setup evidence.
-- Separately confirm successful swapchain presentation, frame output, resource creation, and synchronization; swapchain properties alone are not Present evidence.
-- Save the complete logs and distinguish device-creation failures from shader, presentation, or game-specific failures.
+## Gate E — sustained application validation
 
-### Gate C — game baseline
+Only after Gate D passes:
 
-- Test one small, legally obtained/user-owned D3D11 application first.
-- Record whether it launches, renders correctly, presents frames, survives scene changes, and exits cleanly.
-- Repeat cold and warm launches.
-- Record frame-time, shader-cache behavior, memory telemetry, and thermal state.
-- Do not enable performance overrides until the unmodified DXVK baseline is repeatable.
+- Validate the Windows API/ABI compatibility host independently.
+- Select one named D3D11 application and fixed scene/settings.
+- Run for at least 300 seconds.
+- Record frame-time p50/p95/p99, memory, temperature, visual issues, crashes, and device-loss events where available.
+- Confirm clean process exit.
+- Repeat cold and warm runs under identical conditions.
 
-### Gate D — NYAMIST sidecar
+A synthetic triangle or hosted CI pass is not a commercial-game compatibility result. Do not claim game compatibility or production readiness without repeatable, visually verified sustained execution.
 
-Only after Gates A–C pass:
+## Memory and cache policy
 
-- Import the device/driver/runtime profile.
-- Associate observations with game identity, DXVK version, Vulkan driver version, and NYAMIST policy version.
-- Generate advisory recommendations only.
-- Validate each recommendation against the measured baseline.
-- Cache only validated NYAMIST-owned metadata.
-- Keep a one-step disable path that returns to unmodified DXVK settings.
+- Do not treat total device-local heap size as free memory.
+- Query memory properties and requirements before allocation.
+- Use bounded NYAMIST-owned metadata/shader/pipeline caches with device, driver, compiler, and schema identity.
+- Do not read, rewrite, or claim ownership of vendor-driver or third-party caches.
+- Handle allocation failures explicitly and release resources deterministically.
 
-## Explicit non-goals for the first milestone
+## Non-goals
 
-- Reimplementing D3D11 inside NYAMIST.
-- Replacing or patching the Mali kernel driver.
-- Replacing Android's system Vulkan libraries.
-- Claiming PanVK or DXVK support based only on stock-driver `vulkaninfo`.
-- Enabling DX12 before repeatable D3D11 results.
+- Writing a custom Vulkan ICD/HAL or kernel driver in the first runtime milestones.
+- Replacing Android's system Vulkan loader or vendor driver.
+- Modifying protected Android/vendor partitions or GPU device-node permissions.
+- Depending on PanPlay, PanVK, or DXVK.
+- Claiming D3D11 feature-level support that has not been implemented and tested.
+- D3D12/VKD3D support before the D3D11 path is stable.
