@@ -46,7 +46,9 @@ The report records extension advertisement/core status, feature support and enab
 
 ## Hosted validation
 
-Pending for this branch. The R2.6 workflow runs the R2.2–R2.6 contract tests and builds the arm64 Android debug APK using pinned Khronos Vulkan-Headers v1.4.368, Android SDK 36 and NDK 28.2.13676358.
+**PASS — 2026-11-10.** Core CI passed on R2.6 head `0bb310aa2fa7fe80e031e61fea529e9a04a8d551` (run [42772752854](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42772752854)). The R2.2–R2.6 contract-test suite passed, the arm64 Android APK build passed, and the APK artifact was uploaded by the R2.6 Android workflow (run [42772282941](https://github.com/devmyatmin/CHORD-OF-NYAMIST/actions/runs/42772282941)). The build used pinned Khronos Vulkan-Headers v1.4.368, Android SDK 36 and NDK 28.2.13676358.
+
+This is hosted CI/build evidence only; it does not establish target-device execution.
 
 ## Target-device validation
 
