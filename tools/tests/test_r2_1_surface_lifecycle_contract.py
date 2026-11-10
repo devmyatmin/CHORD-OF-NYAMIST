@@ -26,6 +26,14 @@ NATIVE = (
     / "cpp"
     / "native_surface_swapchain.cpp"
 )
+REPORT_HEADER = (
+    ROOT
+    / "include"
+    / "nyamist"
+    / "discovery"
+    / "android_surface_swapchain_validation.hpp"
+)
+REPORT_SERIALIZER = ROOT / "src" / "discovery" / "android_surface_swapchain_validation.cpp"
 
 
 class R21SurfaceLifecycleContractTests(unittest.TestCase):
@@ -33,6 +41,8 @@ class R21SurfaceLifecycleContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.activity = ACTIVITY.read_text(encoding="utf-8")
         cls.native = NATIVE.read_text(encoding="utf-8")
+        cls.report_header = REPORT_HEADER.read_text(encoding="utf-8")
+        cls.report_serializer = REPORT_SERIALIZER.read_text(encoding="utf-8")
 
     def test_android_lifecycle_callbacks_are_registered(self):
         self.assertIn("implements SurfaceHolder.Callback", self.activity)
@@ -132,6 +142,28 @@ class R21SurfaceLifecycleContractTests(unittest.TestCase):
         self.assertIn("vk.cmd_set_scissor(command_buffer, 0U, 1U, &render_scissor)", self.native)
         self.assertIn('LOAD_DEVICE(cmd_set_viewport, "vkCmdSetViewport")', self.native)
         self.assertIn('LOAD_DEVICE(cmd_set_scissor, "vkCmdSetScissor")', self.native)
+
+    def test_dynamic_viewport_and_scissor_values_are_exported(self):
+        fields = (
+            "render_viewport_dynamic_state_enabled",
+            "render_viewport_x",
+            "render_viewport_y",
+            "render_viewport_width",
+            "render_viewport_height",
+            "render_viewport_update_count",
+            "render_scissor_width",
+            "render_scissor_height",
+            "render_scissor_update_count",
+        )
+        for field in fields:
+            with self.subTest(field=field):
+                self.assertIn(field, self.report_header)
+                self.assertIn(f'"{field}"', self.report_serializer)
+        self.assertIn("report.render_viewport_x = render_viewport_x", self.native)
+        self.assertIn("report.render_viewport_width = render_viewport.width", self.native)
+        self.assertIn("++report.render_viewport_update_count", self.native)
+        self.assertIn("report.render_scissor_width = render_scissor.extent.width", self.native)
+        self.assertIn("++report.render_scissor_update_count", self.native)
 
     def test_activity_resume_forces_a_fresh_wsi_session_on_existing_surface(self):
         resume_body = self.activity.split("protected void onResume()", 1)[1].split(
