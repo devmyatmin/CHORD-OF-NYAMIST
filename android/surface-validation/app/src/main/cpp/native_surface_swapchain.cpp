@@ -1177,6 +1177,7 @@ bool recreateSwapchainAndProbe(
         VkSwapchainKHR& swapchain,
         std::vector<VkImage>& images,
         VkExtent2D& extent,
+        VkPipeline& graphics_pipeline,
         bool present_fence_enabled) {
     report.swapchain_recreation_status = "pending";
     report.swapchain_recreation_mode = "old_swapchain_handoff";
@@ -1370,6 +1371,17 @@ bool recreateSwapchainAndProbe(
         report.swapchain_extent_changed =
             report.swapchain_extent_before_width != next_extent.width ||
             report.swapchain_extent_before_height != next_extent.height;
+        if (report.swapchain_extent_changed && graphics_pipeline != VK_NULL_HANDLE) {
+            result = vk.device_wait_idle(device);
+            if (result != VK_SUCCESS) {
+                fail(report, "vkDeviceWaitIdle failed before rebuilding extent-dependent graphics pipeline");
+                report.swapchain_recreation_status = "pipeline_rebuild_wait_failed";
+                return false;
+            }
+            vk.destroy_pipeline(device, graphics_pipeline, nullptr);
+            graphics_pipeline = VK_NULL_HANDLE;
+            report.graphics_pipeline_destroy_status = "success";
+        }
         report.extent_width = next_extent.width;
         report.extent_height = next_extent.height;
         extent = next_extent;
@@ -2217,7 +2229,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                         image_usage, VK_PRESENT_MODE_FIFO_KHR, composite_alpha,
                                         static_cast<std::uint32_t>(requested_width),
                                         static_cast<std::uint32_t>(requested_height),
-                                        swapchain, images, extent,
+                                        swapchain, images, extent, graphics_pipeline,
                                         maintenance_feature_supported)) {
                                         if (report.failure_reason.empty()) {
                                             fail(report, "R2.2 oldSwapchain recreation/probe failed");
@@ -2251,7 +2263,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                         image_usage, VK_PRESENT_MODE_FIFO_KHR, composite_alpha,
                                         static_cast<std::uint32_t>(requested_width),
                                         static_cast<std::uint32_t>(requested_height),
-                                        swapchain, images, extent,
+                                        swapchain, images, extent, graphics_pipeline,
                                         maintenance_feature_supported)) {
                                         if (report.failure_reason.empty()) {
                                             fail(report, "R2.2 SUBOPTIMAL swapchain handoff did not recover");
