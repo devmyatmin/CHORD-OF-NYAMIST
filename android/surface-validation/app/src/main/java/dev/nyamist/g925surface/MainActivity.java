@@ -128,14 +128,18 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         synchronized (lifecycleLock) {
             activityResumed = true;
             activityResumeCount++;
-            if (surfaceAvailable && currentHolder != null && nativeSessionCompletedCount > 0) {
+            if (surfaceAvailable && currentHolder != null && nativeSessionCompletedCount > 0
+                    && currentSurfaceWidth > 0 && currentSurfaceHeight > 0
+                    && !(scheduledGeneration == surfaceGeneration
+                    && scheduledWidth == currentSurfaceWidth
+                    && scheduledHeight == currentSurfaceHeight)) {
                 holderToRebuild = currentHolder;
                 width = currentSurfaceWidth;
                 height = currentSurfaceHeight;
             }
         }
         if (holderToRebuild != null) {
-            scheduleValidation(holderToRebuild, width, height, "activity_resumed", true);
+            scheduleValidation(holderToRebuild, width, height, "activity_resumed", false);
         }
     }
 
@@ -199,9 +203,18 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             scheduledWidth = -1;
             scheduledHeight = -1;
             lastSurfaceEvent = "surface_destroyed";
+            boolean interrupted = false;
+            while (activeNativeSessions > 0) {
+                try {
+                    lifecycleLock.wait();
+                } catch (InterruptedException error) {
+                    interrupted = true;
+                }
+            }
+            if (interrupted) Thread.currentThread().interrupt();
         }
         statusView.setText(
-                "Surface destroyed. Queued stale sessions will be skipped; active native work will clean up.");
+                "Surface destroyed. Active native work completed cleanup before the callback returned.");
     }
 
     private void requestManualRebuild() {
@@ -232,9 +245,11 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                 recordSkippedSession();
                 return;
             }
-            sessionSurface = new Surface(source);
+            // Keep the framework-owned Surface object strongly reachable. The
+            // SurfaceHolder callback serializes native use against destruction;
+            // JNI acquires its own ANativeWindow reference for the native session.
+            sessionSurface = source;
             if (!sessionSurface.isValid()) {
-                sessionSurface.release();
                 recordSkippedSession();
                 return;
             }
@@ -248,13 +263,11 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         synchronized (lifecycleLock) {
             if (activityDestroyed || !surfaceAvailable || currentHolder != holder) {
                 nativeSessionSkippedCount++;
-                sessionSurface.release();
                 return;
             }
             sessionGeneration = surfaceGeneration;
             if (!force && scheduledGeneration == sessionGeneration
                     && scheduledWidth == width && scheduledHeight == height) {
-                sessionSurface.release();
                 return;
             }
             requestId = ++requestSerial;
@@ -270,7 +283,6 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             validationExecutor.execute(() -> runValidationSession(
                     sessionSurface, width, height, sessionGeneration, requestId, reason));
         } catch (RejectedExecutionException error) {
-            sessionSurface.release();
             recordSkippedSession();
         }
     }
@@ -289,7 +301,6 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                     || !sessionSurface.isValid();
             if (stale) {
                 nativeSessionSkippedCount++;
-                sessionSurface.release();
                 return;
             }
             nativeSessionStartedCount++;
@@ -307,8 +318,6 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             }
         } catch (RuntimeException error) {
             nativeJson = failureJson("Native validation raised " + error.getClass().getSimpleName());
-        } finally {
-            sessionSurface.release();
         }
 
         boolean sessionSuccess = nativeJson.contains("\"status\": \"success\"")
@@ -319,7 +328,9 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             if (sessionSuccess) nativeSessionSuccessCount++;
             activeNativeSessions--;
             sessionCurrent = surfaceAvailable && sessionGeneration == surfaceGeneration
+                    && requestId == latestRequestId
                     && width == currentSurfaceWidth && height == currentSurfaceHeight;
+            lifecycleLock.notifyAll();
         }
 
         String completeReport = appendLifecycleMetadata(
