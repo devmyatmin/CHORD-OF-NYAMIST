@@ -40,7 +40,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         root.setPadding(pad, pad, pad, pad);
 
         TextView title = new TextView(this);
-        title.setText("CHORD OF NYAMIST — G925 R1.8");
+        title.setText("CHORD OF NYAMIST — G925 R1.9");
         title.setTextSize(20.0f);
         root.addView(title, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -83,7 +83,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
         if (validatedCurrentSurface || width <= 0 || height <= 0) return;
         validatedCurrentSurface = true;
-        statusView.setText("Running R1.8 warm-up + 16-frame GPU timestamp validation...");
+        statusView.setText("Running R1.9 WSI present-fence validation with 16-frame GPU timing...");
         final Surface surface = holder.getSurface();
         final int surfaceWidth = width;
         final int surfaceHeight = height;
@@ -102,10 +102,10 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                 latestReport = result;
                 reportView.setText(result);
                 statusView.setText(result.contains("\"status\": \"success\"")
-                        ? "R1.8 16-frame GPU timestamp validation: SUCCESS"
-                        : "R1.8 validation did not pass; inspect JSON report");
+                        ? "R1.9 WSI present-fence validation: SUCCESS"
+                        : "R1.9 validation did not pass; inspect JSON report");
             });
-        }, "nyamist-r1.8-validation").start();
+        }, "nyamist-r1.9-validation").start();
     }
 
     @Override
@@ -118,15 +118,15 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         try {
             File directory = getExternalFilesDir(null);
             if (directory == null) directory = getFilesDir();
-            File output = new File(directory, "nyamist-g925-r1.8-gpu-timing.json");
+            File output = new File(directory, "nyamist-g925-r1.9-wsi-present-fence.json");
             try (FileOutputStream stream = new FileOutputStream(output, false)) {
                 stream.write(json.getBytes(StandardCharsets.UTF_8));
             }
             String digest = sha256(json);
-            android.util.Log.i("NYAMIST_R1_8", "Report: " + output.getAbsolutePath());
-            android.util.Log.i("NYAMIST_R1_8", "SHA-256: " + digest);
+            android.util.Log.i("NYAMIST_R1_9", "Report: " + output.getAbsolutePath());
+            android.util.Log.i("NYAMIST_R1_9", "SHA-256: " + digest);
         } catch (Exception error) {
-            android.util.Log.e("NYAMIST_R1_8", "Could not save report", error);
+            android.util.Log.e("NYAMIST_R1_9", "Could not save report", error);
         }
     }
 
@@ -137,7 +137,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         }
         ClipboardManager clipboard =
                 (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R1.8 JSON", latestReport));
+        clipboard.setPrimaryClip(ClipData.newPlainText("NYAMIST R1.9 JSON", latestReport));
         statusView.setText("JSON report copied to clipboard.");
     }
 
