@@ -2279,9 +2279,18 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                 } else {
                     report.vulkan_1_4_promoted_feature_query_scope =
                         "advertised_extension_feature_structs_on_pre_1_4_device";
-                    // VK_KHR_push_descriptor has no extension feature structure
-                    // for its Vulkan 1.4 pushDescriptor feature bit.
-                    record_not_queryable({"VK_KHR_push_descriptor.pushDescriptor"});
+                    // VK_KHR_push_descriptor did not define an extension
+                    // feature bit before Vulkan 1.4. Its advertised extension
+                    // implicitly guarantees push-descriptor support; Vulkan 1.4
+                    // adds an explicit feature bit for the same functionality.
+                    if (hasDeviceExtension(selected_physical_device_extensions,
+                                           "VK_KHR_push_descriptor")) {
+                        report.vulkan_1_4_promoted_features_implicitly_supported.emplace_back(
+                            "VK_KHR_push_descriptor.pushDescriptor (implicit via VK_KHR_push_descriptor)");
+                        ++report.vulkan_1_4_promoted_feature_implicitly_supported_count;
+                    } else {
+                        record_not_advertised({"VK_KHR_push_descriptor.pushDescriptor"});
+                    }
 
                     VkPhysicalDeviceDynamicRenderingLocalReadFeaturesKHR dynamic_local_read{
                         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_LOCAL_READ_FEATURES_KHR};
