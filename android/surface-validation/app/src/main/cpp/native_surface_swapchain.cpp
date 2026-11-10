@@ -443,7 +443,7 @@ bool renderAndPresentFrame(
     render_begin.pClearValues = &clear_value;
 
     // The reusable render pass clears the acquired swapchain image, then executes
-    // the R1.8 graphics pipeline and three-vertex draw before presentation.
+    // the R1.9 graphics pipeline and three-vertex draw before presentation.
     vk.cmd_begin_render_pass(command_buffer, &render_begin, VK_SUBPASS_CONTENTS_INLINE);
     report.render_pass_begin_recorded = true;
     vk.cmd_bind_pipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -681,7 +681,7 @@ bool runFrameSequence(
         report.gpu_timestamp_status = "unsupported";
         report.gpu_timestamp_query_pool_create_status = "not_supported";
         report.gpu_timestamp_query_status = "not_supported";
-        fail(report, "R1.8 requires timestamp queries, but the selected queue or Vulkan entry points do not support them");
+        fail(report, "R1.9 requires timestamp queries, but the selected queue or Vulkan entry points do not support them");
         return false;
     }
 
@@ -1281,7 +1281,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) != 0U) {
                             report.selected_image_usage = "COLOR_ATTACHMENT";
                         } else {
-                            fail(report, "R1.8 requires swapchain COLOR_ATTACHMENT usage for render-pass clear");
+                            fail(report, "R1.9 requires swapchain COLOR_ATTACHMENT usage for render-pass clear");
                         }
 
                         if (report.failure_reason.empty()) {
