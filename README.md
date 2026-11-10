@@ -16,7 +16,7 @@ CHORD OF NYAMIST is an Android-first hardware and graphics engineering project. 
 ## Current engineering evidence
 
 - **Vulkan:** G925 physical-device discovery, logical-device/queue creation, and queue-submit/fence validation have passed on the reference device.
-- **G925 rendering:** R1.8 passed a corrected-build 17-frame triangle-draw and GPU timestamp retest on the reference device (16 CPU and 16 GPU timestamp samples). R1.9 is adding WSI present-fence capability detection and shutdown completion evidence.
+- **G925 rendering:** R1.8 passed a corrected-build 17-frame triangle-draw and GPU timestamp retest; R1.9 passed on-device WSI present-fence validation (17 fence attaches / waits, 16 intermediate resets, 16 GPU timestamp samples). R2.0 is implementing swapchain-image pixel readback; device validation is pending.
 - **Graphics stack:** Mali userspace libraries, Android graphics HAL declarations, and MediaTek GPU services have been inventoried.
 - **NPU:** MediaTek NeuroPilot NNAPI services are present and the Neuron HAL is running; actual NPU inference is not yet validated.
 
@@ -41,5 +41,7 @@ The shared runtime stays separate from device-specific capabilities. Platform co
 - [MT6991 hardware inventory report](docs/hardware-reports/mt6991-redmi-k80-ultra-2026-11-09.md)
 - [Detailed module contracts](docs/module-contracts.md)
 - [Vulkan release plan](docs/releases/NYAMIST-G925-R1.md)
+- [R1.9 present-fence hardware evidence](docs/releases/NYAMIST-G925-R1.9-wsi-present-fence-validation.md)
+- [R2.0 pixel readback validation](docs/releases/NYAMIST-G925-R2.0-pixel-readback-verification.md)
 
 **Created by AMGNYA**
