@@ -18,6 +18,8 @@ add_library(nyamist_discovery
     src/discovery/hardware_discovery.cpp
     src/discovery/logical_device_validation.cpp
     src/discovery/command_submission_validation.cpp
+    src/discovery/gpu_resource_transfer_validation.cpp
+    src/discovery/android_surface_swapchain_validation.cpp
 )
 target_include_directories(nyamist_discovery PUBLIC include)
 target_compile_features(nyamist_discovery PUBLIC cxx_std_20)
@@ -130,6 +132,18 @@ if(NYAMIST_BUILD_TESTS)
     target_link_libraries(nyamist-command-submission-validation-tests PRIVATE nyamist_discovery)
     add_test(NAME nyamist-command-submission-validation-tests
         COMMAND nyamist-command-submission-validation-tests)
+
+    add_executable(nyamist-gpu-resource-transfer-validation-tests
+        tests/gpu_resource_transfer_validation_tests.cpp)
+    target_link_libraries(nyamist-gpu-resource-transfer-validation-tests PRIVATE nyamist_discovery)
+    add_test(NAME nyamist-gpu-resource-transfer-validation-tests
+        COMMAND nyamist-gpu-resource-transfer-validation-tests)
+
+    add_executable(nyamist-android-surface-swapchain-validation-tests
+        tests/android_surface_swapchain_validation_tests.cpp)
+    target_link_libraries(nyamist-android-surface-swapchain-validation-tests PRIVATE nyamist_discovery)
+    add_test(NAME nyamist-android-surface-swapchain-validation-tests
+        COMMAND nyamist-android-surface-swapchain-validation-tests)
 
     add_executable(nyamist-runtime-tests tests/runtime_tests.cpp)
     target_link_libraries(nyamist-runtime-tests PRIVATE nyamist_runtime)
