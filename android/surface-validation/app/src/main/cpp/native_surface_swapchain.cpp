@@ -2192,6 +2192,17 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                         static_cast<std::uint32_t>(images.size());
                                     if (report.selected_image_usage != "COLOR_ATTACHMENT|TRANSFER_SRC") {
                                         fail(report, "Selected swapchain usage does not include COLOR_ATTACHMENT|TRANSFER_SRC");
+                                    } else if (!recreateSwapchainAndProbe(
+                                        vk, report, selected_physical_device, surface, device,
+                                        queue, selected_format.format, selected_format.colorSpace,
+                                        image_usage, VK_PRESENT_MODE_FIFO_KHR, composite_alpha,
+                                        static_cast<std::uint32_t>(requested_width),
+                                        static_cast<std::uint32_t>(requested_height),
+                                        swapchain, images, extent,
+                                        maintenance_feature_supported)) {
+                                        if (report.failure_reason.empty()) {
+                                            fail(report, "R2.2 oldSwapchain recreation/probe failed");
+                                        }
                                     } else if (!createPixelReadbackResources(
                                         vk, report, selected_physical_device, device,
                                         pixel_readback_buffer, pixel_readback_memory,
@@ -2212,6 +2223,19 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                                         pipeline_layout, graphics_pipeline)) {
                                         if (report.failure_reason.empty()) {
                                             fail(report, "R1.8 multi-frame timestamp validation failed");
+                                        }
+                                    } else if ((report.swapchain_acquire_suboptimal_count > 0U ||
+                                                report.swapchain_present_suboptimal_count > 0U) &&
+                                               !recreateSwapchainAndProbe(
+                                        vk, report, selected_physical_device, surface, device,
+                                        queue, selected_format.format, selected_format.colorSpace,
+                                        image_usage, VK_PRESENT_MODE_FIFO_KHR, composite_alpha,
+                                        static_cast<std::uint32_t>(requested_width),
+                                        static_cast<std::uint32_t>(requested_height),
+                                        swapchain, images, extent,
+                                        maintenance_feature_supported)) {
+                                        if (report.failure_reason.empty()) {
+                                            fail(report, "R2.2 SUBOPTIMAL swapchain handoff did not recover");
                                         }
                                     }
                                 }
