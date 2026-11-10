@@ -413,6 +413,9 @@ int main(int argc, char** argv) {
     if (command == "runtime-vulkan-smoke" && argc == 2) {
         return runRuntimeVulkanSmoke();
     }
+    if (command == "runtime-vulkan-buffer-smoke" && argc == 2) {
+        return runRuntimeVulkanBufferSmoke();
+    }
     if (command == "validate-submit") {
         return runValidateSubmit(argc, argv);
     }
