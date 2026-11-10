@@ -936,7 +936,11 @@ AndroidSurfaceSwapchainValidationReport runValidation(
 
         const VkResult result = vk.create_instance(&create_info, nullptr, &instance);
         report.instance_create_status = isUsable(result) ? "success" : "failed";
-        if (!isUsable(result)) fail(report, "vkCreateInstance failed: " + resultName(result));
+        if (!isUsable(result)) {
+            fail(report, "vkCreateInstance failed: " + resultName(result));
+        } else if (maintenance_instance_extensions_enabled) {
+            report.swapchain_maintenance_instance_extension_status = "enabled";
+        }
     }
 
     if (instance != VK_NULL_HANDLE) {
