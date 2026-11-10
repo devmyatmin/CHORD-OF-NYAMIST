@@ -26,6 +26,7 @@ NATIVE = (
     / "cpp"
     / "native_surface_swapchain.cpp"
 )
+WORKFLOW = ROOT / ".github" / "workflows" / "r2.1-android-surface-lifecycle.yml"
 
 
 class R21SurfaceLifecycleContractTests(unittest.TestCase):
@@ -33,6 +34,14 @@ class R21SurfaceLifecycleContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.activity = ACTIVITY.read_text(encoding="utf-8")
         cls.native = NATIVE.read_text(encoding="utf-8")
+        cls.workflow = WORKFLOW.read_text(encoding="utf-8")
+
+    def test_android_workflow_pins_vulkan_headers_for_stacked_r23_build(self):
+        self.assertIn("Vulkan-Headers.git", self.workflow)
+        self.assertIn("--branch v1.4.368", self.workflow)
+        self.assertIn("VK_HEADER_VERSION 368", self.workflow)
+        self.assertIn('NYAMIST_VULKAN_HEADERS_ROOT="$RUNNER_TEMP/Vulkan-Headers" gradle',
+                      self.workflow)
 
     def test_android_lifecycle_callbacks_are_registered(self):
         self.assertIn("implements SurfaceHolder.Callback", self.activity)
