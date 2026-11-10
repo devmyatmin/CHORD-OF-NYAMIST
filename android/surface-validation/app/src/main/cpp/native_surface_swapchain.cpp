@@ -3308,7 +3308,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                report.index_type_uint8_buffer_destroy_status == "success" &&
                report.index_type_uint8_memory_free_status == "success")
             : (report.index_type_uint8_probe_status == "not_supported" ||
-           report.index_type_uint8_probe_status == "not_advertised");
+               report.index_type_uint8_probe_status == "not_advertised");
     const bool complete = presentation_completion_valid && uint8_index_probe_valid &&
         report.loader_status == "success" &&
         report.instance_create_status == "success" &&
