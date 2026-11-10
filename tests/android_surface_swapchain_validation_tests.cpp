@@ -70,8 +70,8 @@ void testSuccessfulSwapchainReportContract() {
         "top_left,top_right,bottom_left,bottom_right,triangle_center";
     report.pixel_expected_clear_rgba8 = {53U, 105U, 153U, 255U};
     report.pixel_rgba8_samples = {
-        53U,104U,153U,255U, 53U,104U,153U,255U,
-        53U,104U,153U,255U, 53U,104U,153U,255U,
+        53U,105U,153U,255U, 53U,105U,153U,255U,
+        53U,105U,153U,255U, 53U,105U,153U,255U,
         173U,149U,158U,255U
     };
     report.pixel_background_samples_match_clear = true;
