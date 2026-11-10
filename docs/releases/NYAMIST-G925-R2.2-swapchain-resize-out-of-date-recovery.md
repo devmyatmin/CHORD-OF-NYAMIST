@@ -1,5 +1,7 @@
 # NYAMIST G925 R2.2 — Swapchain Resize and OUT_OF_DATE Recovery
 
+**CHORD OF NYAMIST Completion Roadmap — Part 1 of 5: WSI Final Validation.** This is the first top-level project phase; it is not subdivided into separate roadmap Parts.
+
 **Hosted validation: PASS. Target-device same-device oldSwapchain handoff: HARDWARE PASS (2026-11-10). Actual extent change and real SUBOPTIMAL / OUT_OF_DATE emission/recovery: NOT OBSERVED.**
 
 ## Objective
