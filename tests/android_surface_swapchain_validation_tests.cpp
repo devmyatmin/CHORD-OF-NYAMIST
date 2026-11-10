@@ -16,9 +16,9 @@ void testUnavailableReportIsExplicit() {
     report.native_window_status = "not_available";
     report.failure_reason = "No Android Surface was supplied";
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 8") != std::string::npos,
+    check(json.find("\"schema_version\": 9") != std::string::npos,
           "schema version must be serialized");
-    check(json.find("NYAMIST G925 R2.3") != std::string::npos,
+    check(json.find("NYAMIST G925 R2.4") != std::string::npos,
           "R2.2 identity must be serialized");
     check(json.find("\"status\": \"unavailable\"") != std::string::npos,
           "missing native surface must be reported as unavailable");
@@ -53,6 +53,17 @@ void testSuccessfulSwapchainReportContract() {
     report.physical_device_uuid_hex = "00112233445566778899aabbccddeeff";
     report.vulkan_1_4_support_status = "not_exposed_by_physical_device";
     report.vulkan_1_4_features_query_status = "skipped_physical_device_api_below_1_4";
+    report.vulkan_1_4_promoted_extension_inventory_status = "success";
+    report.vulkan_1_4_promoted_extension_inventory_scope =
+        "extension_name_advertisement_on_pre_1_4_device";
+    report.vulkan_1_4_promoted_extension_coverage_status = "partial_advertisement";
+    report.vulkan_1_4_promoted_extension_total_count = 16U;
+    report.vulkan_1_4_promoted_extension_supported_count = 2U;
+    report.vulkan_1_4_promoted_extension_not_advertised_count = 14U;
+    report.vulkan_1_4_promoted_extensions_supported = {
+        "VK_KHR_line_rasterization", "VK_EXT_host_image_copy"};
+    report.vulkan_1_4_promoted_extensions_not_advertised = {
+        "VK_KHR_dynamic_rendering_local_read", "VK_KHR_global_priority"};
     report.target_gpu_match = true;
     report.swapchain_extension_status = "success";
     report.queue_family_status = "success";
@@ -193,8 +204,8 @@ void testSuccessfulSwapchainReportContract() {
     report.swapchain_out_of_date_recovery_status = "not_observed";
 
     const auto json = nyamist::discovery::toJson(report);
-    check(json.find("\"schema_version\": 8") != std::string::npos,
-          "R2.2 schema version must be serialized");
+    check(json.find("\"schema_version\": 9") != std::string::npos,
+          "R2.4 schema version must be serialized");
     check(json.find(R"("present_fence_used": true)") != std::string::npos,
           "present fence use must be serialized");
     check(json.find(R"("present_fence_attach_count": 17)") != std::string::npos,
@@ -223,6 +234,16 @@ void testSuccessfulSwapchainReportContract() {
           "physical-device UUID must be serialized");
     check(json.find(R"("vulkan_1_4_support_status": "not_exposed_by_physical_device")") != std::string::npos,
           "a Vulkan 1.3 device must not be misreported as Vulkan 1.4");
+    check(json.find(R"("vulkan_1_4_promoted_extension_inventory_status": "success")") != std::string::npos,
+          "promoted extension inventory status must be serialized");
+    check(json.find(R"("vulkan_1_4_promoted_extension_total_count": 16)") != std::string::npos,
+          "all 16 promoted extension names must be counted");
+    check(json.find(R"("vulkan_1_4_promoted_extension_supported_count": 2)") != std::string::npos,
+          "advertised extension count must be serialized");
+    check(json.find(R"("vulkan_1_4_promoted_extensions_supported": ["VK_KHR_line_rasterization", "VK_EXT_host_image_copy"])") != std::string::npos,
+          "advertised extension names must be serialized");
+    check(json.find(R"("vulkan_1_4_promoted_extensions_not_advertised": ["VK_KHR_dynamic_rendering_local_read", "VK_KHR_global_priority"])") != std::string::npos,
+          "not-advertised extension names must be serialized");
     check(json.find("\"selected_present_mode\": \"FIFO\"") != std::string::npos,
           "FIFO presentation mode must be serialized");
     check(json.find(R"("swapchain_recreation_status": "success")") != std::string::npos,
