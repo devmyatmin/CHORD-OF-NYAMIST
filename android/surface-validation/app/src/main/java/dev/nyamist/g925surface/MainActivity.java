@@ -122,7 +122,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         try {
             File directory = getExternalFilesDir(null);
             if (directory == null) directory = getFilesDir();
-            File output = new File(directory, "nyamist-g925-r2.0-wsi-present-fence.json");
+            File output = new File(directory, "nyamist-g925-r2.0-pixel-readback.json");
             try (FileOutputStream stream = new FileOutputStream(output, false)) {
                 stream.write(json.getBytes(StandardCharsets.UTF_8));
             }
