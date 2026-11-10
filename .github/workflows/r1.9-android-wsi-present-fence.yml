@@ -1,12 +1,12 @@
-name: NYAMIST G925 R1.9 Android GPU Timestamp Validation
+name: NYAMIST G925 R1.9 WSI Present-Fence Validation
 
 on:
   push:
     branches:
-      - feature/g925-r1.9-wsi-present-fence-multiframe
+      - feature/g925-r1.9-wsi-present-fence-validation
   pull_request:
     branches:
-      - feature/g925-r1.8-wsi-present-fence-multiframe
+      - feature/g925-r1.8-gpu-timestamp-multiframe
   workflow_dispatch:
 
 permissions:
