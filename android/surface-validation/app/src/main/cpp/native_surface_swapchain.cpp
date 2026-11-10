@@ -868,10 +868,10 @@ bool renderAndPresentFrame(
     vk.cmd_bind_pipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                          graphics_pipeline);
     report.graphics_pipeline_bind_recorded = true;
-    vk.cmd_draw(command_buffer, 3U, 1U, 0U, 0U);
-    report.draw_call_recorded = true;
-    report.draw_vertex_count = 3U;
     if (uint8_index_probe_enabled && perform_pixel_readback) {
+        // Make the first/readback frame an indexed-only draw. Pixel readback
+        // therefore proves the uint8 index path rendered the triangle; a
+        // preceding non-indexed draw cannot mask a failed indexed draw.
         if (uint8_index_buffer == VK_NULL_HANDLE ||
             vk.cmd_bind_index_buffer == nullptr || vk.cmd_draw_indexed == nullptr) {
             report.index_type_uint8_draw_entry_points_status = "unavailable";
@@ -887,7 +887,11 @@ bool renderAndPresentFrame(
         report.index_type_uint8_draw_record_status = "success";
         report.index_type_uint8_draw_recorded = true;
         report.index_type_uint8_draw_index_count = 3U;
+    } else {
+        vk.cmd_draw(command_buffer, 3U, 1U, 0U, 0U);
     }
+    report.draw_call_recorded = true;
+    report.draw_vertex_count = 3U;
     vk.cmd_end_render_pass(command_buffer);
     report.render_pass_end_recorded = true;
     report.image_layout_transition_recorded = true;
