@@ -43,10 +43,6 @@ if(NYAMIST_ENABLE_VULKAN_DISCOVERY)
     endif()
 
     if(NYAMIST_ANDROID_TARGET OR NYAMIST_FORCE_VULKAN_DYNAMIC_LOADING)
-        # Android's public Vulkan loader is resolved at runtime. Do not add
-        # libvulkan.so to DT_NEEDED: some Bionic/Termux environments cannot
-        # resolve the platform loader's private dependency chain at process
-        # startup, while dlopen() from the app process is supported.
         find_path(NYAMIST_VULKAN_INCLUDE_DIR vulkan/vulkan.h)
         if(NYAMIST_VULKAN_INCLUDE_DIR)
             target_include_directories(nyamist_discovery PRIVATE ${NYAMIST_VULKAN_INCLUDE_DIR})
@@ -81,6 +77,7 @@ add_library(nyamist_runtime
     src/runtime/profile_store.cpp
     src/runtime/ab_evaluator.cpp
     src/runtime/translator_adapters.cpp
+    src/runtime/vulkan_backend.cpp
 )
 target_include_directories(nyamist_runtime PUBLIC include)
 target_compile_features(nyamist_runtime PUBLIC cxx_std_20)
@@ -134,6 +131,10 @@ if(NYAMIST_BUILD_TESTS)
     add_executable(nyamist-runtime-tests tests/runtime_tests.cpp)
     target_link_libraries(nyamist-runtime-tests PRIVATE nyamist_runtime)
     add_test(NAME nyamist-runtime-tests COMMAND nyamist-runtime-tests)
+
+    add_executable(nyamist-vulkan-backend-tests tests/vulkan_backend_tests.cpp)
+    target_link_libraries(nyamist-vulkan-backend-tests PRIVATE nyamist_runtime)
+    add_test(NAME nyamist-vulkan-backend-tests COMMAND nyamist-vulkan-backend-tests)
 
     add_executable(nyamist-panvk-tests tests/panvk_adapter_tests.cpp)
     target_link_libraries(nyamist-panvk-tests PRIVATE nyamist_runtime)
