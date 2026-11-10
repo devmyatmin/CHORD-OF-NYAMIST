@@ -2,6 +2,8 @@
 
 **CHORD OF NYAMIST Completion Roadmap — Part 1 of 5: WSI Final Validation.** This is the first top-level project phase; it is not subdivided into separate roadmap Parts.
 
+**Report-version note:** the previously committed REDMI K80 Ultra hardware evidence is the original schema-v11 report. The updated Part 1 app emits native schema v12, which adds live-resize-window timing fields while preserving the existing R2.2–R2.6 evidence fields. Historical schema-v11 evidence is retained as-is; new device evidence must identify schema v12.
+
 **Hosted validation: PASS. Target-device same-device oldSwapchain handoff: HARDWARE PASS (2026-11-10). Actual extent change and real SUBOPTIMAL / OUT_OF_DATE emission/recovery: NOT OBSERVED.**
 
 ## Objective
