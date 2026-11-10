@@ -73,6 +73,14 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
         self.assertIn("--branch v1.4.368", self.workflow)
         self.assertIn('NYAMIST_VULKAN_HEADERS_ROOT="$RUNNER_TEMP/Vulkan-Headers" gradle', self.workflow)
 
+    def test_actual_resize_instrumentation_is_versioned_and_built_on_feature_branch(self):
+        self.assertIn("\\\"schema_version\\\": 2", self.activity)
+        self.assertIn("surface_resize_observed", self.activity)
+        self.assertIn("surface_last_resize_from_width", self.activity)
+        self.assertIn("surface_last_resize_to_width", self.activity)
+        self.assertIn("feature/g925-r2.2-actual-surface-resize-instrumentation", self.workflow)
+        self.assertIn("nyamist-g925-r2.2-actual-resize-validation-apk", self.workflow)
+
     def test_app_build_identity_is_r23_with_r22_recovery_fields(self):
         self.assertIn("R2.6 WSI session", self.activity)
         self.assertIn("nyamist-g925-r2.6-uint8-index-probe.json", self.activity)
