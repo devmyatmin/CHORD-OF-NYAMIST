@@ -29,11 +29,19 @@ Inventory the 16 extension families promoted into Vulkan 1.4 on the selected And
 - Preserve R2.3 loader/instance/physical-device version separation, driver identity, Vulkan 1.4 feature-query rules, WSI rendering, readback, timestamps, and present-fence validation.
 - Report wording limits this phase to extension-name advertisement. No full Vulkan 1.4 feature/limit compliance or CTS certification is implied.
 
-## Validation status
+## Hosted validation — PASS
 
-- Hosted contract tests: pending.
-- Android arm64 APK build: pending.
-- Target REDMI K80 Ultra hardware report: pending.
+Validated on head `32174daba4be00b408994c77dd6771751af6cf31`:
+
+- Core CI push #42759560985: success; CTest 15/15, runtime Vulkan-dispatch build/test, and smoke checks passed.
+- R2.4 Android push #42759561206: success; compatibility and R2.4 inventory contract tests passed; arm64 APK built and uploaded.
+- R2.4 Android PR #42759567166: success; contract tests passed; arm64 APK built and uploaded.
+- Artifact `nyamist-g925-r2.4-vulkan-1.4-audit-apk`, ID `13736912937`.
+- Artifact ZIP SHA-256: `6d165b014926dc0de7b91117b4303f7ad5638236d887a39d6002a5293a6c5db9`.
+
+## Hardware validation — PENDING
+
+A fresh R2.4 APK installation and schema-v9 JSON report from the REDMI K80 Ultra are still required.
 
 ## Expected hardware interpretation
 
