@@ -65,7 +65,7 @@ confirms Android delivered orientation changes.
 If Android destroys/recreates the Surface during rotation, the prior valid
 dimensions are retained so a real size change is not lost when the new
 Surface first reports its dimensions. Surface recreation alone is not a
-The live-window mode records both pause points and their total duration. A real Vulkan VK_SUBOPTIMAL_KHR or VK_ERROR_OUT_OF_DATE_KHR result is proven only when the corresponding driver-result counter is nonzero. For OUT_OF_DATE, also require a nonzero recovery-success count and final same-device handoff success. A Surface resize with zero WSI result counters remains a resize PASS but WSI-event status is not_observed.
+The live-window mode records both pause points and their total duration. R2.7 provides a 5-second pause before acquire and a 5-second pause before present (10 seconds total) so the operator can resize the Surface during both windows. A real Vulkan VK_SUBOPTIMAL_KHR or VK_ERROR_OUT_OF_DATE_KHR result is proven only when the corresponding driver-result counter is nonzero. For OUT_OF_DATE, also require a nonzero recovery-success count and final same-device handoff success. A Surface resize with zero WSI result counters remains a resize PASS but WSI-event status is not_observed.
 
 ## Live WSI Resize Window mode
 
@@ -73,21 +73,23 @@ The live-window control is designed to expose the actual WSI operation to a Surf
 
 ## Surface transform and aspect-preserving rendering — Part 1
 
-The renderer uses the current Android Surface dimensions and does not pre-rotate
-its clip-space geometry. Accordingly, swapchain creation prefers
-`VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR` whenever the Surface advertises it;
-the presentation engine then applies the Surface's current orientation exactly
-once. Selecting `currentTransform` while also rendering for the already-oriented
-extent mixes the pre-rotation path with the no-pre-rotation path and can
-rotate/stretch the displayed triangle.
+R2.7 implements Android Vulkan pre-rotation rather than preferring IDENTITY.
+The swapchain `preTransform` matches the Surface's reported
+`currentTransform`. When the transform rotates the display by 90 or 270 degrees,
+the swapchain extent is converted back to the display's natural/identity
+orientation by swapping width and height. The current transform is then applied
+to every frame through a vertex-stage push-constant matrix. This keeps the
+swapchain image orientation and the geometry transform consistent and avoids
+a second presentation-engine rotation.
 
 The report records `surface_current_transform`,
 `surface_supported_transforms`, `swapchain_pre_transform`,
-`swapchain_pre_transform_identity_selected`, and
-`swapchain_pre_transform_policy` for both the initial chain and replacement
-handoffs. If IDENTITY is not supported, the report explicitly records
-`current_transform_fallback_requires_mvp_prerotation`; that fallback is not a
-visual PASS until the matching MVP pre-rotation is implemented and verified.
+`swapchain_pre_transform_identity_selected`,
+`swapchain_pre_transform_policy`, `surface_prerotation_applied`, and
+`surface_prerotation_status` for evidence. The matrix covers identity,
+90/180/270-degree rotations and the corresponding horizontal-mirror transforms.
+Unsupported transform values fail the frame explicitly rather than silently
+rendering with a wrong orientation.
 
 The graphics pipeline uses a centered square viewport whose side is the
 smaller swapchain dimension. The render pass still clears and presents the
