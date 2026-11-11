@@ -54,10 +54,10 @@ class R23Vulkan14DriverAuditContractTests(unittest.TestCase):
         self.assertIn("features11.protectedMemory", self.native)
         self.assertIn("skipped_physical_device_api_below_1_4", self.native)
 
-    def test_app_version_and_report_path_are_r24(self):
-        self.assertIn("versionCode = 260", self.gradle)
-        self.assertIn('versionName = "2.6.0"', self.gradle)
-        self.assertIn("nyamist-g925-r2.6-uint8-index-probe.json", self.activity)
+    def test_app_version_and_report_path_are_r27(self):
+        self.assertIn("versionCode = 270", self.gradle)
+        self.assertIn('versionName = "2.7.0"', self.gradle)
+        self.assertIn("nyamist-g925-r2.7-prerotation-validation.json", self.activity)
 
     def test_android_build_uses_pinned_official_vulkan_headers(self):
         cmake = (ROOT / "android/surface-validation/app/src/main/cpp/CMakeLists.txt").read_text(encoding="utf-8")
