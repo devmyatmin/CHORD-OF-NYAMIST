@@ -103,7 +103,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         root.setPadding(pad, pad, pad, pad);
 
         TextView title = new TextView(this);
-        title.setText("CHORD OF NYAMIST — G925 R2.6 · " + BuildConfig.NYAMIST_BUILD_SHA);
+        title.setText("CHORD OF NYAMIST — G925 R2.7 · " + BuildConfig.NYAMIST_BUILD_SHA);
         title.setTextSize(20.0f);
         root.addView(title, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -381,7 +381,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         }
 
         if ("live_wsi_resize_window".equals(reason)) {
-            statusView.setText("LIVE WSI resize window starting: change Surface size once before acquire and once before present (2 seconds each).");
+            statusView.setText("LIVE WSI resize window starting: change Surface size once before acquire and once before present (5 seconds each).");
         } else {
             statusView.setText("Building a fresh Vulkan Surface / Swapchain session: " + reason);
         }
@@ -480,9 +480,9 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                     statusView.setText(
                             "A previous Surface session finished. The current Surface session is queued.");
                 } else if (!sessionSuccess) {
-                    statusView.setText("R2.6 WSI session failed; inspect the JSON report.");
+                    statusView.setText("R2.7 WSI session failed; inspect the JSON report.");
                 } else if (result.contains("\"pixel_verification_status\": \"success\"")) {
-                    statusView.setText("R2.6 WSI session SUCCESS — pixel readback also passed.");
+                    statusView.setText("R2.7 WSI session SUCCESS — pixel readback also passed.");
                 } else {
                     statusView.setText("R2.6 WSI session completed; inspect the validation fields.");
                 }
@@ -583,15 +583,15 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             boolean liveResizeReport = json.contains("\"live_resize_window_mode_enabled\": true");
             File output = new File(directory, liveResizeReport
                     ? "nyamist-g925-r2.2-live-wsi-resize-window.json"
-                    : "nyamist-g925-r2.6-uint8-index-probe.json");
+                    : "nyamist-g925-r2.7-prerotation-validation.json");
             try (FileOutputStream stream = new FileOutputStream(output, false)) {
                 stream.write(json.getBytes(StandardCharsets.UTF_8));
             }
             String digest = sha256(json);
-            android.util.Log.i("NYAMIST_R2_4", "Report: " + output.getAbsolutePath());
-            android.util.Log.i("NYAMIST_R2_4", "SHA-256: " + digest);
+            android.util.Log.i("NYAMIST_R2_7", "Report: " + output.getAbsolutePath());
+            android.util.Log.i("NYAMIST_R2_7", "SHA-256: " + digest);
         } catch (Exception error) {
-            android.util.Log.e("NYAMIST_R2_4", "Could not save report", error);
+            android.util.Log.e("NYAMIST_R2_7", "Could not save report", error);
         }
     }
 
