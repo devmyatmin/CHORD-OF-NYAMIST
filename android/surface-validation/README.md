@@ -73,6 +73,10 @@ The live-window control is designed to expose the actual WSI operation to a Surf
 
 ## Surface transform and aspect-preserving rendering — Part 1
 
+R2.7 starts in sensor-landscape game mode. The on-screen orientation control can
+temporarily switch the validation Activity to full-sensor mode so portrait and
+landscape WSI transitions remain testable without making portrait the default.
+
 R2.7 implements Android Vulkan pre-rotation rather than preferring IDENTITY.
 The swapchain `preTransform` matches the Surface's reported
 `currentTransform`. When the transform rotates the display by 90 or 270 degrees,
