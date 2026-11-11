@@ -31,7 +31,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private final Object lifecycleLock = new Object();
     private final ExecutorService validationExecutor =
             Executors.newSingleThreadExecutor(runnable -> {
-                Thread thread = new Thread(runnable, "nyamist-r2.6-indexed-draw-session");
+                Thread thread = new Thread(runnable, "nyamist-r2.7-pre-rotation-session");
                 thread.setDaemon(false);
                 return thread;
             });
@@ -595,7 +595,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
 
     private String failureJson(String reason) {
         return "{\n  \"schema_version\": 12,"
-                + "\n  \"project\": \"CHORD OF NYAMIST / NYAMIST G925 R2.6\","
+                + "\n  \"project\": \"CHORD OF NYAMIST / NYAMIST G925 R2.7\","
                 + "\n  \"status\": \"failed\","
                 + "\n  \"failure_reason\": \"" + reason + "\""
                 + "\n}";
