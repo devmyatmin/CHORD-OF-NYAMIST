@@ -1,21 +1,23 @@
-name: NYAMIST G925 R2.2 Swapchain Resize and OUT_OF_DATE Recovery
+name: NYAMIST G925 R2.7 Android Vulkan Pre-Rotation Validation
 
 on:
   push:
     branches:
       - feature/g925-r2.2-swapchain-resize-out-of-date-recovery
       - feature/g925-r2.2-actual-surface-resize-instrumentation
+      - feature/g925-r2.7-android-vulkan-pre-rotation
   pull_request:
     branches:
       - feature/g925-r2.1-surface-lifecycle-swapchain-recreation
       - feature/g925-r2.2-swapchain-resize-out-of-date-recovery
+      - feature/g925-r2.2-actual-surface-resize-instrumentation
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build-android-r2-2:
+  build-android-r2-7:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -51,17 +53,17 @@ jobs:
           unzip -q "$RUNNER_TEMP/gradle-9.6.0-bin.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/gradle-9.6.0/bin" >> "$GITHUB_PATH"
 
-      - name: Validate R2.2 swapchain recovery contract tests
+      - name: Validate R2.7 pre-rotation and WSI contract tests
         run: python3 -m unittest tools.tests.test_r2_2_swapchain_recovery_contract -v
 
       - name: Build arm64 Android APK
         working-directory: android/surface-validation
         run: NYAMIST_VULKAN_HEADERS_ROOT="$RUNNER_TEMP/Vulkan-Headers" gradle --no-daemon --stacktrace :app:assembleDebug
 
-      - name: Upload R2.2 debug APK
+      - name: Upload R2.7 debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: nyamist-g925-r2.2-actual-resize-validation-apk
+          name: nyamist-g925-r2.7-prerotation-validation-apk
           path: android/surface-validation/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
