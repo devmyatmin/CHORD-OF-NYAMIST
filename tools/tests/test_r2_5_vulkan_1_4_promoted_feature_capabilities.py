@@ -103,11 +103,11 @@ class R25PromotedFeatureCapabilityContractTests(unittest.TestCase):
         self.assertIn("vulkan_1_4_promoted_feature_query_failed_count", self.native)
         self.assertIn("vulkan_1_4_promoted_features_not_queryable", self.serializer)
 
-    def test_app_identity_is_r26(self):
+    def test_app_identity_is_r27(self):
         self.assertIn('schema_version\\": 12', self.activity)
-        self.assertIn("nyamist-g925-r2.6-uint8-index-probe.json", self.activity)
-        self.assertIn("versionCode = 260", self.gradle)
-        self.assertIn('versionName = "2.6.0"', self.gradle)
+        self.assertIn("nyamist-g925-r2.7-prerotation-validation.json", self.activity)
+        self.assertIn("versionCode = 270", self.gradle)
+        self.assertIn('versionName = "2.7.0"', self.gradle)
 
 
 if __name__ == "__main__":
