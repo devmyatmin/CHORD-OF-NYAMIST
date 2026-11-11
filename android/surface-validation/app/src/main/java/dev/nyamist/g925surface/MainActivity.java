@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.view.Surface;
@@ -40,6 +41,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private SurfaceView validationSurfaceView;
     private Button resizeTestButton;
     private Button liveResizeWindowButton;
+    private Button orientationModeButton;
+    private boolean allOrientationWsiMode;
     private SurfaceHolder currentHolder;
     private String latestReport = "";
 
@@ -95,6 +98,9 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Game-facing default: start in landscape. The WSI test button below
+        // temporarily enables all sensor orientations for portrait validation.
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         lastConfigurationOrientation = orientationName(getResources().getConfiguration().orientation);
 
         LinearLayout root = new LinearLayout(this);
@@ -112,6 +118,12 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         statusView.setText("Waiting for Android Surface lifecycle...");
         statusView.setTextSize(14.0f);
         root.addView(statusView, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        orientationModeButton = new Button(this);
+        orientationModeButton.setText("ENABLE PORTRAIT / ALL-ORIENTATION WSI MODE");
+        orientationModeButton.setOnClickListener(view -> toggleOrientationMode());
+        root.addView(orientationModeButton, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         validationSurfaceView = new SurfaceView(this);
@@ -317,6 +329,19 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         }
         statusView.setText(
                 "Surface destroyed. Active native work completed cleanup before the callback returned.");
+    }
+
+    private void toggleOrientationMode() {
+        allOrientationWsiMode = !allOrientationWsiMode;
+        if (allOrientationWsiMode) {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
+            orientationModeButton.setText("LOCK GAME LANDSCAPE");
+            statusView.setText("All-orientation WSI test enabled: rotate portrait and landscape.");
+        } else {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+            orientationModeButton.setText("ENABLE PORTRAIT / ALL-ORIENTATION WSI MODE");
+            statusView.setText("Landscape game mode locked; WSI Surface recreation remains enabled.");
+        }
     }
 
     private void requestManualRebuild() {
