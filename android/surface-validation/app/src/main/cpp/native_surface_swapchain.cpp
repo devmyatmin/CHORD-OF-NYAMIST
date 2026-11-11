@@ -100,6 +100,7 @@ struct VulkanDispatch {
     PFN_vkCmdBindPipeline cmd_bind_pipeline{};
     PFN_vkCmdSetViewport cmd_set_viewport{};
     PFN_vkCmdSetScissor cmd_set_scissor{};
+    PFN_vkCmdPushConstants cmd_push_constants{};
     PFN_vkCmdDraw cmd_draw{};
     PFN_vkCmdBindIndexBuffer cmd_bind_index_buffer{};
     PFN_vkCmdDrawIndexed cmd_draw_indexed{};
@@ -156,17 +157,68 @@ bool isUsable(VkResult result) {
     return result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR;
 }
 
-// Android may report a non-identity currentTransform after device rotation.
-// This renderer uses the current, already-oriented Surface extent and does not
-// pre-rotate clip-space geometry. Prefer IDENTITY so the presentation engine
-// does not apply a second rotation to content rendered for the new extent.
+// Android pre-rotation follows the current surface transform. The swapchain
+// uses the display's identity (natural-orientation) extent and the vertex
+// shader rotates clip-space positions, so SurfaceFlinger does not rotate a
+// second time during presentation.
 VkSurfaceTransformFlagBitsKHR chooseSwapchainPreTransform(
         const VkSurfaceCapabilitiesKHR& capabilities) {
-    if ((capabilities.supportedTransforms &
-         VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) != 0U) {
-        return VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-    }
     return capabilities.currentTransform;
+}
+
+bool transformSwapsExtent(VkSurfaceTransformFlagBitsKHR transform) {
+    return transform == VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR ||
+           transform == VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR ||
+           transform == VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_90_BIT_KHR ||
+           transform == VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_270_BIT_KHR;
+}
+
+VkExtent2D chooseIdentitySwapchainExtent(
+        const VkSurfaceCapabilitiesKHR& capabilities,
+        std::uint32_t requested_width,
+        std::uint32_t requested_height) {
+    VkExtent2D extent{};
+    if (capabilities.currentExtent.width != UINT32_MAX) {
+        extent = capabilities.currentExtent;
+    } else {
+        extent.width = std::clamp(
+            requested_width, capabilities.minImageExtent.width,
+            capabilities.maxImageExtent.width);
+        extent.height = std::clamp(
+            requested_height, capabilities.minImageExtent.height,
+            capabilities.maxImageExtent.height);
+    }
+    if (transformSwapsExtent(capabilities.currentTransform)) {
+        std::swap(extent.width, extent.height);
+    }
+    return extent;
+}
+
+bool surfaceTransformToClipMatrix(
+        VkSurfaceTransformFlagBitsKHR transform,
+        std::array<float, 4>& matrix) {
+    // Row-major 2x2 matrix; values follow Android/Khronos Vulkan pre-rotation.
+    switch (transform) {
+    case VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR:
+    case VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR:
+        matrix = {1.0F, 0.0F, 0.0F, 1.0F}; return true;
+    case VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR:
+        matrix = {0.0F, -1.0F, 1.0F, 0.0F}; return true;
+    case VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR:
+        matrix = {-1.0F, 0.0F, 0.0F, -1.0F}; return true;
+    case VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR:
+        matrix = {0.0F, 1.0F, -1.0F, 0.0F}; return true;
+    case VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_BIT_KHR:
+        matrix = {-1.0F, 0.0F, 0.0F, 1.0F}; return true;
+    case VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_90_BIT_KHR:
+        matrix = {0.0F, -1.0F, -1.0F, 0.0F}; return true;
+    case VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_180_BIT_KHR:
+        matrix = {1.0F, 0.0F, 0.0F, -1.0F}; return true;
+    case VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_270_BIT_KHR:
+        matrix = {0.0F, 1.0F, 1.0F, 0.0F}; return true;
+    default:
+        return false;
+    }
 }
 
 void recordSurfaceTransform(
@@ -183,8 +235,8 @@ void recordSurfaceTransform(
         selected == VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
     report.swapchain_pre_transform_policy =
         report.swapchain_pre_transform_identity_selected
-            ? "identity_no_app_prerotation"
-            : "current_transform_fallback_requires_mvp_prerotation";
+            ? "identity_no_rotation_required"
+            : "pre_rotate_to_current_surface_transform";
 }
 
 std::string resultName(VkResult result) {
@@ -606,6 +658,7 @@ bool renderAndPresentFrame(
         std::uint32_t queue_family,
         VkSwapchainKHR swapchain,
         VkImage image,
+        VkSurfaceTransformFlagBitsKHR surface_transform,
         VkFormat format,
         VkExtent2D extent,
         std::uint32_t image_index,
@@ -759,8 +812,14 @@ bool renderAndPresentFrame(
             return false;
         }
 
+        VkPushConstantRange transform_push_range{};
+        transform_push_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        transform_push_range.offset = 0U;
+        transform_push_range.size = 4U * sizeof(float);
         VkPipelineLayoutCreateInfo pipeline_layout_info{
             VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+        pipeline_layout_info.pushConstantRangeCount = 1U;
+        pipeline_layout_info.pPushConstantRanges = &transform_push_range;
         result = vk.create_pipeline_layout(device, &pipeline_layout_info, nullptr,
                                            &pipeline_layout);
         report.pipeline_layout_create_status =
@@ -925,6 +984,21 @@ bool renderAndPresentFrame(
                          graphics_pipeline);
     vk.cmd_set_viewport(command_buffer, 0U, 1U, &render_viewport);
     vk.cmd_set_scissor(command_buffer, 0U, 1U, &render_scissor);
+    std::array<float, 4> pre_rotation_matrix{};
+    if (!surfaceTransformToClipMatrix(surface_transform, pre_rotation_matrix)) {
+        report.surface_prerotation_status = "unsupported_surface_transform";
+        fail(report, "The current Android Surface transform has no clip-space rotation mapping");
+        return false;
+    }
+    vk.cmd_push_constants(command_buffer, pipeline_layout,
+                          VK_SHADER_STAGE_VERTEX_BIT, 0U,
+                          static_cast<std::uint32_t>(sizeof(pre_rotation_matrix)),
+                          pre_rotation_matrix.data());
+    report.surface_prerotation_applied =
+        surface_transform != VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR &&
+        surface_transform != VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR;
+    report.surface_prerotation_status = report.surface_prerotation_applied
+        ? "applied_from_current_transform" : "identity_no_rotation_required";
     report.render_viewport_dynamic_state_enabled = true;
     report.render_viewport_x = render_viewport_x;
     report.render_viewport_y = render_viewport_y;
@@ -1370,7 +1444,9 @@ bool runFrameSequence(
             collect_sample ? frame_index - report.warmup_frame_count : 0U;
         const bool frame_ok = renderAndPresentFrame(
             vk, report, device, queue, queue_family, swapchain,
-            images[image_index], format, extent, image_index,
+            images[image_index],
+            static_cast<VkSurfaceTransformFlagBitsKHR>(report.surface_current_transform),
+            format, extent, image_index,
             acquire_semaphore, present_semaphores[image_index],
             command_pool, command_buffer, image_view, render_pass, framebuffer,
             vertex_shader, fragment_shader, pipeline_layout, graphics_pipeline,
@@ -1544,17 +1620,8 @@ bool recreateSwapchainAndProbe(
             return false;
         }
 
-        VkExtent2D next_extent{};
-        if (capabilities.currentExtent.width != UINT32_MAX) {
-            next_extent = capabilities.currentExtent;
-        } else {
-            next_extent.width = std::clamp(
-                requested_width, capabilities.minImageExtent.width,
-                capabilities.maxImageExtent.width);
-            next_extent.height = std::clamp(
-                requested_height, capabilities.minImageExtent.height,
-                capabilities.maxImageExtent.height);
-        }
+        const VkExtent2D next_extent = chooseIdentitySwapchainExtent(
+            capabilities, requested_width, requested_height);
         if (next_extent.width == 0U || next_extent.height == 0U) {
             fail(report, "The refreshed Surface extent is zero; swapchain recreation is deferred");
             report.swapchain_recreation_status = "zero_extent_deferred";
@@ -1927,7 +1994,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
     AndroidSurfaceSwapchainValidationReport report;
     report.live_resize_window_mode_enabled = live_resize_window_mode != 0;
     report.live_resize_window_pause_ms_per_stage =
-        report.live_resize_window_mode_enabled ? 2000U : 0U;
+        report.live_resize_window_mode_enabled ? 5000U : 0U;
     VulkanDispatch vk;
     ANativeWindow* window = nullptr;
     VkInstance instance = VK_NULL_HANDLE;
@@ -2887,6 +2954,7 @@ AndroidSurfaceSwapchainValidationReport runValidation(
             LOAD_DEVICE(cmd_bind_pipeline, "vkCmdBindPipeline");
             LOAD_DEVICE(cmd_set_viewport, "vkCmdSetViewport");
             LOAD_DEVICE(cmd_set_scissor, "vkCmdSetScissor");
+            LOAD_DEVICE(cmd_push_constants, "vkCmdPushConstants");
             LOAD_DEVICE(cmd_draw, "vkCmdDraw");
             LOAD_DEVICE(cmd_bind_index_buffer, "vkCmdBindIndexBuffer");
             LOAD_DEVICE(cmd_draw_indexed, "vkCmdDrawIndexed");
@@ -3030,19 +3098,10 @@ AndroidSurfaceSwapchainValidationReport runValidation(
                         }
 
                         if (report.failure_reason.empty()) {
-                            VkExtent2D extent{};
-                            if (capabilities.currentExtent.width != UINT32_MAX) {
-                                extent = capabilities.currentExtent;
-                            } else {
-                                extent.width = std::clamp(
-                                    static_cast<std::uint32_t>(requested_width),
-                                    capabilities.minImageExtent.width,
-                                    capabilities.maxImageExtent.width);
-                                extent.height = std::clamp(
-                                    static_cast<std::uint32_t>(requested_height),
-                                    capabilities.minImageExtent.height,
-                                    capabilities.maxImageExtent.height);
-                            }
+                            const VkExtent2D extent = chooseIdentitySwapchainExtent(
+                                capabilities,
+                                static_cast<std::uint32_t>(requested_width),
+                                static_cast<std::uint32_t>(requested_height));
                             report.extent_width = extent.width;
                             report.extent_height = extent.height;
                             std::uint32_t image_count = capabilities.minImageCount + 1U;
