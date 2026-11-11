@@ -9,7 +9,7 @@
 
 namespace nyamist::runtime {
 
-struct PanVkProbeSnapshot {
+struct VulkanDriverProbeSnapshot {
     std::string driver_name;
     std::string driver_info;
     std::string api_version;
@@ -18,13 +18,13 @@ struct PanVkProbeSnapshot {
     std::string model;
     std::string build_id;
     std::string sha256;
-    std::string evidence_source = "external PanVK report";
+    std::string evidence_source = "external Vulkan driver report";
 
     bool load_success = false;
     std::uint64_t device_count = 0;
-    std::uint64_t panprobe_pass = 0;
-    std::uint64_t panprobe_fail = 0;
-    std::uint64_t panprobe_skip = 0;
+    std::uint64_t probe_pass = 0;
+    std::uint64_t probe_fail = 0;
+    std::uint64_t probe_skip = 0;
 
     bool gralloc_status_reported = false;
     bool gralloc_hwmodule = false;
@@ -40,17 +40,17 @@ struct PanVkProbeSnapshot {
     bool sustained_test_passed = false;
 };
 
-class PanVkAdapter final : public IComponentProbe {
+class VulkanDriverAdapter final : public IComponentProbe {
 public:
-    explicit PanVkAdapter(PanVkProbeSnapshot snapshot);
+    explicit VulkanDriverAdapter(VulkanDriverProbeSnapshot snapshot);
 
     [[nodiscard]] ComponentReport inspect() const override;
-    [[nodiscard]] static PanVkProbeSnapshot parseReport(std::istream& input);
-    [[nodiscard]] static PanVkAdapter fromReportFile(
+    [[nodiscard]] static VulkanDriverProbeSnapshot parseReport(std::istream& input);
+    [[nodiscard]] static VulkanDriverAdapter fromReportFile(
         const std::filesystem::path& path);
 
 private:
-    PanVkProbeSnapshot snapshot_;
+    VulkanDriverProbeSnapshot snapshot_;
 };
 
 } // namespace nyamist::runtime

@@ -2,7 +2,7 @@
 
 Date: 2026-11-08
 Validation source: user-run Termux commands on the target phone.
-Status: The stock Android Vulkan driver enumerated successfully in Termux. Separately, app-local PanVK RC5 loaded and passed PanProbe 41/41. DXVK game rendering, PanPlay surface/swapchain presentation, and sustained game stability remain unvalidated.
+Status: The stock Android Vulkan driver enumerated successfully in Termux. Separately, app-local the selected Android Vulkan driver RC5 loaded and passed external capability probe 41/41. DXVK game rendering, PanPlay surface/swapchain presentation, and sustained game stability remain unvalidated.
 
 ## Device identification
 
@@ -60,20 +60,20 @@ These are reported capabilities, not proof that every extension or optional feat
 ## Interpretation and limits
 
 - Termux successfully enumerated the phone's physical GPU through the Android system Vulkan loader.
-- The active driver reported by this test is ARM proprietary Mali driver `v1.r49p1`, not PanVK.
+- The active driver reported by this test is ARM proprietary Mali driver `v1.r49p1`, not the selected Android Vulkan driver.
 - The earlier read-only probe saw `/dev/mali0` with read/write permission bits. This does not prove that arbitrary Termux processes can successfully create all required kernel contexts or issue every ioctl.
 - `DISPLAY` not being set only caused surface information to be skipped in the Termux CLI context.
 - The `large_page_conf` sysfs warning did not prevent physical-device enumeration.
 - `sparseBinding = false` is one unsupported optional feature and does not, by itself, establish DXVK incompatibility.
-- A separate PanPlay/PanProbe test loaded app-local PanVK RC5, enumerated one device, and passed 41/41 PanProbe checks. This is smoke-test evidence; it does not establish successful Android surface/swapchain presentation or sustained rendering.
+- A separate PanPlay/external capability probe test loaded app-local the selected Android Vulkan driver RC5, enumerated one device, and passed 41/41 external capability probe checks. This is smoke-test evidence; it does not establish successful Android surface/swapchain presentation or sustained rendering.
 - No sustained commercial-game D3D11 run through DXVK has been validated on this phone yet.
 
 ## Next validation gates
 
-1. Keep the stock vendor Vulkan driver unchanged and retain app-local PanVK selection only.
+1. Keep the stock vendor Vulkan driver unchanged and retain app-local the selected Android Vulkan driver selection only.
 2. In PanPlay, confirm the tested RC5 ICD is the one actually loaded for the session; record its build identity and logs.
-3. Validate Android surface/swapchain presentation in the PanPlay path. The existing 41/41 PanProbe result does not cover this gate.
-4. Confirm DXVK creates a D3D11 device on that same PanVK physical device.
+3. Validate Android surface/swapchain presentation in the PanPlay path. The existing 41/41 external capability probe result does not cover this gate.
+4. Confirm DXVK creates a D3D11 device on that same the selected Android Vulkan driver physical device.
 5. Run one repeatable real D3D11 game scene for at least 300 seconds and preserve matching SessionLogs/PerfRecorder exports.
 6. Record driver identity, test result, visual issues, logs, and rollback path for each experiment.
 

@@ -1,4 +1,4 @@
-#include "nyamist/runtime/panvk_adapter.hpp"
+#include "nyamist/runtime/vulkan_driver_adapter.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -42,7 +42,7 @@ const std::string& required(
     const std::string& key) {
     const auto it = values.find(key);
     if (it == values.end() || it->second.empty()) {
-        throw std::invalid_argument("missing required PanVK report field: " + key);
+        throw std::invalid_argument("missing required Vulkan driver report field: " + key);
     }
     return it->second;
 }
@@ -63,7 +63,7 @@ bool parseBool(const std::string& value, const std::string& key) {
     if (normalized == "false" || normalized == "0" || normalized == "no") {
         return false;
     }
-    throw std::invalid_argument("invalid boolean in PanVK report field: " + key);
+    throw std::invalid_argument("invalid boolean in Vulkan driver report field: " + key);
 }
 
 bool optionalBool(
@@ -79,7 +79,7 @@ std::uint64_t parseUnsigned(const std::string& value, const std::string& key) {
     const auto parsed = std::from_chars(value.data(), value.data() + value.size(), result);
     if (value.empty() || parsed.ec != std::errc{} ||
         parsed.ptr != value.data() + value.size()) {
-        throw std::invalid_argument("invalid non-negative integer in PanVK report field: " + key);
+        throw std::invalid_argument("invalid non-negative integer in Vulkan driver report field: " + key);
     }
     return result;
 }
@@ -105,7 +105,7 @@ int optionalInt(const std::map<std::string, std::string>& values,
     const auto parsed = std::from_chars(value.data(), value.data() + value.size(), result);
     if (value.empty() || parsed.ec != std::errc{} ||
         parsed.ptr != value.data() + value.size()) {
-        throw std::invalid_argument("invalid integer in PanVK report field: " + key);
+        throw std::invalid_argument("invalid integer in Vulkan driver report field: " + key);
     }
     return result;
 }
@@ -119,17 +119,17 @@ bool isHexDigest(const std::string& value) {
 
 } // namespace
 
-PanVkAdapter::PanVkAdapter(PanVkProbeSnapshot snapshot)
+VulkanDriverAdapter::VulkanDriverAdapter(VulkanDriverProbeSnapshot snapshot)
     : snapshot_(std::move(snapshot)) {
-    if (lower(snapshot_.driver_name).find("panvk") == std::string::npos) {
-        throw std::invalid_argument("PanVK adapter requires a PanVK driver identity");
+    if (trim(snapshot_.driver_name).empty()) {
+        throw std::invalid_argument("Vulkan driver name must not be empty");
     }
     if (!snapshot_.sha256.empty() && !isHexDigest(snapshot_.sha256)) {
-        throw std::invalid_argument("PanVK report SHA-256 must contain 64 hexadecimal characters");
+        throw std::invalid_argument("Vulkan driver report SHA-256 must contain 64 hexadecimal characters");
     }
 }
 
-PanVkProbeSnapshot PanVkAdapter::parseReport(std::istream& input) {
+VulkanDriverProbeSnapshot VulkanDriverAdapter::parseReport(std::istream& input) {
     std::map<std::string, std::string> values;
     std::string line;
     std::size_t total_bytes = 0;
@@ -139,7 +139,7 @@ PanVkProbeSnapshot PanVkAdapter::parseReport(std::istream& input) {
         ++line_number;
         total_bytes += line.size() + 1U;
         if (total_bytes > kMaximumReportBytes || line.size() > kMaximumLineBytes) {
-            throw std::invalid_argument("PanVK report exceeds the allowed size");
+            throw std::invalid_argument("Vulkan driver report exceeds the allowed size");
         }
 
         auto normalized = trim(line);
@@ -150,41 +150,41 @@ PanVkProbeSnapshot PanVkAdapter::parseReport(std::istream& input) {
         const auto separator = normalized.find('=');
         if (separator == std::string::npos) {
             throw std::invalid_argument(
-                "expected key=value at PanVK report line " + std::to_string(line_number));
+                "expected key=value at Vulkan driver report line " + std::to_string(line_number));
         }
 
         auto key = trim(normalized.substr(0, separator));
         auto value = trim(normalized.substr(separator + 1U));
         if (key.empty()) {
             throw std::invalid_argument(
-                "empty key at PanVK report line " + std::to_string(line_number));
+                "empty key at Vulkan driver report line " + std::to_string(line_number));
         }
         if (!values.emplace(std::move(key), std::move(value)).second) {
             throw std::invalid_argument(
-                "duplicate key at PanVK report line " + std::to_string(line_number));
+                "duplicate key at Vulkan driver report line " + std::to_string(line_number));
         }
     }
 
     if (input.bad()) {
-        throw std::runtime_error("failed while reading PanVK report");
+        throw std::runtime_error("failed while reading Vulkan driver report");
     }
 
-    PanVkProbeSnapshot snapshot;
+    VulkanDriverProbeSnapshot snapshot;
     snapshot.driver_name = required(values, "driver_name");
     snapshot.driver_info = required(values, "driver_info");
     snapshot.api_version = required(values, "api_version");
     snapshot.gpu_id = required(values, "gpu_id");
     snapshot.load_success = parseBool(required(values, "load_success"), "load_success");
     snapshot.device_count = parseUnsigned(required(values, "device_count"), "device_count");
-    snapshot.panprobe_pass = parseUnsigned(required(values, "panprobe_pass"), "panprobe_pass");
-    snapshot.panprobe_fail = parseUnsigned(required(values, "panprobe_fail"), "panprobe_fail");
-    snapshot.panprobe_skip = parseUnsigned(required(values, "panprobe_skip"), "panprobe_skip");
+    snapshot.probe_pass = parseUnsigned(required(values, "probe_pass"), "probe_pass");
+    snapshot.probe_fail = parseUnsigned(required(values, "probe_fail"), "probe_fail");
+    snapshot.probe_skip = parseUnsigned(required(values, "probe_skip"), "probe_skip");
 
     snapshot.architecture = optional(values, "architecture");
     snapshot.model = optional(values, "model");
     snapshot.build_id = optional(values, "build_id");
     snapshot.sha256 = optional(values, "sha256");
-    snapshot.evidence_source = optional(values, "evidence_source", "external PanVK report");
+    snapshot.evidence_source = optional(values, "evidence_source", "external Android Vulkan driver report");
 
     snapshot.gralloc_status_reported = values.contains("gralloc_hwmodule");
     snapshot.gralloc_hwmodule = optionalBool(values, "gralloc_hwmodule");
@@ -202,17 +202,17 @@ PanVkProbeSnapshot PanVkAdapter::parseReport(std::istream& input) {
     return snapshot;
 }
 
-PanVkAdapter PanVkAdapter::fromReportFile(const std::filesystem::path& path) {
+VulkanDriverAdapter VulkanDriverAdapter::fromReportFile(const std::filesystem::path& path) {
     std::ifstream input(path);
     if (!input) {
-        throw std::runtime_error("unable to open PanVK report: " + path.string());
+        throw std::runtime_error("unable to open Vulkan driver report: " + path.string());
     }
-    return PanVkAdapter(parseReport(input));
+    return VulkanDriverAdapter(parseReport(input));
 }
 
-ComponentReport PanVkAdapter::inspect() const {
+ComponentReport VulkanDriverAdapter::inspect() const {
     ComponentReport report;
-    report.descriptor.id = "panvk";
+    report.descriptor.id = "vulkan-driver";
     report.descriptor.kind = ComponentKind::vulkan_driver;
     report.descriptor.version = snapshot_.driver_info;
     report.descriptor.origin = snapshot_.evidence_source;
@@ -234,7 +234,7 @@ ComponentReport PanVkAdapter::inspect() const {
     if (!device_available) {
         report.validation = ValidationLevel::unavailable;
         report.diagnostics.emplace_back(
-            "PanVK load/device enumeration was not confirmed by the supplied report.");
+            "Vulkan driver load/device enumeration was not confirmed by the supplied report.");
     } else if (sustained_evidence_valid) {
         report.validation = ValidationLevel::sustained_tested;
     } else if (render_evidence_valid) {
@@ -248,11 +248,11 @@ ComponentReport PanVkAdapter::inspect() const {
     report.capabilities.emplace_back("gpu.id=" + snapshot_.gpu_id);
     report.capabilities.emplace_back("device.count=" + std::to_string(snapshot_.device_count));
     report.capabilities.emplace_back(
-        "panprobe.pass=" + std::to_string(snapshot_.panprobe_pass));
+        "probe.pass=" + std::to_string(snapshot_.probe_pass));
     report.capabilities.emplace_back(
-        "panprobe.fail=" + std::to_string(snapshot_.panprobe_fail));
+        "probe.fail=" + std::to_string(snapshot_.probe_fail));
     report.capabilities.emplace_back(
-        "panprobe.skip=" + std::to_string(snapshot_.panprobe_skip));
+        "probe.skip=" + std::to_string(snapshot_.probe_skip));
 
     if (!snapshot_.architecture.empty()) {
         report.capabilities.emplace_back("gpu.architecture=" + snapshot_.architecture);
@@ -284,8 +284,8 @@ ComponentReport PanVkAdapter::inspect() const {
             std::to_string(snapshot_.test_duration_seconds));
     }
 
-    if (snapshot_.panprobe_fail > 0) {
-        report.diagnostics.emplace_back("PanProbe reported one or more failing tests.");
+    if (snapshot_.probe_fail > 0) {
+        report.diagnostics.emplace_back("Capability probe reported one or more failing tests.");
     }
     if (!snapshot_.conformant && snapshot_.conformance_status_reported) {
         report.diagnostics.emplace_back(

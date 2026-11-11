@@ -2,7 +2,7 @@
 
 ## Product definition
 
-The active R1 line is an original, G925-focused native graphics engineering project for Immortalis-G925 MC12 on MediaTek MT6991. The first implementation milestone is read-only hardware/Vulkan discovery inside the existing C++20 runtime.
+The active R1 line is an original, G925-focused native graphics engineering project for Immortalis-G925 MC12 on MediaTek MT6991. The first implementation milestones are read-only hardware/Vulkan discovery and a version-aware Vulkan core capability inventory inside the existing C++20 runtime.
 
 NYAMIST also contains a graphics-runtime sidecar: device profiles, telemetry import, evidence validation, session analysis, and deterministic recommendations. These control-plane tools are separate from the driver and must not sit in the per-draw-call or Present hot path.
 
@@ -18,7 +18,7 @@ NYAMIST is not yet a complete Vulkan implementation or a released ICD. The stock
       → vendor mali_kbase kernel interface
       → Immortalis-G925 MC12
 
-A future NYAMIST-owned Vulkan ICD may replace the app-local driver selection only after it is independently implemented, built, and device-validated. That future path is not implemented by the R1.0 discovery tool.
+A future NYAMIST-owned Vulkan ICD may replace the app-local driver selection only after it is independently implemented, built, and device-validated. The R1.0 discovery path and R1.1 capability inventory do not implement that future path.
 
 ## NYAMIST-owned modules
 
@@ -28,7 +28,7 @@ A future NYAMIST-owned Vulkan ICD may replace the app-local driver selection onl
 | Core/cache | Configuration, fingerprints, NYAMIST metadata | Never owns upstream shader/pipeline caches |
 | Component registry | Component identity and readiness state | Read-only discovery |
 | Vulkan capability importer | Validate imported device/driver reports | Does not load or select an ICD |
-| Legacy PanVK adapter | Parse archived PanVK report/evidence for historical comparison | Research archive only; not an active dependency |
+| Legacy the selected Android Vulkan driver adapter | Parse archived the selected Android Vulkan driver report/evidence for historical comparison | Research archive only; not an active dependency |
 | DXVK adapter | D3D11 translator/session report validation | Does not patch or configure DXVK |
 | Device probe adapter | Validate imported Android device facts | Does not infer missing hardware facts |
 | Session snapshot | Typed telemetry, freshness and source validation | Control-plane data, not a driver ABI |
@@ -44,11 +44,11 @@ Readiness levels are deliberately strict:
 - smoke_tested — explicit render/Present success and clean exit are demonstrated.
 - sustained_tested — a repeatable test of at least 300 seconds passes with no critical failure.
 
-Vulkan physical-device enumeration, surface creation, queue submission, render/Present, sustained game execution, and production readiness are separate validation states.
+Vulkan physical-device enumeration, core feature/limit inventory, logical-device creation, queue submission, surface creation, render/Present, sustained game execution, and production readiness are separate validation states.
 
 ## Target-device evidence and limits
 
-The recorded REDMI K80 Ultra evidence includes a stock vendor Vulkan device record and a separate legacy PanVK RC5 research experiment. Their reported device IDs differ and remain separately identified pending provenance reconciliation. Historical PanProbe results are not validation of a NYAMIST-owned driver.
+The recorded REDMI K80 Ultra evidence includes a stock vendor Vulkan device record and a separate legacy the selected Android Vulkan driver RC5 research experiment. Their reported device IDs differ and remain separately identified pending provenance reconciliation. Historical external capability probe results are not validation of a NYAMIST-owned driver.
 
 The previous Stranded Deep/DXVK session is retained as historical performance evidence only. It does not demonstrate a clean, production-ready NYAMIST driver path.
 
@@ -57,7 +57,7 @@ The previous Stranded Deep/DXVK session is retained as historical performance ev
 - Android's stock Vulkan driver remains intact as a rollback path.
 - Select any experimental driver only through a supported app-local launcher mechanism.
 - Never overwrite /vendor, change permissions on /dev/mali0, flash a kernel, or weaken SELinux.
-- DXVK, Mesa/PanVK historical artifacts, VKD3D-Proton and vendor driver caches remain under their respective owners.
+- DXVK, Mesa/the selected Android Vulkan driver historical artifacts, VKD3D-Proton and vendor driver caches remain under their respective owners.
 - A missing, stale, or rejected NYAMIST profile falls back to unmodified runtime defaults.
 
 ## Deferred scope

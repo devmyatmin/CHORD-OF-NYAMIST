@@ -44,25 +44,25 @@ void testRegistryAndD3D11Plan() {
     using namespace nyamist::runtime;
     ComponentRegistry registry;
     registry.add(probe("dxvk", ComponentKind::translator, ValidationLevel::smoke_tested));
-    registry.add(probe("panvk", ComponentKind::vulkan_driver, ValidationLevel::smoke_tested));
+    registry.add(probe("android-vulkan", ComponentKind::vulkan_driver, ValidationLevel::smoke_tested));
 
     RuntimeCoordinator coordinator(registry);
-    const auto plan = coordinator.evaluate({GraphicsApi::d3d11, "panvk"});
+    const auto plan = coordinator.evaluate({GraphicsApi::d3d11, "android-vulkan"});
 
     check(plan.prerequisites_present, "D3D11 prerequisites should be present");
     check(plan.smoke_test_allowed, "smoke test should be allowed");
     check(!plan.production_ready, "smoke-tested components are not sustained validation");
-    check(plan.selected_components.size() == 2, "D3D11 plan should select DXVK and PanVK");
+    check(plan.selected_components.size() == 2, "D3D11 plan should select DXVK and Android Vulkan driver");
 }
 
 void testD3D12RequiresVkd3d() {
     using namespace nyamist::runtime;
     ComponentRegistry registry;
     registry.add(probe("dxvk", ComponentKind::translator, ValidationLevel::smoke_tested));
-    registry.add(probe("panvk", ComponentKind::vulkan_driver, ValidationLevel::smoke_tested));
+    registry.add(probe("android-vulkan", ComponentKind::vulkan_driver, ValidationLevel::smoke_tested));
 
     RuntimeCoordinator coordinator(registry);
-    const auto plan = coordinator.evaluate({GraphicsApi::d3d12, "panvk"});
+    const auto plan = coordinator.evaluate({GraphicsApi::d3d12, "android-vulkan"});
 
     check(!plan.prerequisites_present, "D3D12 must not silently reuse DXVK");
     check(!plan.smoke_test_allowed, "missing VKD3D-Proton must block D3D12 smoke test");
@@ -72,10 +72,10 @@ void testProductionRequiresSustainedValidation() {
     using namespace nyamist::runtime;
     ComponentRegistry registry;
     registry.add(probe("dxvk", ComponentKind::translator, ValidationLevel::sustained_tested));
-    registry.add(probe("panvk", ComponentKind::vulkan_driver, ValidationLevel::sustained_tested));
+    registry.add(probe("android-vulkan", ComponentKind::vulkan_driver, ValidationLevel::sustained_tested));
 
     RuntimeCoordinator coordinator(registry);
-    const auto plan = coordinator.evaluate({GraphicsApi::d3d11, "panvk"});
+    const auto plan = coordinator.evaluate({GraphicsApi::d3d11, "android-vulkan"});
     check(plan.production_ready, "sustained-tested components should pass readiness gate");
 }
 
@@ -83,10 +83,10 @@ void testComponentKindMismatchRejected() {
     using namespace nyamist::runtime;
     ComponentRegistry registry;
     registry.add(probe("dxvk", ComponentKind::vulkan_driver, ValidationLevel::sustained_tested));
-    registry.add(probe("panvk", ComponentKind::vulkan_driver, ValidationLevel::sustained_tested));
+    registry.add(probe("android-vulkan", ComponentKind::vulkan_driver, ValidationLevel::sustained_tested));
 
     RuntimeCoordinator coordinator(registry);
-    const auto plan = coordinator.evaluate({GraphicsApi::d3d11, "panvk"});
+    const auto plan = coordinator.evaluate({GraphicsApi::d3d11, "android-vulkan"});
     check(!plan.prerequisites_present, "a Vulkan driver must not masquerade as DXVK");
     check(!plan.production_ready, "invalid component kinds must never be production-ready");
 }
@@ -94,11 +94,11 @@ void testComponentKindMismatchRejected() {
 void testDuplicateComponentRejected() {
     using namespace nyamist::runtime;
     ComponentRegistry registry;
-    registry.add(probe("panvk", ComponentKind::vulkan_driver, ValidationLevel::discovered));
+    registry.add(probe("android-vulkan", ComponentKind::vulkan_driver, ValidationLevel::discovered));
 
     bool threw = false;
     try {
-        registry.add(probe("panvk", ComponentKind::vulkan_driver, ValidationLevel::discovered));
+        registry.add(probe("android-vulkan", ComponentKind::vulkan_driver, ValidationLevel::discovered));
     } catch (const std::invalid_argument&) {
         threw = true;
     }

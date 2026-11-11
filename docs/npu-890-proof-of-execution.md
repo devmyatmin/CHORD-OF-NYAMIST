@@ -6,7 +6,7 @@
 
 Prove or disprove that a normal third-party Android/Termux process on the REDMI K80 Ultra can execute a real language-model inference workload on the MediaTek NPU 890 (SoC MT6991), using the documented MediaTek NeuroPilot dispatch path.
 
-This is an isolated feasibility experiment for the Local Lightweight Graphics Advisor. It does not change the advisor's evidence contract, does not run during gameplay, and does not modify PanPlay, Proton, FEX, DXVK, PanVK, the Android system driver, vendor files, or game assets.
+This is an isolated feasibility experiment for the Local Lightweight Graphics Advisor. It does not change the advisor's evidence contract, does not run during gameplay, and does not modify PanPlay, Proton, FEX, DXVK, the selected Android Vulkan driver, the Android system driver, vendor files, or game assets.
 
 ## Hardware and upstream support evidence
 
@@ -162,7 +162,7 @@ A successful response alone is insufficient if the backend may have fallen back 
 - Run the proof only after the game is stopped; never concurrently with Stranded Deep.
 - Keep all runtime binaries and model data under NYAMIST-owned Termux storage.
 - No root, vendor/system partition writes, boot-image changes, SELinux changes, or modifications to GPU drivers.
-- Keep the NPU experiment separate from PanVK/Vulkan compute. An NPU result does not prove GPU compute support.
+- Keep the NPU experiment separate from the selected Android Vulkan driver/Vulkan compute. An NPU result does not prove GPU compute support.
 - Do not feed model output directly into runtime configuration. It remains untrusted, advisory text until the deterministic NYAMIST policy and evidence validator approve it.
 - Preserve raw logs, artifact checksums, model identifier, device build fingerprint, and test date with every result.
 

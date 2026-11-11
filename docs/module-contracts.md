@@ -21,12 +21,21 @@ A probe must be bounded and must not launch games, load/select a driver, mutate 
 | dxvk | DXVK upstream | Inspect D3D11/DXGI version, capabilities and imported session evidence |
 | device-facts | NYAMIST adapter | Validate Android model, API, ABI, kernel and hardware facts |
 | session-monitor | NYAMIST | Validate timestamps, sources, telemetry ranges and freshness |
-| legacy-panvk-importer | Historical evidence | Parse archived PanVK reports only; not an active driver dependency |
+| legacy-android-vulkan-importer | Historical evidence | Parse archived the selected Android Vulkan driver reports only; not an active driver dependency |
+
+## Vulkan capability inventory contract
+
+- Extension enumeration, core feature support, and enabled features are distinct states. An extension name never substitutes for a queried feature bit.
+- Vulkan 1.0 features are queried through the Vulkan 1.0 command; core 1.1–1.3 feature structures are chained only when the physical device API version supports them.
+- Device limits are observations from physical-device properties. They are not tuning recommendations and do not guarantee workload performance.
+- Memory types retain heap indices and raw property flags. Heap capacities are driver-reported capacities, not free VRAM or guaranteed process allocations.
+- Queue and format masks retain raw values alongside decoded symbolic names.
+- Query failure and unavailable states must remain explicit; missing data is never filled with assumed support.
 
 ## Evidence rules
 
 - Vulkan physical-device enumeration is discovered, not proof of surface rendering.
-- Legacy PanProbe pass counts do not validate the NYAMIST implementation.
+- Legacy external capability probe pass counts do not validate the NYAMIST implementation.
 - DXVK feature-level availability is capability evidence, not render evidence.
 - Smoke-test promotion requires explicit successful render/Present evidence, non-zero frames, normal process exit, and an explicitly reported zero device-loss count.
 - Sustained-test promotion additionally requires an explicit sustained-test pass and at least 300 seconds.

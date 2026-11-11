@@ -1,0 +1,32 @@
+name: Build NYAMIST real Direct3D 11 cube workload
+
+on:
+  push:
+    branches: [main, dx11-live-cube-mainline]
+    paths:
+      - 'windows-dx11-cube/**'
+      - '.github/workflows/build-windows-dx11-cube.yml'
+  pull_request:
+    paths:
+      - 'windows-dx11-cube/**'
+      - '.github/workflows/build-windows-dx11-cube.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-d3d11:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure D3D11 workload
+        run: cmake -S windows-dx11-cube -B build-dx11 -A x64
+      - name: Build Release executable
+        run: cmake --build build-dx11 --config Release --parallel
+      - name: Upload DX11 workload
+        uses: actions/upload-artifact@v4
+        with:
+          name: NYAMIST-DX11-Live-Cube-Windows-x64
+          path: build-dx11/Release/NYAMIST-DX11-Live-Cube.exe
+          if-no-files-found: error

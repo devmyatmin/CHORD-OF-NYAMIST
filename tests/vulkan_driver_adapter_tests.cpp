@@ -1,4 +1,4 @@
-#include "nyamist/runtime/panvk_adapter.hpp"
+#include "nyamist/runtime/vulkan_driver_adapter.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -15,39 +15,39 @@ void check(bool condition, const std::string& message) {
 
 std::string sampleReport() {
     return
-        "# NYAMIST normalized PanVK evidence\n"
-        "driver_name=panvk\n"
-        "driver_info=Mesa 26.3.0-devel (git-795ca7ff3e)\n"
-        "api_version=1.4.363\n"
-        "gpu_id=0xd8300015\n"
-        "architecture=v13\n"
-        "model=Mali-G725/G925\n"
+        "# NYAMIST normalized Android Vulkan driver evidence\n"
+        "driver_name=Android system Vulkan\n"
+        "driver_info=Example stock Android Vulkan driver\n"
+        "api_version=1.3.278\n"
+        "gpu_id=0xd8300010\n"
+        "architecture=Immortalis-G925\n"
+        "model=Immortalis-G925 MC12\n"
         "load_success=true\n"
         "device_count=1\n"
-        "panprobe_pass=41\n"
-        "panprobe_fail=0\n"
-        "panprobe_skip=0\n"
+        "probe_pass=0\n"
+        "probe_fail=0\n"
+        "probe_skip=0\n"
         "gralloc_hwmodule=false\n"
         "conformant=false\n"
-        "evidence_source=PanProbe RC5 imported driver report\n";
+        "evidence_source=Android Vulkan driver report\n";
 }
 
 nyamist::runtime::ComponentReport inspect(const std::string& source) {
     std::istringstream input(source);
-    const auto snapshot = nyamist::runtime::PanVkAdapter::parseReport(input);
-    return nyamist::runtime::PanVkAdapter(snapshot).inspect();
+    const auto snapshot = nyamist::runtime::VulkanDriverAdapter::parseReport(input);
+    return nyamist::runtime::VulkanDriverAdapter(snapshot).inspect();
 }
 
-void testPanProbeEvidenceIsDiscoveredNotSmokeTested() {
+void testCapabilityProbeEvidenceIsDiscoveredNotSmokeTested() {
     const auto report = inspect(sampleReport());
     using nyamist::runtime::ValidationLevel;
 
-    check(report.descriptor.id == "panvk", "adapter must use the stable PanVK ID");
+    check(report.descriptor.id == "vulkan-driver", "adapter must use the stable generic Vulkan driver ID");
     check(report.descriptor.kind == nyamist::runtime::ComponentKind::vulkan_driver,
-          "PanVK must be classified as a Vulkan driver");
+          "driver must be classified as a Vulkan driver");
     check(report.validation == ValidationLevel::discovered,
-          "ICD enumeration and PanProbe results alone must not imply render/present");
-    check(report.capabilities.size() >= 7U, "PanVK identity and feature evidence must be retained");
+          "device enumeration and probe counters alone must not imply render/present");
+    check(report.capabilities.size() >= 7U, "driver identity and feature evidence must be retained");
     check(!report.diagnostics.empty(), "non-conformant/fallback-gralloc warnings must be retained");
 }
 
@@ -62,7 +62,7 @@ void testExplicitRenderPresentEvidencePromotesToSmokeTested() {
 
     const auto report = inspect(source);
     check(report.validation == nyamist::runtime::ValidationLevel::smoke_tested,
-          "successful render/present evidence must promote PanVK to smoke-tested");
+          "successful render/present evidence must promote Vulkan driver to smoke-tested");
 }
 
 void testSustainedRequiresFiveMinutesAndCleanExit() {
@@ -77,7 +77,7 @@ void testSustainedRequiresFiveMinutesAndCleanExit() {
 
     const auto report = inspect(source);
     check(report.validation == nyamist::runtime::ValidationLevel::sustained_tested,
-          "a clean 300-second sustained test may promote PanVK");
+          "a clean 300-second sustained test may promote Vulkan driver");
 }
 
 void testShortRunCannotClaimSustained() {
@@ -131,18 +131,14 @@ void testFailedLoadIsUnavailable() {
           "failed load must be unavailable");
 }
 
-void testNonPanVkIdentityRejected() {
+void testGenericVendorDriverIdentityAccepted() {
     auto source = sampleReport();
-    const auto marker = source.find("driver_name=panvk");
-    source.replace(marker, std::string("driver_name=panvk").size(), "driver_name=ARM proprietary");
-
-    bool threw = false;
-    try {
-        (void)inspect(source);
-    } catch (const std::invalid_argument&) {
-        threw = true;
-    }
-    check(threw, "the PanVK adapter must reject a non-PanVK identity");
+    const auto marker = source.find("driver_name=Android system Vulkan");
+    source.replace(marker, std::string("driver_name=Android system Vulkan").size(),
+                   "driver_name=ARM proprietary Vulkan");
+    const auto report = inspect(source);
+    check(report.validation == nyamist::runtime::ValidationLevel::discovered,
+          "the generic adapter must accept a vendor-provided driver identity");
 }
 
 void testDuplicateKeyRejected() {
@@ -160,19 +156,19 @@ void testDuplicateKeyRejected() {
 
 int main() {
     try {
-        testPanProbeEvidenceIsDiscoveredNotSmokeTested();
+        testCapabilityProbeEvidenceIsDiscoveredNotSmokeTested();
         testExplicitRenderPresentEvidencePromotesToSmokeTested();
         testSustainedRequiresFiveMinutesAndCleanExit();
         testShortRunCannotClaimSustained();
         testDeviceLostRejectsRenderEvidence();
         testMissingDeviceLostCounterRejectsRenderEvidence();
         testFailedLoadIsUnavailable();
-        testNonPanVkIdentityRejected();
+        testGenericVendorDriverIdentityAccepted();
         testDuplicateKeyRejected();
-        std::cout << "All NYAMIST PanVK adapter tests passed.\n";
+        std::cout << "All NYAMIST Vulkan driver adapter tests passed.\n";
         return 0;
     } catch (const std::exception& error) {
-        std::cerr << "PanVK adapter test failure: " << error.what() << '\n';
+        std::cerr << "Vulkan driver adapter test failure: " << error.what() << '\n';
         return 1;
     }
 }

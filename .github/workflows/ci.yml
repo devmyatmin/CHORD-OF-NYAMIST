@@ -2,7 +2,7 @@ name: NYAMIST Core CI
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -26,7 +26,7 @@ jobs:
         run: PYTHONPATH=tools python3 -m unittest discover -s tools/tests -v
 
       - name: Shell syntax check
-        run: bash -n tools/termux-probe.sh tools/termux-build-core.sh tools/export-device-probe.sh
+        run: bash -n tools/termux-probe.sh tools/termux-build-core.sh tools/export-device-probe.sh tools/termux-github-push.sh nyamist-build-all.sh
 
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON -DNYAMIST_BUILD_BENCHMARKS=ON -DNYAMIST_ENABLE_VULKAN_DISCOVERY=ON
@@ -37,6 +37,90 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+      - name: Configure runtime Vulkan dispatch variant
+        run: |
+          cmake -S . -B build-dynamic -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON -DNYAMIST_ENABLE_VULKAN_DISCOVERY=ON -DNYAMIST_FORCE_VULKAN_DYNAMIC_LOADING=ON
+
+      - name: Build runtime Vulkan dispatch variant
+        run: cmake --build build-dynamic --parallel 2
+
+      - name: Test runtime Vulkan dispatch variant
+        run: ctest --test-dir build-dynamic --output-on-failure
+
+      - name: R1.2 logical-device and queue validation report smoke test
+        run: |
+          set +e
+          ./build-dynamic/nyamist-cli validate-device --output ./build-dynamic/nyamist-r1.2-device-validation.json
+          probe_exit=$?
+          set -e
+          if [ "$probe_exit" -gt 1 ]; then
+            echo "R1.2 probe returned an unexpected CLI exit code: $probe_exit"
+            exit "$probe_exit"
+          fi
+          python3 -m json.tool ./build-dynamic/nyamist-r1.2-device-validation.json > /dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("./build-dynamic/nyamist-r1.2-device-validation.json").read_text())
+          assert report["schema_version"] == 1
+          assert report["status"] in {"success", "failed", "unavailable"}
+          assert report["logical_device"]["enabled_device_extension_count"] == 0
+          assert report["logical_device"]["enabled_core_features"] == "none"
+          if report["status"] == "success":
+              assert report["logical_device"]["create_status"] == "success"
+              assert report["queue_retrieval"]["status"] == "success"
+              assert report["queue_retrieval"]["queue_handle_non_null"] is True
+              assert report["cleanup"]["logical_device_destroyed"] is True
+          print("R1.2 report contract is valid:", report["status"])
+          PY
+
+      - name: R1.3 command-submission and fence validation report smoke test
+        run: |
+          set +e
+          ./build-dynamic/nyamist-cli validate-submit --output ./build-dynamic/nyamist-r1.3-command-submission.json
+          probe_exit=$?
+          set -e
+          if [ "$probe_exit" -gt 1 ]; then
+            echo "R1.3 probe returned an unexpected CLI exit code: $probe_exit"
+            exit "$probe_exit"
+          fi
+          python3 -m json.tool ./build-dynamic/nyamist-r1.3-command-submission.json > /dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("./build-dynamic/nyamist-r1.3-command-submission.json").read_text())
+          assert report["schema_version"] == 1
+          assert report["status"] in {"success", "failed", "unavailable"}
+          assert report["physical_device"]["query_status"] in {"success", "failed", "not_attempted"}
+          assert report["queue_submission"]["status"] in {"success", "failed", "not_attempted"}
+          assert report["fence"]["wait_status"] in {"success", "failed", "not_attempted"}
+          assert isinstance(report["device_lost"], bool)
+          if report["status"] == "success":
+              assert report["queue_submission"]["submitted"] is True
+              assert report["fence"]["wait_status"] == "success"
+              assert report["fence"]["status_query"] == "success"
+              assert report["fence"]["signaled"] is True
+              assert report["device_lost"] is False
+              assert report["cleanup"]["fence_destroyed"] is True
+              assert report["cleanup"]["command_buffer_freed"] is True
+              assert report["cleanup"]["command_pool_destroyed"] is True
+              assert report["cleanup"]["logical_device_destroyed"] is True
+              assert report["cleanup"]["instance_destroyed"] is True
+          print("R1.3 report contract is valid:", report["status"])
+          PY
+
+      - name: Verify runtime Vulkan dispatch has no direct loader dependency
+        run: |
+          if readelf -d build-dynamic/nyamist-cli | grep -Fq 'Shared library: [libvulkan.so]' || \
+             readelf -d build-dynamic/nyamist-cli | grep -Fq 'Shared library: [libvulkan.so.1]'; then
+            echo "Unexpected direct Vulkan loader dependency in DT_NEEDED"
+            exit 1
+          fi
+          ./build-dynamic/nyamist-cli discover --output ./build-dynamic/nyamist-discovery-dynamic.json
+          python3 -m json.tool ./build-dynamic/nyamist-discovery-dynamic.json > /dev/null
+
       - name: CLI and cache smoke tests
         run: |
           ./build/nyamist-cli advice
@@ -45,6 +129,6 @@ jobs:
           ./build/nyamist-cli discover --output ./build/nyamist-discovery-ci.json
           python3 -m json.tool ./build/nyamist-discovery-ci.json > /dev/null
           ./build/nyamist-cli inspect-device configs/device-probe.example.env
-          ./build/nyamist-cli inspect-panvk configs/panvk-rc5-redmi-k80-ultra.example.env
+          ./build/nyamist-cli inspect-vulkan-driver configs/android-vulkan-driver.example.env
           ./build/nyamist-cli inspect-dxvk configs/dxvk-d3d11-report.template.env
           ./build/nyamist-cache-bench ./build/cache-benchmark 1 3

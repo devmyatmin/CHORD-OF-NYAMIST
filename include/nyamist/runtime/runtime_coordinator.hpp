@@ -14,7 +14,7 @@ enum class GraphicsApi {
 
 struct RuntimeRequest {
     GraphicsApi api = GraphicsApi::d3d11;
-    std::string vulkan_driver_id = "panvk";
+    std::string vulkan_driver_id = "android-vulkan";
 };
 
 struct RuntimePlan {

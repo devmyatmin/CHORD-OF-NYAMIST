@@ -38,7 +38,7 @@ chmod +x tools/termux-probe.sh tools/termux-build-core.sh tools/export-device-pr
 ./tools/export-device-probe.sh
 ~~~
 
-The first report is a human-readable diagnostic snapshot. The exporter writes a timestamped schema-v1 `.env` file containing device facts. It intentionally does not query the application's Vulkan context or infer that PanVK is active.
+The first report is a human-readable diagnostic snapshot. The exporter writes a timestamped schema-v1 `.env` file containing device facts. It intentionally does not query the application's Vulkan context or infer that the selected Android Vulkan driver is active.
 
 The exporter sets `vulkan.enumeration_status=unavailable` because Vulkan was not queried from this Termux process. This is an explicit scope marker, not evidence that the GPU or Vulkan driver is unsupported. Consequently, `nyamist-cli inspect-device` will report Vulkan as unavailable and return a nonzero status for this device-facts-only report. Use that CLI command with a complete app/launcher report that actually records successful Vulkan physical-device enumeration.
 
@@ -48,15 +48,15 @@ The exporter sets `vulkan.enumeration_status=unavailable` because Vulkan was not
 ./tools/termux-build-core.sh
 ~~~
 
-This configures CMake in `build-termux/`, compiles the portable C++20 sidecar, runs CTest, and prints the CLI advisory. It does **not** build PanVK, DXVK, Wine/FEX/Box64, or a Windows game.
+This configures CMake in `build-termux/`, compiles the portable C++20 sidecar, runs CTest, and prints the CLI advisory. It does **not** build the selected Android Vulkan driver, DXVK, Wine/FEX/Box64, or a Windows game.
 
 ## Safety and interpretation
 
 - A Termux permission denial or missing `/dev/mali0` visibility does not prove that the GPU is unsupported. The Android application sandbox and the intended driver-loading path matter.
 - Do not chmod the Mali device node, replace vendor libraries, modify `/vendor`, change SELinux, flash a kernel, or force a global non-stock ICD.
-- Validate PanVK only through its reversible app-local runtime path. The Vulkan driver reported by the actual game/container process is the relevant runtime evidence.
-- Keep NYAMIST read-only with respect to PanVK, DXVK, Wine/FEX/Box64, PanPlay, and their caches.
+- Validate the selected Android Vulkan driver only through its reversible app-local runtime path. The Vulkan driver reported by the actual game/container process is the relevant runtime evidence.
+- Keep NYAMIST read-only with respect to the selected Android Vulkan driver, DXVK, Wine/FEX/Box64, PanPlay, and their caches.
 
 ## Report handling
 
-Keep the original PanProbe/PanPlay exports alongside normalized NYAMIST reports. Review and redact Android build fingerprints and other identifying log fields before sharing reports publicly. A normalized report is not a substitute for the original evidence.
+Keep the original external capability probe/PanPlay exports alongside normalized NYAMIST reports. Review and redact Android build fingerprints and other identifying log fields before sharing reports publicly. A normalized report is not a substitute for the original evidence.

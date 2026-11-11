@@ -1,0 +1,10 @@
+cmake_minimum_required(VERSION 3.21)
+project(NYAMIST_DX11_Live_Cube VERSION 1.0.0 LANGUAGES CXX)
+
+add_executable(NYAMIST-DX11-Live-Cube WIN32 main.cpp)
+target_compile_features(NYAMIST-DX11-Live-Cube PRIVATE cxx_std_17)
+target_compile_definitions(NYAMIST-DX11-Live-Cube PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_link_libraries(NYAMIST-DX11-Live-Cube PRIVATE d3d11 dxgi d3dcompiler psapi)
+if(MSVC)
+  target_compile_options(NYAMIST-DX11-Live-Cube PRIVATE /W4 /permissive- /EHsc)
+endif()

@@ -36,7 +36,7 @@ nyamist::runtime::DeviceSessionSnapshot makeSession() {
     probe.vulkan.device_name = "Test Vulkan GPU";
     probe.vulkan.vendor_id = 0x13b5U;
     probe.vulkan.device_id = 0xd8300015U;
-    probe.vulkan.driver_name = "panvk";
+    probe.vulkan.driver_name = "android-vulkan";
     probe.vulkan.driver_version = "rc5";
     probe.vulkan.extensions_reported = true;
     probe.vulkan.supported_extensions = {"VK_KHR_swapchain", "VK_KHR_timeline_semaphore"};
@@ -98,11 +98,11 @@ void testCompatibilityProfileRoundTrip(
     profile.translator_id = "dxvk";
     profile.translator_version = "3.1.1";
     profile.translator_validation = ValidationLevel::smoke_tested;
-    profile.vulkan_driver_id = "panvk";
+    profile.vulkan_driver_id = "android-vulkan";
     profile.vulkan_driver_version = "rc5";
     profile.vulkan_driver_validation = ValidationLevel::smoke_tested;
     profile.smoke_test_allowed = true;
-    profile.selected_components = {"dxvk", "panvk"};
+    profile.selected_components = {"dxvk", "android-vulkan"};
     profile.warnings = {"sustained validation is still pending"};
     profile.capabilities = {"D3D11_FL11_1", "Vulkan_1.3"};
 
@@ -158,7 +158,7 @@ void testInconsistentCompatibilityStateIsRejected(
     invalid.captured_at_unix_ms = 12000U;
     invalid.device_profile_key = session_key;
     invalid.translator_id = "dxvk";
-    invalid.vulkan_driver_id = "panvk";
+    invalid.vulkan_driver_id = "android-vulkan";
     invalid.smoke_test_allowed = true;
     invalid.blockers = {"Vulkan device enumeration is missing"};
     bool rejected = false;

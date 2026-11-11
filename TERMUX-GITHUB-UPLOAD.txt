@@ -1,0 +1,17 @@
+1) Unzip NYAMIST-DX11-MAIN-LIVE-CUBE.zip into your Download folder.
+2) In Termux, enter the extracted NYAMIST-DX11-MAIN-LIVE-CUBE folder.
+3) Run: bash nyamist-build-all.sh
+4) Set your GitHub Git identity once if not already configured:
+   git config --global user.name "YOUR_GITHUB_NAME"
+   git config --global user.email "YOUR_GITHUB_EMAIL"
+5) Authenticate Git in Termux with your normal GitHub credential method.
+6) Run: bash tools/termux-github-push.sh
+   It uploads the complete current source to branch dx11-live-cube-mainline,
+   not to main. It does not upload local build output or generated APK files.
+7) After push, open the repository Actions tab. Download the Android APK artifact
+   from "Build NYAMIST Android Cube APK" and the Windows executable artifact
+   from "Build NYAMIST real Direct3D 11 cube workload".
+
+The APK is a native Android OpenGL ES 3.0 live cube + device telemetry companion.
+The Windows executable is the primary real Direct3D 11 cube workload for the
+selected Android Windows-game launcher. Do not count the APK cube as D3D11.

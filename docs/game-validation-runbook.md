@@ -1,96 +1,89 @@
-# REDMI K80 Ultra D3D11 game-validation runbook
+# NYAMIST-Owned Runtime Validation Runbook
 
-This runbook validates a real D3D11 game through the existing PanPlay + DXVK + app-local PanVK stack. NYAMIST remains a read-only sidecar: it does not launch the game, load the driver, intercept Vulkan calls, or change game settings.
+**Target:** REDMI K80 Ultra / Android 16 / arm64-v8a / MT6991 / Mali-G925  
+**Architecture:** NYAMIST-owned Vulkan backend and D3D11 translation; Android public Vulkan loader and installed vendor driver remain the hardware interface.
 
-## Scope
+This runbook supersedes the former PanPlay + the selected Android Vulkan driver + DXVK workflow. Those components are not part of the NYAMIST runtime path.
 
-1. Test D3D11 + DXVK + PanVK RC5 first, where the app-local PanVK package is available.
-2. Verify the driver actually loaded by the game/container. Android system `vulkaninfo` output alone does not prove that PanVK is active in PanPlay.
-3. Keep game version, save/scene, resolution, graphics options, driver build and DXVK version fixed.
-4. Treat D3D12 as parked and do not combine it with D3D11 results.
-5. Do not replace the stock Android Vulkan driver or modify `/vendor`, `/dev/mali0`, SELinux, or upstream-owned caches.
+## 1. Build the development branch
 
-## 1. Update and build NYAMIST in Termux
-
-For a fresh checkout:
-
-~~~sh
+```sh
 pkg update
 pkg install git clang cmake ninja pkg-config python
-git clone https://github.com/devmyatmin/NYAMIST-LAYER.git
-cd NYAMIST-LAYER
-~~~
+git clone https://github.com/devmyatmin/CHORD-OF-NYAMIST.git
+cd CHORD-OF-NYAMIST
+git fetch origin
+git switch feature/nyamist-owned-runtime-foundation
+```
 
-For an existing checkout:
+Build and run tests:
 
-~~~sh
-cd ~/NYAMIST-LAYER
-git switch main
-git pull --ff-only origin main
-pkg install git clang cmake ninja pkg-config python
-~~~
+```sh
+cmake -S . -B build-termux -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DNYAMIST_BUILD_TESTS=ON \
+  -DNYAMIST_ENABLE_VULKAN_DISCOVERY=ON \
+  -DNYAMIST_FORCE_VULKAN_DYNAMIC_LOADING=ON
+cmake --build build-termux
+ctest --test-dir build-termux --output-on-failure
+```
 
-Then capture read-only device facts and build the sidecar:
+## 2. Validation stages
 
-~~~sh
-chmod +x tools/termux-build-core.sh tools/termux-probe.sh tools/export-device-probe.sh
-./tools/termux-probe.sh | tee k80ultra-probe.txt
-./tools/export-device-probe.sh
-./tools/termux-build-core.sh
-~~~
+Do not skip stages or treat one stage as proof of a later stage.
 
-The build output is under `build-termux/`. It compiles the portable C++20 sidecar and runs its tests. It does not build PanVK, DXVK, Wine, or the game runtime.
+| Stage | Evidence | What it proves |
+|---|---|---|
+| Device discovery | Vulkan loader and physical-device report | Loader access and device enumeration |
+| Device/queue | Logical-device and graphics-queue report | Device and queue lifecycle |
+| Submission | Command-buffer submit and fence report | Queue submission and completion |
+| Native rendering | NYAMIST triangle + pixel readback | NYAMIST-owned Vulkan render path |
+| Presentation | Android Surface acquire/submit/present report | WSI and swapchain path |
+| D3D11 slice | D3D11 calls create device/context, draw and present | Initial D3D11 translation path |
+| Application | Named application, repeatable sustained run | Only the specific application tested |
 
-## 2. Prepare the D3D11 game run
+The existing R1.1–R1.3 commands are diagnostics. An empty command-buffer submission is not a rendering test. A native Vulkan triangle is not a D3D11 compatibility test.
 
-In PanPlay, select the app-local PanVK RC5 driver package intended for this test, if installed, and the intended DXVK D3D11 runtime. Confirm from the actual game/container runtime logs that the expected PanVK ICD and DXVK D3D11 path were loaded. Do not infer this from the phone's system Vulkan driver listing.
+## 3. Capture device and backend reports
 
-Before launching:
+Use the report commands available in the checked-out revision:
 
-- Record game title/version, save or scene, resolution, graphics preset, driver identity/build, DXVK version and compatibility options.
-- Start PanPlay PerfRecorder before launching, with DXVK statistics enabled where supported.
-- Export SessionLogs ZIP and the matching PerfRecorder ZIP. Their performance ID (`perfId`) must match.
+```sh
+./build-termux/nyamist-cli discover --output build-termux/device.json
+./build-termux/nyamist-cli validate-device --output build-termux/device-validation.json
+./build-termux/nyamist-cli validate-submit --output build-termux/submit-validation.json
+```
 
-## 3. Sustained gameplay run
+A command may return a nonzero status when the platform does not expose Vulkan or a validation step fails. Preserve the JSON report; do not edit failure fields to make a test pass.
 
-Play one repeatable, representative scene for at least **300 seconds**. Include movement, camera changes, effects and asset streaming rather than remaining in a static menu. Record visible corruption, missing textures, shader stutter, audio/input problems, crashes and surface loss.
+## 4. Rendering and presentation checks
 
-A synthetic Cube benchmark or a short feature-level test is not a substitute for a real game.
+When the native renderer and WSI stages are implemented:
 
-If the game crashes/freezes, preserve the exports. Change one variable at a time.
+- Render the same deterministic test scene at a fixed extent.
+- Capture pixel readback and compare against a known expected image with a documented tolerance.
+- Record acquire, submit, present and fence results separately.
+- Exercise Surface destruction/recreation, portrait/landscape and size changes.
+- Record actual SUBOPTIMAL/OUT_OF_DATE results and successful recovery; do not infer them from a resize alone.
+- Check resource teardown and repeat the run after a cold process start.
 
-## 4. Import and assess evidence
+## 5. D3D11 validation
 
-Copy the original SessionLogs ZIP and matching PerfRecorder ZIP into the repository, then run:
+When the NYAMIST D3D11 slice is implemented:
 
-~~~sh
-mkdir -p build/game-tests
-python3 tools/import_panplay.py /path/to/session-logs.zip \
-  --performance-zip /path/to/perf-recorder.zip \
-  --output build/game-tests/d3d11-session.json \
-  --report-output build/game-tests/d3d11-translator.env
+- Use a small test application that calls the NYAMIST D3D11 device and immediate-context interfaces directly.
+- Record the exact shader bytecode format and supported feature subset.
+- Verify resource creation, shader/pipeline setup, draw submission and Present.
+- Compare output with a known reference image.
+- Treat unsupported interfaces/features as explicit failures, not silent no-ops.
 
-python3 tools/check_game_session.py build/game-tests/d3d11-session.json \
-  --minimum-duration-seconds 300 \
-  --output build/game-tests/d3d11-review.json
+## 6. Sustained application validation
 
-./build-termux/nyamist-cli inspect-dxvk build/game-tests/d3d11-translator.env
-~~~
+Only after the D3D11 smoke test passes should a named application be tested. Keep application version, scene, resolution and settings fixed. Record visible output, clean exit, device-loss events and frame-time data. A sustained run is evidence for that application/configuration only; it does not establish broad game compatibility.
 
-The checker returns:
+## Safety and integrity
 
-- **REVIEW_READY** — duration, clean-exit, DXVK frames and p95 evidence are present for human review.
-- **INCOMPLETE** — required evidence is missing.
-- **BLOCKED** — the process failed or the log scan found a device-loss marker.
-
-REVIEW_READY is not a rendering-validation pass. Current PanPlay exports do not expose explicit successful Vulkan Present calls, explicit zero Present failures, or an authoritative device-loss counter. The imported translator report therefore remains discovered-only.
-
-## 5. Repeatability and A/B
-
-First repeat the same D3D11 scene after a cold game/container start. Keep all workload and runtime inputs unchanged.
-
-A formal NYAMIST A/B decision requires at least three independent 300-second runs per arm, matched workload/device identity, distinct profile keys, fresh p95 telemetry, explicit render/Present success, explicit zero Present failures and device-loss events, and normal process exit. Current PanPlay exports do not yet provide all required counters; do not claim an A/B pass or automatically apply tuning without them.
-
-## What to submit for review
-
-Send the original SessionLogs ZIP and matching PerfRecorder ZIP, or the generated JSON sidecar and review JSON. Include game version, scene, resolution, graphics preset, and any visual issues. Keep the original ZIPs so manifest hashes and log inventory remain available. Review and redact device fingerprints or personal identifiers before sharing logs publicly.
+- No root, vendor partition, kernel, SELinux or GPU device-node modifications.
+- Do not replace Android's installed Vulkan driver.
+- Keep test reports and logs intact; redact personal identifiers before public sharing.
+- Never describe the project as game-compatible or production-ready without repeatable target-device application evidence.

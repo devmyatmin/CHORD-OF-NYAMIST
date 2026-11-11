@@ -10,11 +10,11 @@ This document distinguishes the layers:
 - Wine plus a compatible CPU execution layer provides the Windows API / executable environment.
 - DXVK implements the D3D11-to-Vulkan translation.
 - The Android Vulkan loader selects an app-local Vulkan ICD.
-- PanVK kbase is the experimental Vulkan ICD candidate for the Mali kbase kernel interface.
+- the selected Android Vulkan driver kbase is the experimental Vulkan ICD candidate for the Mali kbase kernel interface.
 - The vendor `mali_kbase` kernel driver remains the kernel-side hardware interface.
 - Immortalis-G925 executes the GPU work.
 
-Vulkan does not parse or execute D3D11 API calls by itself. DXVK is the translation component. PanVK must implement the Vulkan features that the selected DXVK build actually uses.
+Vulkan does not parse or execute D3D11 API calls by itself. DXVK is the translation component. the selected Android Vulkan driver must implement the Vulkan features that the selected DXVK build actually uses.
 
 ## Current K80 Ultra evidence
 
@@ -32,11 +32,11 @@ The user's Termux `vulkaninfo` capture enumerated the stock ARM proprietary Mali
   - Type 3: device-local, protected
 - The filtered output did not contain `VK_EXT_memory_budget`, `heapBudget`, or `heapUsage`.
 
-This proves physical-device enumeration through the stock Android Vulkan driver in Termux. It does not prove that the same features are exposed by PanVK or that DXVK can create a D3D11 device.
+This proves physical-device enumeration through the stock Android Vulkan driver in Termux. It does not prove that the same features are exposed by the selected Android Vulkan driver or that DXVK can create a D3D11 device.
 
-### Separate app-local PanVK RC5 evidence
+### Separate app-local the selected Android Vulkan driver RC5 evidence
 
-A separate PanPlay/PanProbe record reports that the app-local Mesa PanVK RC5 build loaded successfully, enumerated one device, identified the G925-family kbase GPU as `gpu_id 0xd8300015`, and passed PanProbe 41/41. This is separate from the stock-driver `vulkaninfo` capture above. It establishes PanVK load/device-probe success only; it does not establish Android surface/swapchain presentation, DXVK D3D11 device creation, or sustained real-game rendering.
+A separate PanPlay/external capability probe record reports that the app-local Mesa the selected Android Vulkan driver RC5 build loaded successfully, enumerated one device, identified the G925-family kbase GPU as `gpu_id 0xd8300015`, and passed external capability probe 41/41. This is separate from the stock-driver `vulkaninfo` capture above. It establishes the selected Android Vulkan driver load/device-probe success only; it does not establish Android surface/swapchain presentation, DXVK D3D11 device creation, or sustained real-game rendering.
 
 The 10.97 GiB heap is not free memory and is not a per-game allocation guarantee. Since the memory-budget extension was not found in this capture, do not infer available GPU memory from heap size. Use allocation success/failure and process/runtime telemetry where available.
 
@@ -46,7 +46,7 @@ The user-provided PanPlay SessionLogs and matching PerfRecorder export contain a
 
 - Session duration: 519 seconds; PerfRecorder duration: 489.130544 seconds.
 - DXVK: 3.1.1-5-arm64ec; API: D3D11; selected feature level: D3D_FEATURE_LEVEL_11_0; maximum supported feature level: D3D_FEATURE_LEVEL_11_1. The importer now records these as separate fields so the maximum capability cannot be mistaken for the level actually selected.
-- DXGI log selected device: Mali-G925-Immortalis MC12, PanVK string 26.2.99. The separate session/device manifest reports Mesa PanVK 26.3.0-devel (git-795ca7ff3e). Treat this version-string difference as an unresolved provenance/version-reporting discrepancy until the exact ICD binary/build is matched.
+- DXGI log selected device: Mali-G925-Immortalis MC12, the selected Android Vulkan driver string 26.2.99. The separate session/device manifest reports Mesa the selected Android Vulkan driver 26.3.0-devel (git-795ca7ff3e). Treat this version-string difference as an unresolved provenance/version-reporting discrepancy until the exact ICD binary/build is matched.
 - DXVK logged actual swapchain properties: BGRA8 UNORM, SRGB nonlinear color space, IMMEDIATE present mode, 1280x720 buffer, four images.
 - PerfRecorder: 41,868 frames; average 85.5968 FPS; low1Fps 4.6416; low01Fps 0.6783; P50 3.867 ms; P95 43.983 ms; P99 63.733 ms; 11,766 stutters.
 - Device telemetry: average/max GPU load 72.0%/100%; average/max game CPU 24.2%/41.1%; RAM peak 3,515.8 MiB; video-memory peak 2,208 MiB; minimum available RAM 2,043 MiB; battery temperature average/max 40.1/42.1 C; average/max power 5.13/8.46 W.
@@ -73,9 +73,9 @@ Until a runtime exposes a reliable memory budget:
 
 ### Gate A — Vulkan ICD
 
-- Keep the stock vendor driver intact and select PanVK only through the supported app-local/launcher mechanism.
-- The recorded RC5 app-local test passed load and device enumeration with PanProbe 41/41.
-- Still verify a graphics surface/swapchain render-and-present test in the actual PanPlay path; the PanProbe score alone does not prove presentation.
+- Keep the stock vendor driver intact and select the selected Android Vulkan driver only through the supported app-local/launcher mechanism.
+- The recorded RC5 app-local test passed load and device enumeration with external capability probe 41/41.
+- Still verify a graphics surface/swapchain render-and-present test in the actual PanPlay path; the external capability probe score alone does not prove presentation.
 - Capture device name, driver identity, API version, extensions, feature bits, memory properties, and logs from that same app/container process.
 
 ### Gate B — DXVK
@@ -110,5 +110,5 @@ Only after Gates A–C pass:
 - Reimplementing D3D11 inside NYAMIST.
 - Replacing or patching the Mali kernel driver.
 - Replacing Android's system Vulkan libraries.
-- Claiming PanVK or DXVK support based only on stock-driver `vulkaninfo`.
+- Claiming the selected Android Vulkan driver or DXVK support based only on stock-driver `vulkaninfo`.
 - Enabling DX12 before repeatable D3D11 results.

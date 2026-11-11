@@ -76,6 +76,6 @@ for tool in git clang cmake ninja pkg-config python; do
 done
 
 section "Probe interpretation"
-echo "This report is observational only. It does not install or activate PanVK."
+echo "This report is observational only. It does not install, activate, or replace any graphics driver."
 echo "A missing /dev/mali0 in Termux may be Android app-sandbox visibility, not proof that the device lacks a Mali GPU."
 echo "The Vulkan device/driver reported by the actual game container is the final runtime source of truth."

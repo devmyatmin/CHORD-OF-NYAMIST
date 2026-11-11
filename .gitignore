@@ -7,3 +7,9 @@
 .DS_Store
 k80ultra-probe.txt
 nyamist-device-probe-*.env
+/android-app/.gradle/
+/android-app/app/build/
+/build-dx11/
+/windows-dx11-cube/build/
+NYAMIST-DX11-Live-Cube.csv
+*.apk

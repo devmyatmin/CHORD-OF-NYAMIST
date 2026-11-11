@@ -7,7 +7,7 @@
 - A schema-v1 `DeviceSessionSnapshot`, including normalized device facts, Vulkan capability facts, fresh and stale telemetry, rejection counts, and diagnostics.
 - A schema-v1 `RuntimeCompatibilityProfile`, linking a saved session key to one graphics API, translator identity/version/validation level, Vulkan driver identity/version/validation level, selected components, blockers, warnings, and reported capabilities.
 
-The store does not launch a game, load a Vulkan ICD, change translator settings, collect telemetry, or modify Android system configuration. It does not read or write DXVK, VKD3D-Proton, PanVK/Mesa, or vendor-driver caches.
+The store does not launch a game, load a Vulkan ICD, change translator settings, collect telemetry, or modify Android system configuration. It does not read or write DXVK, VKD3D-Proton, the selected Android Vulkan driver/Mesa, or vendor-driver caches.
 
 ## On-disk format
 
@@ -56,7 +56,7 @@ compatibility.device_profile_key = session_key;
 compatibility.graphics_api = nyamist::runtime::GraphicsApi::d3d11;
 compatibility.translator_id = "dxvk";
 compatibility.translator_version = "reported-version";
-compatibility.vulkan_driver_id = "panvk";
+compatibility.vulkan_driver_id = "android-vulkan";
 compatibility.vulkan_driver_version = "reported-version";
 // Populate validation levels, readiness decision, selected components,
 // blockers, warnings, and capabilities from the actual inspected evidence.

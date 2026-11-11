@@ -36,7 +36,7 @@ nyamist::runtime::ABRunRecord makeRun(
     probe.vulkan.vendor_id=0x13b5U;
     probe.vulkan.device_id=0xd8300015U;
     probe.vulkan.device_name="Immortalis-G925";
-    probe.vulkan.driver_name="panvk";
+    probe.vulkan.driver_name="android-vulkan";
     probe.vulkan.driver_version="rc5";
     probe.vulkan.device_api_version="1.3";
     std::vector<TelemetryReading> readings;
@@ -49,7 +49,7 @@ nyamist::runtime::ABRunRecord makeRun(
     DeviceSessionSnapshot session(std::move(probe),std::move(telemetry),captured_at);
     return ABRunRecord{
         "synthetic-cube-720p",
-        "redmi-k80-ultra-panvk-rc5",
+        "redmi-k80-ultra-android-vulkan-rc5",
         compatibility_key,
         started_at,
         duration,

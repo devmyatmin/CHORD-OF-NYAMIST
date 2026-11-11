@@ -154,7 +154,7 @@ nyamist::CacheIdentity makeIdentity(const char* format) {
     identity.target_api = "vulkan";
     identity.gpu_architecture = "Immortalis-G925";
     identity.vulkan_api_version = "1.4.363";
-    identity.driver_version = "PanVK-RC5";
+    identity.driver_version = "Android Vulkan driver-RC5";
     identity.translator_version = "nyamist-cache-benchmark";
     return identity;
 }

@@ -6,7 +6,7 @@
 **Target SoC:** MediaTek MT6991 / Dimensity 9400+  
 **Reference device:** REDMI K80 Ultra · arm64-v8a · Android 16  
 **Release line:** R1  
-**Implementation policy:** Original NYAMIST-owned components. PanVK is not an active implementation dependency.
+**Implementation policy:** Original NYAMIST-owned components. the selected Android Vulkan driver is not an active implementation dependency.
 
 ## R1 objective
 

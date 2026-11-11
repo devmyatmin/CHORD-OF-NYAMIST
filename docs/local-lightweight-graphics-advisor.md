@@ -10,10 +10,10 @@ The model is an evidence analyst and proposal generator. It is not a graphics dr
 
 The execution path remains owned by the existing components:
 
-- D3D11: game -> Wine/Proton + CPU compatibility layer -> DXVK -> Android Vulkan loader -> app-local PanVK -> Mali kbase -> Immortalis-G925.
+- D3D11: game -> Wine/Proton + CPU compatibility layer -> DXVK -> Android Vulkan loader -> app-local the selected Android Vulkan driver -> Mali kbase -> Immortalis-G925.
 - D3D12: game -> Wine/Proton + CPU compatibility layer -> VKD3D-Proton -> Android Vulkan loader -> selected Vulkan ICD -> GPU.
 
-NYAMIST observes logs, device facts, capability reports, and performance captures beside those paths. It does not replace or fork DXVK, VKD3D-Proton, PanVK, Wine, FEX, or the vendor driver.
+NYAMIST observes logs, device facts, capability reports, and performance captures beside those paths. It does not replace or fork DXVK, VKD3D-Proton, the selected Android Vulkan driver, Wine, FEX, or the vendor driver.
 
 ## Model placement
 
@@ -68,7 +68,7 @@ The official support matrix is a compatibility signal, not proof that this parti
 
 If the NPU test fails because the runtime is unavailable to Termux, classify the exact failure. Do not assume the silicon is unsupported. A signed Android APK using LiteRT's documented app integration can be evaluated as a distinct access path if the shell process is blocked.
 
-A CPU-capable Android runtime remains the fallback path, with bounded memory and thread use. GGUF through llama.cpp is one candidate backend for that separate CPU fallback; it is not the NPU runtime and is not a confirmed installed component. Vulkan compute is another separate experiment: generic llama.cpp Vulkan support does not prove the target PanVK build supports every inference kernel or performs well.
+A CPU-capable Android runtime remains the fallback path, with bounded memory and thread use. GGUF through llama.cpp is one candidate backend for that separate CPU fallback; it is not the NPU runtime and is not a confirmed installed component. Vulkan compute is another separate experiment: generic llama.cpp Vulkan support does not prove the target the selected Android Vulkan driver build supports every inference kernel or performs well.
 
 The MediaTek NPU SDK/Neuron access must be evaluated through documented runtime interfaces. Do not manually copy vendor libraries from another phone or write to vendor/system partitions. Add NPU or GPU backend support only after target-device proof-of-execution, memory, latency, thermal, power, and licensing checks pass.
 
@@ -148,7 +148,7 @@ The raw typed CSV layout is now validated by the importer. The importer records 
 - Rewriting shaders or pipelines at runtime.
 - Calling an LLM from a Vulkan draw, queue-submit, or present call.
 - Automatically editing upstream configuration or caches.
-- Claiming NPU, PanVK compute, or Vulkan acceleration before target-device execution is measured.
+- Claiming NPU, the selected Android Vulkan driver compute, or Vulkan acceleration before target-device execution is measured.
 
 ## PanPlay system telemetry and cross-stream correlation
 
