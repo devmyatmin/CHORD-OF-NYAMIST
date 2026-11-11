@@ -484,7 +484,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                 } else if (result.contains("\"pixel_verification_status\": \"success\"")) {
                     statusView.setText("R2.7 WSI session SUCCESS — pixel readback also passed.");
                 } else {
-                    statusView.setText("R2.6 WSI session completed; inspect the validation fields.");
+                    statusView.setText("R2.7 WSI session completed; inspect the validation fields.");
                 }
             });
         }
