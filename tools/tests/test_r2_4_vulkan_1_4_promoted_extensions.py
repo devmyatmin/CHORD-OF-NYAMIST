@@ -61,11 +61,11 @@ class R24PromotedExtensionInventoryContractTests(unittest.TestCase):
         self.assertIn("vulkan_1_4_promoted_extension_inventory_status", self.serializer)
         self.assertIn("vulkan_1_4_promoted_extension_coverage_status", self.serializer)
 
-    def test_app_identity_is_current_r26(self):
+    def test_app_identity_is_current_r27(self):
         self.assertIn('schema_version\\": 12', self.activity)
-        self.assertIn("versionCode = 260", self.gradle)
-        self.assertIn('versionName = "2.6.0"', self.gradle)
-        self.assertIn("nyamist-g925-r2.6-uint8-index-probe.json", self.activity)
+        self.assertIn("versionCode = 270", self.gradle)
+        self.assertIn('versionName = "2.7.0"', self.gradle)
+        self.assertIn("nyamist-g925-r2.7-prerotation-validation.json", self.activity)
 
 
 if __name__ == "__main__":
