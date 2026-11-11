@@ -1,24 +1,28 @@
-# NYAMIST DX11-first update status
+# NYAMIST — DX11 Mainline Status
 
 ## Source changes
 
-- DX11 is the main application-facing API and the primary live workload.
-- Removed driver-specific legacy adapter/importer/tests/configuration/documentation and replaced the driver evidence interface with a generic Android Vulkan driver adapter.
-- Kept the Vulkan backend, resource manager, compute pipeline, graphics pipeline, loader, smoke commands, and their existing tests.
-- Added a real Windows Direct3D 11 rotating cube workload with HLSL compilation, hardware D3D11 device creation, depth testing, indexed draw, Present, live HUD, FPS/frametime percentiles, CPU, RAM, adapter/VRAM facts, frame cap switching, stutter counter, and CSV output.
-- Added an Android installable companion APK with an actual continuously rendered OpenGL ES 3.0 cube and Android telemetry. It is explicitly a native Android reference renderer, not a D3D11 renderer.
-- Added GitHub Actions builds for the Android debug APK and Windows x64 D3D11 executable.
-- Added a Termux source-sync script targeting the `dx11-live-cube-mainline` GitHub branch.
+- Direct3D 11 remains the primary application-facing API and the primary live workload.
+- The Windows D3D11 cube workload creates a hardware D3D11 device, compiles HLSL, renders a depth-tested indexed rotating cube, presents frames, and exposes live telemetry and CSV output.
+- The Android application renders a separate live 3D cube using OpenGL ES 3.0 and displays Android device/session telemetry. It is not a D3D11 renderer.
+- The C++ source includes the Vulkan backend, resource manager, compute pipeline, graphics pipeline, loader, smoke commands, and their existing tests.
+- GitHub Actions workflows build the Android debug APK and Windows x64 D3D11 executable.
 
-## Checks completed in the current host environment
+## Recorded build and test results
 
-- CTest: **17/17 passed**.
-- Python importer/session tests: **35/35 passed**.
-- Shell syntax checks: passed.
-- Driver-specific source/docs/config reference scan: clean.
+- CTest: **17/17 passed** in the recorded Termux test run.
+- Vulkan compute verification: **PASS**, with GPU readback value 42 matching the expected value 42.
+- Android debug APK GitHub Actions workflow: **completed successfully** for commit `ad2372226fce48f1f3fb6b6da47ce264ce422166`.
+- Windows x64 D3D11 GitHub Actions build workflow: **completed successfully** for the same commit.
+- The Android APK was installed and launched by the user; the live cube and telemetry display were confirmed visible.
 
-## Not yet device/build verified
+## Evidence boundaries
 
-- Android APK compile/install/run on the REDMI K80 Ultra: pending GitHub Actions artifact and device installation.
-- Windows D3D11 executable compile/run under the selected Android game launcher: pending GitHub Actions artifact and device run.
-- These two platform-specific deliverables have build workflows; this host did not have Android SDK/Gradle or Windows SDK/MSVC, so no APK/EXE binary is claimed as already built here.
+- Android cube visibility confirms the OpenGL ES 3.0 application rendered on the device. It is not evidence of D3D11 execution.
+- Windows D3D11 CI success confirms that the executable was built and the artifact uploaded. It does not establish a target-device runtime result.
+- Performance values must be copied from the actual supplied screenshot or CSV. Do not infer or fabricate values that are not legible in the evidence.
+- A build pass, a smoke-test pass, a visible cube, and a sustained performance result are separate outcomes.
+
+## Current status
+
+The mainline documentation now describes the two live cube applications according to their actual graphics APIs and records only the build, test, and runtime evidence stated above. No additional FPS benchmark is introduced by this documentation update.
