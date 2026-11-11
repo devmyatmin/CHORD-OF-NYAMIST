@@ -111,6 +111,12 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
         self.assertIn("live_resize_window_pause_total_ms", self.serializer)
         self.assertIn("latestLiveResizeReport", self.activity)
 
+    def test_r27_starts_landscape_but_keeps_portrait_wsi_validation_accessible(self):
+        self.assertIn("android:screenOrientation=\\"sensorLandscape\\"", self.manifest)
+        self.assertIn("SCREEN_ORIENTATION_SENSOR_LANDSCAPE", self.activity)
+        self.assertIn("SCREEN_ORIENTATION_FULL_SENSOR", self.activity)
+        self.assertIn("toggleOrientationMode()", self.activity)
+
     def test_android_pre_rotation_matches_current_transform_and_rotates_clip_space(self):
         self.assertIn("return capabilities.currentTransform;", self.native)
         self.assertIn("chooseIdentitySwapchainExtent", self.native)
