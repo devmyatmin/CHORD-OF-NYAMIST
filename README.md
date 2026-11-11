@@ -90,13 +90,13 @@ The package/profile and runtime test harness are intended to accept or record th
 |---|---|
 | Device match | SoC, GPU model, vendor/device ID, GPU architecture, MC count; discovered identity is read-only and cannot be spoofed by a profile |
 | Android platform | Android API level, arm64-v8a ABI, kernel build, kbase/CSF compatibility information |
-| Driver package | Driver build ID, Mesa/PanVK revision, package format, manifest version, SHA-256 |
+| Driver package | Driver build ID, Mesa/legacy Vulkan experiment revision, package format, manifest version, SHA-256 |
 | Vulkan capabilities | API version, extension list, feature bits, queue families, format support; only capabilities actually queried from the loaded device may be exposed |
 | Loader / client | Android Vulkan loader, selected app-local ICD, Winlator fork/version, supported WCP component type or ZIP import path |
 | Windows translation | Wine/Proton layer, Box64/FEX layer, DXVK version and D3D11 feature-level requirements; VKD3D-Proton/DX12 remains a later gated path |
 | Rendering | Output resolution, surface format, present mode, VSync/frame cap, swapchain image count, and surface compatibility where the client exposes them |
 | Memory / cache | Conservative memory budget, cache limits, cache location, and cleanup policy; reported heap size is never treated as free memory |
-| Diagnostics | Validation level, debug logging, PanProbe, Vulkan smoke test, DXVK log capture, session ID, and evidence export |
+| Diagnostics | Validation level, debug logging, device probe, Vulkan smoke test, DXVK log capture, session ID, and evidence export |
 | Safety / fallback | App-local driver selection, stock system-driver fallback, package verification, rollback status, and install/uninstall result |
 
 Runtime options such as DXVK environment variables are separate from the GPU driver's hardware capabilities. They may be stored as test profiles, but must not be used to force unsupported Vulkan extensions or pretend that an unimplemented feature exists.
@@ -114,19 +114,19 @@ Device-side evidence recorded on **2026-11-08**:
 - Kernel: **6.6.118-android15**.
 - Stock-driver reported device ID: `0xD8300010`.
 
-The device also has a **legacy PanVK RC5 research record** from an earlier feasibility experiment. This is historical evidence only; PanVK is no longer the selected implementation or release dependency:
+The device also has a **legacy legacy Vulkan experiment RC5 research record** from an earlier feasibility experiment. This is historical evidence only; legacy Vulkan experiment is no longer the selected implementation or release dependency:
 
-- PanVK loaded successfully in the PanPlay test path.
+- legacy Vulkan experiment loaded successfully in the runtime session client test path.
 - One Vulkan physical device was enumerated.
-- The imported PanVK report recorded GPU ID `0xd8300015`.
-- PanProbe reported **41 passed, 0 failed, 0 skipped**.
+- The imported legacy Vulkan experiment report recorded GPU ID `0xd8300015`.
+- device probe reported **41 passed, 0 failed, 0 skipped**.
 - The report's driver SHA-256 was `62c2b3f98ca987d5ab50b6f01e2d2c1c5b3ee995fe93666aa5da9415f65c3348`.
 
-The stock-driver test and the legacy PanVK experiment are separate records. Their reported device IDs differ and must remain separately identified until the exact device-ID mapping and binary provenance are reconciled. The legacy PanProbe result proves only the recorded load/device-probe coverage for that historical run; it does not validate the new NYAMIST implementation, surface presentation, or complete game compatibility.
+The stock-driver test and the legacy legacy Vulkan experiment experiment are separate records. Their reported device IDs differ and must remain separately identified until the exact device-ID mapping and binary provenance are reconciled. The legacy device probe result proves only the recorded load/device-probe coverage for that historical run; it does not validate the new NYAMIST implementation, surface presentation, or complete game compatibility.
 
 ## D3D11 real-game evidence
 
-A user-provided PanPlay SessionLogs export and matching PerfRecorder export from **2026-11-08** recorded a Stranded Deep D3D11 session:
+A user-provided runtime session client SessionLogs export and matching PerfRecorder export from **2026-11-08** recorded a Stranded Deep D3D11 session:
 
 - Session duration: **519 seconds**.
 - PerfRecorder duration: **489.13 seconds**.
@@ -137,7 +137,7 @@ A user-provided PanPlay SessionLogs export and matching PerfRecorder export from
 - Reported stutters: **11,766**.
 - DXVK created a D3D11 device at feature level **11_0** (maximum reported capability was 11_1).
 - DXVK logged swapchain setup at **1280×720**, BGRA8 UNORM, IMMEDIATE present mode, four images.
-- The DXGI log identified the Mali-G925-Immortalis MC12 and a legacy PanVK version string.
+- The DXGI log identified the Mali-G925-Immortalis MC12 and a legacy legacy Vulkan experiment version string.
 
 **Evidence limits:** the exported logs do not provide authoritative Vulkan Present success/failure counters; the session manifest and DXGI driver version strings also have an unresolved provenance mismatch. The session ended through the user overlay and has no confirmed clean process exit. The frame-time percentiles and stutter count show that average FPS alone is not a sufficient smoothness measure.
 
@@ -147,9 +147,9 @@ This is valuable sustained-session evidence, but it does **not** yet qualify as 
 
 <badge label="V1 — Engineering Preview" color="warning"/> <badge label="Driver package not released" color="secondary"/>
 
-The repository currently contains the NYAMIST profiling/validation core, device probes, session importers, configuration templates, tests, and engineering documents. The earlier PanVK report adapter and imported-driver evidence are retained only as legacy research material. The repository does **not** yet contain a verified, installable NYAMIST G925 native driver release asset or a published WCP download.
+The repository currently contains the NYAMIST profiling/validation core, device probes, session importers, configuration templates, tests, and engineering documents. The earlier legacy Vulkan experiment report adapter and imported-driver evidence are retained only as legacy research material. The repository does **not** yet contain a verified, installable NYAMIST G925 native driver release asset or a published WCP download.
 
-The legacy PanVK RC5 evidence is not part of the new implementation and is not proof that a NYAMIST driver package exists. Do not install or advertise a finished NYAMIST driver until its independently developed source, release asset, manifest, checksums, target-device validation, and rollback procedure are published here.
+The legacy legacy Vulkan experiment RC5 evidence is not part of the new implementation and is not proof that a NYAMIST driver package exists. Do not install or advertise a finished NYAMIST driver until its independently developed source, release asset, manifest, checksums, target-device validation, and rollback procedure are published here.
 
 ### V1 release gates
 
@@ -172,16 +172,16 @@ Until these gates pass, the status remains **engineering preview / pre-release**
 - Never chmod or bypass access controls on `/dev/mali0`; never modify SELinux, vendor partitions, kernel modules, or protected system libraries.
 - Never claim a Vulkan extension or feature unless the loaded driver reports it and the relevant test passes.
 - Never treat GPU heap size as free VRAM or a guaranteed per-game allocation.
-- Keep DXVK, VKD3D-Proton, Wine, Box64/FEX, the Android Vulkan loader, stock vendor driver, and NYAMIST-owned graphics components as distinct layers with their own versions and logs. PanVK is legacy research only, not an active dependency.
+- Keep DXVK, VKD3D-Proton, Wine, Box64/FEX, the Android Vulkan loader, stock vendor driver, and NYAMIST-owned graphics components as distinct layers with their own versions and logs. legacy Vulkan experiment is legacy research only, not an active dependency.
 - Distinguish device enumeration, render/present, sustained rendering, and production readiness as separate validation states.
 - Keep all source revisions, licenses, build inputs, checksums, raw logs, and test conditions attached to each release.
 
 ## Repository engineering components
 
 - C++20 device/runtime profiling and evidence core.
-- Legacy PanVK report importer (historical evidence only; not used by the active driver architecture).
+- Legacy legacy Vulkan experiment report importer (historical evidence only; not used by the active driver architecture).
 - Android/Termux device probe and configuration templates.
-- PanPlay/PanProbe importers and session/PerfRecorder import tools.
+- runtime session client/device probe importers and session/PerfRecorder import tools.
 - Deterministic CI build and test workflow.
 - Separate LiteRT-LM + MediaTek NeuroPilot NPU experiment for future offline analysis; it is not part of the Vulkan driver and does not prove GPU execution.
 
@@ -192,11 +192,8 @@ Until these gates pass, the status remains **engineering preview / pre-release**
 - [Architecture and scope](docs/architecture.md)
 - [Module contracts](docs/module-contracts.md)
 - [REDMI K80 Ultra hardware validation](docs/device-validation-redmi-k80-ultra.md)
-- [Legacy PanVK adapter and evidence archive](docs/panvk-adapter.md)
-- [Legacy PanVK kbase research notes](docs/panvk-kbase-integration.md)
 - [DX11/Vulkan validation](docs/dx11-vulkan-validation.md)
 - [Game validation runbook](docs/game-validation-runbook.md)
-- [PanPlay import format](docs/panplay-import.md)
 - [Session profiles](docs/profile-persistence.md)
 - [A/B regression evaluation](docs/ab-regression-evaluation.md)
 - [Local Graphics Advisor design](docs/local-lightweight-graphics-advisor.md)
