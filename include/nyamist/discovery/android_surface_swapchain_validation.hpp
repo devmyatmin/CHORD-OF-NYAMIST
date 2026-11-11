@@ -156,6 +156,8 @@ struct AndroidSurfaceSwapchainValidationReport {
     std::uint32_t swapchain_pre_transform{};
     bool swapchain_pre_transform_identity_selected{};
     std::string swapchain_pre_transform_policy{"not_queried"};
+    bool surface_prerotation_applied{};
+    std::string surface_prerotation_status{"not_attempted"};
     bool render_viewport_dynamic_state_enabled{};
     std::uint32_t render_viewport_x{};
     std::uint32_t render_viewport_y{};
