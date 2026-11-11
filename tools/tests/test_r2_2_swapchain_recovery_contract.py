@@ -107,9 +107,23 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
         self.assertIn("pauseForLiveResizeWindow(report, live_resize_pause_ms, false)", self.native)
         self.assertIn("pauseForLiveResizeWindow(report, live_resize_pause_ms, true)", self.native)
         self.assertIn("std::this_thread::sleep_for(std::chrono::milliseconds(pause_ms))", self.native)
-        self.assertIn("report.live_resize_window_mode_enabled ? 2000U : 0U", self.native)
+        self.assertIn("report.live_resize_window_mode_enabled ? 5000U : 0U", self.native)
         self.assertIn("live_resize_window_pause_total_ms", self.serializer)
         self.assertIn("latestLiveResizeReport", self.activity)
+
+    def test_android_pre_rotation_matches_current_transform_and_rotates_clip_space(self):
+        self.assertIn("return capabilities.currentTransform;", self.native)
+        self.assertIn("chooseIdentitySwapchainExtent", self.native)
+        self.assertIn("transformSwapsExtent", self.native)
+        self.assertIn("VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR", self.native)
+        self.assertIn("VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR", self.native)
+        self.assertIn("create_info.preTransform = chooseSwapchainPreTransform(capabilities)", self.native)
+        self.assertIn("swapchain_info.preTransform = chooseSwapchainPreTransform(capabilities)", self.native)
+        self.assertIn("cmd_push_constants", self.native)
+        self.assertIn("pipeline_info.pDynamicState", self.native)
+        self.assertIn("surface_prerotation_applied", self.header)
+        self.assertIn('"surface_prerotation_status"', self.serializer)
+        self.assertIn("layout(push_constant) uniform SurfaceTransform", self.shader)
 
     def test_apk_displays_the_exact_source_revision(self):
         self.assertIn('buildConfigField("String", "NYAMIST_BUILD_SHA"', self.gradle)
@@ -117,8 +131,8 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
         self.assertIn("BuildConfig.NYAMIST_BUILD_SHA", self.activity)
 
     def test_app_build_identity_is_r23_with_r22_recovery_fields(self):
-        self.assertIn("R2.6 WSI session", self.activity)
-        self.assertIn("nyamist-g925-r2.6-uint8-index-probe.json", self.activity)
+        self.assertIn("R2.7 WSI session", self.activity)
+        self.assertIn("nyamist-g925-r2.7-prerotation-validation.json", self.activity)
         self.assertIn("out_of_date_full_session_retry_count", self.activity)
         self.assertIn("out_of_date_full_wsi_session_retry", self.activity)
         self.assertIn("out_of_date_full_session_retry_count", self.activity)
