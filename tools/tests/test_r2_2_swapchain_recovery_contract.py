@@ -14,6 +14,8 @@ ACTIVITY = (
     ROOT / "android" / "surface-validation" / "app" / "src" / "main"
     / "java" / "dev" / "nyamist" / "g925surface" / "MainActivity.java"
 )
+MANIFEST = ROOT / "android" / "surface-validation" / "app" / "src" / "main" / "AndroidManifest.xml"
+SHADER = ROOT / "android" / "surface-validation" / "app" / "src" / "main" / "shaders" / "triangle.vert"
 WORKFLOW = ROOT / ".github" / "workflows" / "r2.2-android-swapchain-recovery.yml"
 
 
@@ -25,6 +27,8 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
         cls.serializer = SERIALIZER.read_text(encoding="utf-8")
         cls.gradle = GRADLE.read_text(encoding="utf-8")
         cls.activity = ACTIVITY.read_text(encoding="utf-8")
+        cls.manifest = MANIFEST.read_text(encoding="utf-8")
+        cls.shader = SHADER.read_text(encoding="utf-8")
         cls.workflow = WORKFLOW.read_text(encoding="utf-8")
 
     def test_r22_report_contract_is_preserved_in_schema_v8(self):
@@ -70,8 +74,9 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
         self.assertIn("swapchain_extent_after_width", self.header)
         self.assertIn("swapchain_extent_after_height", self.header)
 
-    def test_swapchain_prefers_identity_transform_for_current_surface_extent(self):
+    def test_swapchain_pretransform_matches_current_surface_transform(self):
         self.assertIn("chooseSwapchainPreTransform", self.native)
+        self.assertIn("return capabilities.currentTransform;", self.native)
         self.assertIn("VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR", self.native)
         self.assertIn("recordSurfaceTransform(report, capabilities)", self.native)
         self.assertIn("swapchain_info.preTransform = chooseSwapchainPreTransform(capabilities)", self.native)
