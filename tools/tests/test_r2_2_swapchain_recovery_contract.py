@@ -97,7 +97,7 @@ class R22SwapchainRecoveryContractTests(unittest.TestCase):
         self.assertIn("surface_last_resize_from_width", self.activity)
         self.assertIn("surface_last_resize_to_width", self.activity)
         self.assertIn("feature/g925-r2.2-actual-surface-resize-instrumentation", self.workflow)
-        self.assertIn("nyamist-g925-r2.2-actual-resize-validation-apk", self.workflow)
+        self.assertIn("nyamist-g925-r2.7-prerotation-validation-apk", self.workflow)
 
     def test_live_resize_window_pauses_before_acquire_and_present(self):
         self.assertIn("#include <thread>", self.native)
