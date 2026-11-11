@@ -34,15 +34,15 @@ The Activity also records orientation configuration changes.
 For a deterministic Surface resize and live-WSI event test:
 
 1. Install the Part 1 arm64 debug APK and open the app.
-2. Wait for the initial R2.6 WSI session to finish successfully.
+2. Wait for the initial R2.7 WSI session to finish successfully.
 3. Tap **INCREASE SURFACE SIZE (WSI RESIZE TEST)**, then
    **RESTORE SURFACE SIZE (220dp)** once. Confirm Android reports a nonzero
    Surface resize count and distinct from/to dimensions.
 4. Enable Android auto-rotate, rotate portrait → landscape → portrait, and
    wait for the Surface session to finish.
 5. Tap **START LIVE WSI RESIZE WINDOW**. The native same-device oldSwapchain
-   probe pauses for two seconds immediately before image acquire, then for
-   two seconds after queue submit but before present. During the first pause,
+   probe pauses for five seconds immediately before image acquire, then for
+   five seconds after queue submit but before present. During the first pause,
    tap the Surface size button to increase the SurfaceView to 320dp. During
    the second pause, tap it again to restore 220dp. The Surface changes race
    the real Vulkan acquire/present calls while the existing device and
@@ -69,7 +69,7 @@ The live-window mode records both pause points and their total duration. R2.7 pr
 
 ## Live WSI Resize Window mode
 
-The live-window control is designed to expose the actual WSI operation to a Surface change while the same VkDevice and oldSwapchain probe are active. It opens two 2-second windows: before image acquire, and after queue submit but before present. Tap the Surface size control once in each window. This is an observation harness, not an event injector; the driver is free to return VK_SUCCESS, VK_SUBOPTIMAL_KHR or VK_ERROR_OUT_OF_DATE_KHR. The report includes the mode flag, pause counts, total pause duration, real acquire/present result counters, and bounded recovery counts. The live report is stored separately and exported by its dedicated copy action; it does not replace the latest-session report.
+The live-window control is designed to expose the actual WSI operation to a Surface change while the same VkDevice and oldSwapchain probe are active. It opens two 5-second windows: before image acquire, and after queue submit but before present. Tap the Surface size control once in each window. This is an observation harness, not an event injector; the driver is free to return VK_SUCCESS, VK_SUBOPTIMAL_KHR or VK_ERROR_OUT_OF_DATE_KHR. The report includes the mode flag, pause counts, total pause duration, real acquire/present result counters, and bounded recovery counts. The live report is stored separately and exported by its dedicated copy action; it does not replace the latest-session report.
 
 ## Surface transform and aspect-preserving rendering — Part 1
 
