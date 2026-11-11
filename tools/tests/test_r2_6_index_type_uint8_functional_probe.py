@@ -22,9 +22,9 @@ class R26Uint8IndexFunctionalProbeTests(unittest.TestCase):
         self.assertIn("schema_version{12U}", self.header)
         self.assertIn('"CHORD OF NYAMIST / NYAMIST G925 R2.6"', self.serializer)
         self.assertIn('schema_version\\": 12', self.activity)
-        self.assertIn("nyamist-g925-r2.6-uint8-index-probe.json", self.activity)
-        self.assertIn("versionCode = 260", self.gradle)
-        self.assertIn('versionName = "2.6.0"', self.gradle)
+        self.assertIn("nyamist-g925-r2.7-prerotation-validation.json", self.activity)
+        self.assertIn("versionCode = 270", self.gradle)
+        self.assertIn('versionName = "2.7.0"', self.gradle)
 
     def test_only_previously_supported_uint8_feature_is_enabled(self):
         self.assertIn('"VK_KHR_index_type_uint8.indexTypeUint8"', self.native)
