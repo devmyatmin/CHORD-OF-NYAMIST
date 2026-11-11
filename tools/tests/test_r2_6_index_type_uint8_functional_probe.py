@@ -20,7 +20,7 @@ class R26Uint8IndexFunctionalProbeTests(unittest.TestCase):
 
     def test_schema_and_release_identity_are_r26(self):
         self.assertIn("schema_version{12U}", self.header)
-        self.assertIn('"CHORD OF NYAMIST / NYAMIST G925 R2.6"', self.serializer)
+        self.assertIn('"CHORD OF NYAMIST / NYAMIST G925 R2.7"', self.serializer)
         self.assertIn('schema_version\\": 12', self.activity)
         self.assertIn("nyamist-g925-r2.7-prerotation-validation.json", self.activity)
         self.assertIn("versionCode = 270", self.gradle)
