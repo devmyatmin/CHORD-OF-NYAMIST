@@ -1,9 +1,24 @@
-# NYAMIST Live 3D Telemetry APK
+# NYAMIST Live 3D Telemetry — Android
 
-This installable Android companion app renders an animated, depth-tested 3D cube with OpenGL ES 3.0 and reports live Android device/session telemetry. It is **not** a Direct3D 11 implementation.
+This installable Android application continuously renders an animated, depth-tested 3D cube using OpenGL ES 3.0. The cube is generated from rendered geometry; it is not a screenshot or a static image.
 
-The primary DX11 workload is `windows-dx11-cube/NYAMIST-DX11-Live-Cube.exe`. Run that Windows executable in the selected Android Windows-game launcher/runtime where DXVK is available. DXVK translates the real D3D11 calls to the Android Vulkan stack selected by that runtime.
+## On-screen telemetry
 
-The APK reports current/average FPS, estimated 1% and 0.1% lows, current/average frame time, P50/P95/P99, frame count, a >2x-median stutter counter, GL renderer/version, app CPU usage, app PSS RAM, and battery temperature. Android's public SDK does not expose a portable GPU utilization percentage, so GPU load is displayed as `N/A` rather than guessed.
+The application displays:
+- Current and average FPS.
+- Estimated 1% and 0.1% low FPS.
+- Current and average frame time, plus P50/P95/P99 frame-time percentiles.
+- Frame count and a frame-time stutter counter.
+- OpenGL ES renderer and version.
+- Application CPU usage and application PSS memory.
+- Device memory information, battery temperature, resolution, and session duration.
 
-Build in CI with `.github/workflows/build-android-apk.yml`. The artifact is a debug-signed APK suitable for local installation and testing.
+Android's public SDK does not expose a portable, trustworthy GPU-utilization percentage. The application therefore displays GPU load as `N/A` instead of presenting an unsupported estimate.
+
+## Graphics API distinction
+
+This APK uses **Android OpenGL ES 3.0**. It is not a Direct3D 11 implementation. Direct3D 11 remains the primary application API for the separate Windows live-cube workload in `windows-dx11-cube/`.
+
+## Build
+
+The debug APK is built by `.github/workflows/build-android-apk.yml` using the Android Gradle project. The resulting artifact is intended for local installation and validation.
