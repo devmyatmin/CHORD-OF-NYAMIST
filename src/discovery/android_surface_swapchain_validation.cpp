@@ -116,7 +116,7 @@ std::string toJson(const AndroidSurfaceSwapchainValidationReport& report) {
     std::ostringstream out;
     out << "{\n";
     numberField(out, "schema_version", report.schema_version);
-    stringField(out, "project", "CHORD OF NYAMIST / NYAMIST G925 R2.6");
+    stringField(out, "project", "CHORD OF NYAMIST / NYAMIST G925 R2.7");
     stringField(out, "status", report.status);
     stringField(out, "platform", report.platform);
     stringField(out, "loader_library", report.loader_library);
