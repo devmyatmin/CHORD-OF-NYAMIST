@@ -18,7 +18,7 @@ jobs:
     runs-on: windows-2022
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configure D3D11 cube
         run: cmake -S windows-dx11-cube -B build-dx11 -A x64
@@ -53,7 +53,7 @@ jobs:
           Compress-Archive -Path (Join-Path $root '*') -DestinationPath 'NYAMIST-WCP.zip' -Force
 
       - name: Upload single WCP ZIP
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: NYAMIST-WCP
           path: NYAMIST-WCP.zip
