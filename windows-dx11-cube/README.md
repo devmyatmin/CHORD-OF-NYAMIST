@@ -1,10 +1,10 @@
-# NYAMIST real D3D11 live cube
+# NYAMIST — Direct3D 11 Live Cube
 
-This is the **primary Direct3D 11 workload**. It creates a hardware D3D11 device, compiles HLSL, creates a depth buffer and indexed cube geometry, and continuously rotates and presents the cube. It is not a picture or a Vulkan/GLES simulation.
+This is the project's primary **Direct3D 11 workload**. It creates a hardware D3D11 device, compiles HLSL shaders, creates a depth buffer and indexed cube geometry, continuously rotates the 3D cube, and presents rendered frames. It is a live D3D11 application, not a static picture and not an OpenGL ES or Vulkan substitute.
 
 ## Build
 
-On Windows with Visual Studio C++ and CMake:
+With Visual Studio C++ and CMake on a Windows build host:
 
 ```powershell
 cmake -S . -B build -A x64
@@ -13,10 +13,24 @@ cmake --build build --config Release
 
 The executable is `build/Release/NYAMIST-DX11-Live-Cube.exe`.
 
-Run it in the selected Windows-game launcher/runtime on Android. When that runtime uses DXVK, the workload's actual D3D11 API calls are translated to Vulkan by DXVK. The app itself does not select or replace the device's graphics driver.
-
 ## Live HUD and CSV
 
-The on-window HUD reports D3D11 feature level, adapter name, current/average FPS, 1%/0.1% low estimates, current frame time, P50/P95/P99, CPU use normalized to the device's logical processors, process working-set RAM, dedicated VRAM reported by DXGI, frame count, stutter counter, session time, and the selected FPS cap. GPU utilization is shown as `N/A` because a portable, trustworthy utilization query is not available through the D3D11/DXGI interfaces used here. Battery temperature is available only in the Android APK companion, not this Windows process.
+The on-window HUD reports:
+- D3D11 feature level and adapter name.
+- Current/average FPS and estimated 1%/0.1% low FPS.
+- Current frame time and P50/P95/P99 frame-time percentiles.
+- CPU use normalized to logical processors.
+- Process working-set RAM and dedicated VRAM reported by DXGI.
+- Frame count, stutter counter, session time, and selected FPS cap.
 
-CSV is written beside the executable as `NYAMIST-DX11-Live-Cube.csv`. Default cap is 60 FPS to avoid forcing an unnecessary uncapped load. Press **F2** to cycle 30 → 60 → 90 → 120 → OFF.
+GPU utilization is shown as `N/A` because the D3D11/DXGI interfaces used here do not provide a portable, trustworthy utilization query. The application writes `NYAMIST-DX11-Live-Cube.csv` beside the executable.
+
+The default frame cap is 60 FPS. Press **F2** to cycle 30 → 60 → 90 → 120 → OFF.
+
+## Runtime distinction
+
+The executable uses Direct3D 11 at the application level. If the Windows runtime environment supplies DXVK, DXVK translates those D3D11 calls to Vulkan. This translation does not change the application's identity as a D3D11 workload, and the application does not replace or claim ownership of the device's graphics driver.
+
+## Evidence
+
+Only values visible in the HUD or recorded in the CSV should be reported as measured results. Build completion alone does not prove that the application rendered successfully on a target device, and a short captured session should not be described as a sustained performance test.
