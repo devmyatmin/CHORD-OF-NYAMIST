@@ -20,7 +20,7 @@ class R23Vulkan14DriverAuditContractTests(unittest.TestCase):
 
     def test_schema_v12_and_current_report_identity(self):
         self.assertIn("schema_version{12U}", self.header)
-        self.assertIn("NYAMIST G925 R2.6", self.serializer)
+        self.assertIn("NYAMIST G925 R2.7", self.serializer)
         self.assertIn('schema_version\\": 12', self.activity)
 
     def test_instance_api_negotiates_up_to_loader_cap(self):
