@@ -4,21 +4,11 @@
 *Every Signal Has a Story.*  
 Created by AMGNYA
 
-## DX11-first purpose
+## Project purpose
 
-NYAMIST is a device-focused graphics runtime, validation, and performance project for the REDMI K80 Ultra (MediaTek MT6991, Arm Immortalis-G925 MC12). **Direct3D 11 is the primary application API and validation target.** On Android, Windows D3D11 workloads execute through a compatibility runtime such as Wine/FEX/Box64 and DXVK; DXVK translates D3D11 calls to the Android Vulkan driver selected by the launcher. NYAMIST keeps those layers distinct and records their evidence separately.
+NYAMIST is a device-focused graphics runtime, validation, and live 3D workload project for the REDMI K80 Ultra (MediaTek MT6991, Arm Immortalis-G925 MC12).
 
-```text
-D3D11 application / live 3D workload
-        ↓
-DXVK — D3D11 to Vulkan translation
-        ↓
-Android Vulkan loader and selected system/app-local driver
-        ↓
-REDMI K80 Ultra GPU
-```
-
-The selected Android graphics driver is supplied by the device/launcher configuration. NYAMIST does not replace it, patch it, or claim ownership of it. The stock device driver remains untouched and available as the user's fallback.
+**Direct3D 11 remains the primary application API and validation target.** The Windows workload is a real D3D11 application: it creates a hardware D3D11 device, compiles HLSL shaders, draws a rotating indexed 3D cube with depth testing, and presents frames. When used in an Android Windows-game environment that provides DXVK, DXVK translates the application's D3D11 calls to Vulkan. These are separate software layers and are documented as such.
 
 ## Target device
 
@@ -29,44 +19,54 @@ The selected Android graphics driver is supplied by the device/launcher configur
 | GPU | Arm Immortalis-G925 MC12 |
 | Android | Android 16 · API 36 |
 | ABI | arm64-v8a |
-| Primary graphics API | Direct3D 11 |
-| Translation layer | DXVK |
-| Hardware interface | Android Vulkan loader and the device-selected driver |
+| Primary application API | Direct3D 11 |
+| D3D11 translation layer, when used | DXVK |
+| Lower-level Android graphics interface | Vulkan |
 
-## Current implementation
+## Live 3D cube
 
-The repository contains the C++20 NYAMIST core, hardware discovery and Vulkan validation tools, runtime component registry, DX11 translator evidence adapter, session/performance importers, profile storage, A/B evaluation, and automated tests. The Termux build also includes Vulkan backend/resource/compute/graphics-pipeline components and runtime smoke commands in the current development source bundle.
+The project contains two distinct live cube applications. They are not interchangeable and their results must not be attributed to the wrong graphics API.
 
-A successful unit test or Vulkan command submission is not presented as proof of a working D3D11 game. NYAMIST distinguishes device discovery, API/translator creation, graphics rendering, Present, sustained gameplay, and performance stability as separate gates.
+### Windows D3D11 cube
 
-## Live 3D validation target
+`windows-dx11-cube/NYAMIST-DX11-Live-Cube.exe` is the primary Direct3D 11 workload. It creates a hardware D3D11 device, compiles HLSL, creates indexed cube geometry and a depth buffer, continuously rotates the cube, and presents rendered frames.
 
-The interactive workload now has two distinct deliverables:
-
-1. `windows-dx11-cube/NYAMIST-DX11-Live-Cube.exe` is the **primary, real Direct3D 11 workload**. It creates a hardware D3D11 device, compiles HLSL, draws a depth-tested rotating indexed cube, presents frames, and exports CSV telemetry. Run it inside the selected Windows-game runtime on the target Android device.
-2. `android-app/` is an installable companion APK. It renders its own live 3D cube using Android OpenGL ES 3.0 and displays device telemetry. It is a native Android reference test and is **not** presented as a D3D11 renderer.
-
-The D3D11 HUD reports:
-
-- FPS: current, average, minimum, 1% low, and 0.1% low.
-- Frame time: current, average, P50, P95, and P99.
+Its on-screen telemetry includes:
+- Current and average FPS, plus estimated 1% and 0.1% low FPS.
+- Current frame time and P50/P95/P99 frame-time percentiles.
 - D3D11 feature level and GPU adapter identity.
-- Current/average FPS, 1%/0.1% low estimates, current frame time, and P50/P95/P99 frame-time percentiles.
-- CPU usage normalized to logical processors, process working-set RAM, DXGI dedicated VRAM, session duration, and stutter counter.
-- CSV telemetry written beside the executable. F2 cycles the frame cap 30 → 60 → 90 → 120 → OFF; default is 60 FPS.
+- CPU usage, process working-set RAM, and dedicated VRAM reported by DXGI.
+- Frame count, session duration, stutter counter, and selected frame cap.
 
-GPU utilization is reported as `N/A` where a trustworthy portable query is not available. Battery temperature is displayed by the Android companion APK. Metrics not exposed by the applicable public API are not fabricated.
+The application writes CSV telemetry beside the executable. The default frame cap is 60 FPS; F2 cycles 30 → 60 → 90 → 120 → OFF. GPU utilization is shown as `N/A` when the available D3D11/DXGI interfaces do not provide a trustworthy portable value.
 
-## Evidence and safety rules
+### Android live cube
 
-- DX11 is the main application-facing API; DXVK is the D3D11 translation layer; Android Vulkan is the lower-level graphics interface.
-- The launcher-selected driver is an external runtime dependency, not a NYAMIST-owned component.
-- Do not write to `/vendor`, alter SELinux, change `/dev/mali0` permissions, replace kernel modules, or disable Android protections.
-- Report the exact device, driver identity, DXVK version, Wine/FEX/Box64 version, resolution, frame cap, and source of each metric.
-- Distinguish observed values from inferred values. Do not use GPU heap size as free VRAM or a device temperature as GPU temperature.
-- A normal user-initiated game exit is not automatically a crash. Exit codes are interpreted with the session and user action context.
+`android-app/` is an installable Android application that continuously renders an animated, depth-tested 3D cube using OpenGL ES 3.0. The cube is rendered geometry, not a static image. Its on-screen display reports Android rendering and device/session measurements, including FPS, frame time, GL renderer/version, CPU, memory, frame count, stutter count, session duration, and battery temperature.
+
+Android's public SDK does not provide a portable trustworthy GPU-utilization percentage, so GPU load is reported as `N/A` rather than estimated or invented.
+
+**The Android application is an OpenGL ES 3.0 renderer, not a D3D11 renderer.** Its successful display confirms that the Android cube application runs; it does not by itself prove D3D11 execution.
+
+## Runtime and validation components
+
+The repository includes the C++20 NYAMIST core, hardware discovery, Vulkan loader/backend and resource components, compute and graphics-pipeline components, runtime component registry, D3D11 evidence adapter, session/performance importers, profile storage, A/B evaluation, and automated tests.
+
+A successful unit test or Vulkan command submission is not represented as proof of a working D3D11 game. Device discovery, API/translator creation, graphics rendering, Present, sustained operation, and performance stability are distinct validation stages.
+
+## Evidence rules
+
+- Keep Direct3D 11 as the primary application-facing API.
+- Identify the actual renderer/API shown by each application; do not label OpenGL ES output as D3D11.
+- Report measured values only when they are present in captured output or telemetry. Do not invent missing metrics.
+- Distinguish observed values from estimates. Do not treat GPU heap size as free VRAM or a device temperature as GPU temperature.
+- GPU utilization is `N/A` where a trustworthy supported query is unavailable.
+- A normal user-initiated application exit is not automatically a crash.
+- Do not modify protected Android system partitions, kernel modules, device permissions, or SELinux policy as part of routine validation.
 
 ## Build and test
+
+For the C++ project in Termux:
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNYAMIST_BUILD_TESTS=ON
@@ -74,8 +74,10 @@ cmake --build build --parallel 2
 ctest --test-dir build --output-on-failure
 ```
 
-On Android/Termux, use `nyamist-build-all.sh` for the device-side C++ build and supported runtime smoke commands. Vulkan headers/loader availability is detected at configure time. The Android APK and Windows D3D11 executable are built by their GitHub Actions workflows; both workflows publish installable/downloadable artifacts. The DX11 executable is launched from the selected Android Windows-game launcher.
+The device-side `nyamist-build-all.sh` script performs the supported Termux build and smoke checks. Vulkan header/loader availability is detected during configuration.
+
+The Android APK and Windows x64 D3D11 executable are built by their respective GitHub Actions workflows, which publish downloadable artifacts.
 
 ## Project status
 
-**Engineering preview.** The C++ runtime and its existing Vulkan/backend test coverage remain separate from the live workload applications. The Windows cube is a real D3D11 workload; the Android APK is a native OpenGL ES companion. Neither one claims to be a replacement for the target device's selected graphics driver.
+**Engineering preview.** The C++ runtime and its Vulkan/backend tests are separate from the live cube applications. The Windows cube is the real D3D11 workload. The Android application is a native OpenGL ES 3.0 live-cube application. Build success, application launch, visible rendering, and sustained performance are recorded as separate facts.
