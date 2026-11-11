@@ -1,0 +1,61 @@
+name: Build NYAMIST WCP package
+
+on:
+  push:
+    branches: [dx11-live-cube-mainline]
+    paths:
+      - 'windows-dx11-cube/**'
+      - 'README.md'
+      - 'windows-dx11-cube/README.md'
+      - '.github/workflows/build-nyamist-wcp.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-wcp:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure D3D11 cube
+        run: cmake -S windows-dx11-cube -B build-dx11 -A x64
+
+      - name: Build D3D11 cube
+        run: cmake --build build-dx11 --config Release --parallel
+
+      - name: Assemble WCP package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $PWD 'NYAMIST-WCP'
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          $exe = 'build-dx11/Release/NYAMIST-DX11-Live-Cube.exe'
+          if (!(Test-Path $exe)) { throw "D3D11 executable missing: $exe" }
+          Copy-Item $exe $root
+          Copy-Item 'windows-dx11-cube/README.md' (Join-Path $root 'README-DX11.md')
+          @'
+          NYAMIST WCP — Windows Compatibility Package
+          Package contents:
+          - NYAMIST-DX11-Live-Cube.exe: built Direct3D 11 live rotating-cube application.
+          - README-DX11.md: application description and telemetry notes.
+
+          Graphics API: Direct3D 11
+          Architecture: Windows x64
+          Build configuration: Release
+          This package contains the application executable and documentation.
+          It does not install or replace device drivers or graphics system components.
+          '@ | Set-Content -Encoding utf8 (Join-Path $root 'WCP-MANIFEST.txt')
+          $hash = (Get-FileHash (Join-Path $root 'NYAMIST-DX11-Live-Cube.exe') -Algorithm SHA256).Hash
+          "Executable SHA256: $hash" | Add-Content -Encoding utf8 (Join-Path $root 'WCP-MANIFEST.txt')
+          Compress-Archive -Path (Join-Path $root '*') -DestinationPath 'NYAMIST-WCP.zip' -Force
+
+      - name: Upload single WCP ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: NYAMIST-WCP
+          path: NYAMIST-WCP.zip
+          if-no-files-found: error
+          retention-days: 90
